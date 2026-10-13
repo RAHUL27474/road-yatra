@@ -1,0 +1,279 @@
+// Road Yatra database schema.
+// SQLite is used for local development. For production, change the provider
+// to "postgresql" and point DATABASE_URL at your Postgres database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String?   @unique
+  phone        String    @unique
+  passwordHash String? // optional: customers and drivers log in with an SMS OTP
+  role         String    @default("CUSTOMER") // CUSTOMER | DRIVER | ADMIN
+  createdAt    DateTime  @default(now())
+  bookings     Booking[]
+  driver       Driver?
+}
+
+// One-time passwords sent by SMS for login.
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone, createdAt])
+}
+
+// Your own drivers (staff). Each has a User account with role DRIVER.
+// Your drivers. Created by admin (APPROVED straight away) or by applying in the driver app (PENDING until admin approves).
+model Driver {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  status           String    @default("APPROVED") // PENDING | APPROVED | REJECTED
+  licenceNo        String
+  licenceExpiry    DateTime?
+  photoUrl         String? // public URL (shown to passengers)
+  licencePhoto     String? // private file name (admin only)
+  aadhaarPhoto     String? // private file name (admin only)
+  aadhaarLast4     String?
+  address          String    @default("")
+  experienceYears  Int?
+  emergencyContact String    @default("")
+  active           Boolean   @default(true)
+  notes            String    @default("")
+  appliedAt        DateTime?
+  reviewedAt       DateTime?
+  rejectReason     String?
+  createdAt        DateTime  @default(now())
+
+  user     User      @relation(fields: [userId], references: [id])
+  trips    Trip[]
+  bookings Booking[]
+}
+
+model Vehicle {
+  id           String  @id @default(cuid())
+  name         String // e.g. "Maruti Ertiga"
+  type         String // SEDAN | ERTIGA | SUV | INNOVA_CRYSTA | TEMPO_TRAVELLER | BUS | OTHER
+  regNumber    String  @unique
+  seats        Int // passenger seats (excluding driver)
+  seatsPerRow  Int     @default(4) // used to draw the seat map
+  aisleAfter   Int     @default(2) // aisle is drawn after this many seats in a row (0 = no aisle)
+  amenities    String  @default("") // comma separated: AC,Music,Charging Point
+  imageUrl     String?
+  // How this vehicle can be booked
+  allowSeatBooking Boolean @default(true) // runs scheduled trips sold per seat
+  allowRental      Boolean @default(true) // can be hired as a whole vehicle
+  // Rental pricing (in rupees)
+  ratePerKm        Float @default(12)
+  minKmPerDay      Int   @default(250) // minimum billable km per day on round trips
+  driverAllowance  Float @default(300) // per day
+  localPackage     Float @default(2000) // 8 hours / 80 km local package
+  airportFare      Float @default(1200) // flat airport transfer
+  tollFactor       Float @default(1) // route toll is multiplied by this (e.g. 1.6 for a tempo traveller)
+  // Documents (for expiry reminders)
+  insuranceExpiry  DateTime?
+  permitExpiry     DateTime?
+  fitnessExpiry    DateTime?
+  pucExpiry        DateTime?
+  active           Boolean @default(true)
+  createdAt        DateTime @default(now())
+
+  trips    Trip[]
+  bookings Booking[]
+  location VehicleLocation?
+}
+
+// A known city pair. Used for seat trips and to calculate rental distance.
+model Route {
+  id            String @id @default(cuid())
+  fromCity      String
+  toCity        String
+  distanceKm    Int
+  durationMins  Int
+  tollAmount    Float  @default(0) // one-way toll for a car; multiplied by the vehicle's tollFactor
+  parkingAmount Float  @default(0) // typical parking/entry charges for a full cab, one way
+  createdAt     DateTime @default(now())
+  trips         Trip[]
+
+  @@unique([fromCity, toCity])
+}
+
+// Named pickup / drop points in a city (bus stand, ISBT, airport...).
+model Stop {
+  id        String  @id @default(cuid())
+  city      String
+  name      String
+  address   String  @default("")
+  lat       Float?
+  lng       Float?
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+
+  pickups Booking[] @relation("PickupStop")
+  drops   Booking[] @relation("DropStop")
+
+  @@unique([city, name])
+}
+
+// A scheduled departure on a route, sold per seat.
+model Trip {
+  id         String   @id @default(cuid())
+  routeId    String
+  vehicleId  String
+  driverId   String?
+  departAt   DateTime
+  arriveAt   DateTime
+  fare       Float // per seat, in rupees
+  boardingPoint String @default("") // note shown to customers, e.g. "Reporting 15 min before departure"
+  dropPoint     String @default("")
+  status     String   @default("SCHEDULED") // SCHEDULED | STARTED | COMPLETED | CANCELLED
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  route    Route        @relation(fields: [routeId], references: [id])
+  vehicle  Vehicle      @relation(fields: [vehicleId], references: [id])
+  driver   Driver?      @relation(fields: [driverId], references: [id])
+  seats    BookedSeat[]
+  bookings Booking[]
+
+  @@index([departAt])
+}
+
+model Booking {
+  id        String   @id @default(cuid())
+  code      String   @unique // short reference shown to customers, e.g. RY7K2M9Q
+  userId    String
+  kind      String // SEAT | RENTAL
+  status    String   @default("PENDING") // PENDING | CONFIRMED | CANCELLED | EXPIRED | COMPLETED
+  source    String   @default("ONLINE") // ONLINE | OFFLINE (entered by admin)
+  passengerName  String
+  passengerPhone String
+  passengers     Int @default(1)
+  baseAmount     Float
+  taxAmount      Float
+  extraCharges   Float @default(0) // toll & parking, passed through without GST
+  totalAmount    Float
+
+  // Seat booking
+  tripId      String?
+  seatNos     String? // comma separated seat numbers
+  pickupStopId String?
+  dropStopId   String?
+
+  // Rental booking
+  vehicleId     String?
+  driverId      String?
+  rentalType    String? // ONE_WAY | ROUND_TRIP | LOCAL | AIRPORT
+  pickupCity    String?
+  dropCity      String?
+  pickupAddress String?
+  dropAddress   String?
+  startAt       DateTime?
+  endAt         DateTime?
+  estimatedKm   Int?
+  startOdometer Int?
+  endOdometer   Int?
+
+  // Trip day
+  boardingOtp String // 4 digits; passenger shows it (or the QR) to the driver
+  endOtp      String? // rentals: customer gives this to the driver at the end of the trip
+  boardedAt   DateTime?
+  startedAt   DateTime? // rentals
+  completedAt DateTime?
+  noShow      Boolean @default(false)
+
+  // Payment
+  paymentStatus   String  @default("UNPAID") // UNPAID | PAID | REFUND_PENDING | REFUNDED
+  paymentMode     String? // RAZORPAY | DEMO | CASH
+  paidAt          DateTime?
+  razorpayOrderId String?
+  paymentId       String?
+  invoiceNo       String? @unique
+
+  // Cancellation
+  cancelledAt        DateTime?
+  cancelledBy        String? // CUSTOMER | ADMIN | SYSTEM
+  cancellationCharge Float?
+  refundAmount       Float?
+  adminNote          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User         @relation(fields: [userId], references: [id])
+  trip       Trip?        @relation(fields: [tripId], references: [id])
+  vehicle    Vehicle?     @relation(fields: [vehicleId], references: [id])
+  driver     Driver?      @relation(fields: [driverId], references: [id])
+  pickupStop Stop?        @relation("PickupStop", fields: [pickupStopId], references: [id])
+  dropStop   Stop?        @relation("DropStop", fields: [dropStopId], references: [id])
+  seats      BookedSeat[]
+
+  @@index([status, createdAt])
+}
+
+// One row per seat held, sold or blocked. The unique constraint stops double booking.
+model BookedSeat {
+  id          String  @id @default(cuid())
+  tripId      String
+  seatNo      Int
+  bookingId   String? // empty when the seat is blocked by admin
+  blockReason String? // DRIVER | VIP | CORPORATE | OFFLINE | EMERGENCY | OPERATIONS
+
+  trip    Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, seatNo])
+}
+
+// Latest GPS position of each vehicle, sent by the driver app during a trip.
+model VehicleLocation {
+  vehicleId String   @id
+  driverId  String
+  lat       Float
+  lng       Float
+  speed     Float? // km/h
+  heading   Float?
+  updatedAt DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+}
+
+// Every SMS / WhatsApp message the system sends (or would send, if no provider is configured).
+model Notification {
+  id        String   @id @default(cuid())
+  channel   String // SMS | WHATSAPP
+  to        String
+  event     String
+  body      String
+  status    String // SENT | FAILED | LOGGED
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Admin-editable settings (JSON values): business details, cancellation slabs, cash payments...
+model Setting {
+  key   String @id
+  value String
+}
+
+// Sequential counters, e.g. invoice numbers per financial year.
+model Counter {
+  key   String @id
+  value Int
+}
