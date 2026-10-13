@@ -97,6 +97,7 @@ export const cityRegion = (city: string) => REGION[city] ?? '';
 
 export const VEHICLE_TYPE: Record<string, string> = {
   SEDAN: 'Sedan',
+  HATCHBACK: 'Hatchback',
   ERTIGA: 'Ertiga / MUV',
   SUV: 'SUV',
   INNOVA_CRYSTA: 'Innova Crysta',

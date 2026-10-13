@@ -1,13 +1,15 @@
-// Road Yatra design tokens. Shared design language with the customer app (mobile/).
+// Jai Shree Shyam Tour & Travels design tokens (same palette as the customer app and website).
 // Drivers use this app inside a moving vehicle: high contrast, large type, big touch targets.
 import { Platform, TextStyle, ViewStyle } from 'react-native';
 
 export const colors = {
-  brand: '#0B5ED7',
-  brandDark: '#0847A6',
-  brandLight: '#E8F1FF',
-  accent: '#FF6D38',
-  accentLight: '#FFEDE5',
+  brand: '#1E3A8A',
+  brandDark: '#0B3D91',
+  brandLight: '#E8EEFB',
+  accent: '#F57C00',
+  accentLight: '#FFF3E0',
+  /** Golden yellow: devotional line and emblem ring. */
+  gold: '#FFC107',
   success: '#16A34A',
   successLight: '#DCFCE7',
   warning: '#D97706',
@@ -76,6 +78,8 @@ export const shadow = {
 
 export const gradient = {
   brand: [colors.brand, colors.brandDark] as const,
+  /** Red to saffron, for the few highlight CTAs. */
+  accent: ['#D32F2F', '#F57C00'] as const,
 };
 
 /** Semantic tones used by badges, pills and icon buttons. */

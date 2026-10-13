@@ -242,7 +242,7 @@ function TripCard({ trip }: { trip: TripSummary }) {
     <Pressable
       disabled={soldOut}
       onPress={() => router.push({ pathname: '/seats/[tripId]', params: { tripId: trip.id } })}
-      android_ripple={{ color: 'rgba(11,94,215,0.06)' }}
+      android_ripple={{ color: colors.brandRipple }}
       accessibilityRole="button"
       accessibilityLabel={`${fmtTime(trip.departAt)} to ${fmtTime(trip.arriveAt)}, ${trip.vehicle.name}, ${inr(trip.fare)} per seat${soldOut ? ', sold out' : ''}`}
       style={({ pressed }) => [st.card, soldOut && { opacity: 0.6 }, pressed && { transform: [{ scale: 0.985 }], opacity: 0.96 }]}

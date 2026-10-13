@@ -624,7 +624,7 @@ const st = StyleSheet.create({
     minHeight: 56,
     backgroundColor: colors.card,
   },
-  optionOn: { borderColor: colors.brand, backgroundColor: '#F4F8FF' },
+  optionOn: { borderColor: colors.brand, backgroundColor: '#F3F6FD' },
   payIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' },
   radio: {
     width: 22,

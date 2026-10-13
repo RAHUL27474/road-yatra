@@ -2,9 +2,10 @@ import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { db } from "./db";
+import { jwtSecret } from "./secret";
 
 export const AUTH_COOKIE = "ry_token";
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || "dev-secret");
+const secret = () => new TextEncoder().encode(jwtSecret());
 
 export type SessionUser = { id: string; name: string; email: string | null; phone: string; role: string };
 
@@ -17,12 +18,12 @@ export async function verifyPassword(password: string, hash: string) {
 }
 
 export async function signToken(payload: Record<string, unknown>, expiresIn = "30d") {
-  return new SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime(expiresIn).sign(secret);
+  return new SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime(expiresIn).sign(secret());
 }
 
 export async function verifyToken<T = Record<string, unknown>>(token: string): Promise<T | null> {
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret());
     return payload as T;
   } catch {
     return null;

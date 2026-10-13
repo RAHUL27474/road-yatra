@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -8,7 +9,7 @@ import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL, Config, getConfig } from '../../api';
 import { useAuth } from '../../auth';
-import { LogoMark } from '../../brand';
+import { BRAND, Devotional, Emblem, supportPhone, telUrl } from '../../brand';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
 import { Button, ListRow, Loading, Notice, Screen } from '../../ui';
 
@@ -20,6 +21,8 @@ function cancellationPolicy(config: Config) {
     .map((sl) => `${sl.refundPercent}% refund if cancelled ${sl.minHoursBefore}+ hours before departure`);
   return parts.length ? `Cancellation: ${parts.join('; ')}.` : 'Bookings are non-refundable once confirmed.';
 }
+
+const WHATSAPP_GREEN = '#25D366';
 
 const initials = (name: string) =>
   name
@@ -40,7 +43,10 @@ export default function Account() {
 
   if (!ready) return <Loading />;
 
-  const call = () => config && Linking.openURL(`tel:${config.supportPhone.replace(/[^\d+]/g, '')}`).catch(() => {});
+  const phone = supportPhone(config?.supportPhone);
+  const call = () => Linking.openURL(telUrl(phone)).catch(() => {});
+  const callOffice = () => Linking.openURL(telUrl(BRAND.phone)).catch(() => {});
+  const whatsapp = () => Linking.openURL(BRAND.whatsapp).catch(() => {});
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
@@ -82,12 +88,13 @@ export default function Account() {
               <View style={st.statSep} />
               <QuickAction icon="search-outline" label="Book a trip" onPress={() => router.navigate('/')} />
               <View style={st.statSep} />
-              <QuickAction icon="headset-outline" label="Support" onPress={config ? call : undefined} />
+              <QuickAction icon="headset-outline" label="Support" onPress={call} />
             </View>
           ) : (
             <View style={[st.card, { alignItems: 'center', padding: spacing.xl }]}>
-              <LogoMark size={56} />
-              <Text style={[type('lg', 'bold'), { marginTop: spacing.md }]}>Welcome to Road Yatra</Text>
+              <Emblem size={64} />
+              <Devotional size={12} color={colors.accent} style={{ marginTop: spacing.md }} />
+              <Text style={[type('lg', 'bold'), { textAlign: 'center' }]}>Welcome to {BRAND.name}</Text>
               <Text style={[type('sm', 'regular', colors.textMuted), { textAlign: 'center', marginTop: 4, marginBottom: spacing.lg }]}>
                 Log in to book seats, hire a cab and keep your tickets in one place.
               </Text>
@@ -98,7 +105,7 @@ export default function Account() {
 
           {user?.role === 'DRIVER' ? (
             <Notice tone="warning" icon="car-sport-outline">
-              This is a driver account. Please use the Road Yatra Driver app for your duties.
+              This is a driver account. Please use the JSS Travels Driver app for your duties.
             </Notice>
           ) : null}
 
@@ -107,9 +114,9 @@ export default function Account() {
             <ListRow
               icon="call-outline"
               title="Help & support"
-              subtitle={config ? `Call us on ${config.supportPhone}` : "Support details unavailable (can't reach the server)."}
+              subtitle={`Call us on ${phone} · 24×7`}
               tone="success"
-              onPress={config ? call : undefined}
+              onPress={call}
             />
             <ListRow
               icon="shield-checkmark-outline"
@@ -120,12 +127,62 @@ export default function Account() {
             />
             <ListRow
               icon="information-circle-outline"
-              title="About Road Yatra"
+              title="App information"
               subtitle={`Version ${version}`}
               tone="neutral"
               last
-              onPress={() => Alert.alert('Road Yatra', `Khatima ↔ Delhi shared taxi seats and full cab hire.\n\nVersion ${version}\nServer: ${API_URL}`)}
+              onPress={() => Alert.alert(BRAND.short, `${BRAND.name}\nShared taxi seats and full cab hire.\n\nVersion ${version}\nServer: ${API_URL}`)}
             />
+          </View>
+
+          <Text style={st.group}>ABOUT US</Text>
+          <View style={st.card}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <Emblem size={52} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Devotional size={11} color={colors.accent} />
+                <Text style={type('md', 'extrabold', colors.brandDark)} numberOfLines={2}>
+                  {BRAND.name}
+                </Text>
+                <Text style={type('xs', 'medium', colors.textMuted)} numberOfLines={1}>
+                  {BRAND.tagline}
+                </Text>
+              </View>
+            </View>
+            <Text style={[type('sm', 'regular', colors.textMuted), { marginTop: spacing.md }]}>
+              Daily shared taxi from ₹800 per person, plus one-way and round-trip cabs, 24×7. Khatima ⇄ Delhi, Khatima ⇄ Haridwar and hill
+              stations (Nainital, Mussoorie, Rishikesh, Auli).
+            </Text>
+            <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+              <AboutLine icon="location-outline" text={BRAND.address} />
+              <AboutLine icon="person-outline" text={`Proprietor: ${BRAND.proprietor}`} />
+              <AboutLine icon="document-text-outline" text={`GSTIN: ${BRAND.gstin}`} />
+              <AboutLine icon="mail-outline" text={BRAND.email} onPress={() => Linking.openURL(`mailto:${BRAND.email}`).catch(() => {})} />
+              <AboutLine icon="globe-outline" text={BRAND.website} onPress={() => Linking.openURL(`https://${BRAND.website}`).catch(() => {})} />
+            </View>
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+              <Pressable
+                onPress={callOffice}
+                style={({ pressed }) => [st.aboutBtn, { backgroundColor: colors.brand }, pressed && { opacity: 0.85 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Call ${BRAND.phone}`}
+              >
+                <Ionicons name="call" size={16} color={colors.white} />
+                <Text style={type('sm', 'bold', colors.white)}>Call</Text>
+              </Pressable>
+              <Pressable
+                onPress={whatsapp}
+                style={({ pressed }) => [st.aboutBtn, { backgroundColor: WHATSAPP_GREEN }, pressed && { opacity: 0.85 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Chat on WhatsApp"
+              >
+                <MaterialCommunityIcons name="whatsapp" size={18} color={colors.white} />
+                <Text style={type('sm', 'bold', colors.white)}>WhatsApp</Text>
+              </Pressable>
+            </View>
+            <Text style={[type('xs', 'medium', colors.textMuted), tabular, { textAlign: 'center', marginTop: spacing.sm }]}>
+              {BRAND.phone} · {BRAND.contactPerson}
+            </Text>
           </View>
 
           {user ? (
@@ -143,11 +200,27 @@ export default function Account() {
             />
           ) : null}
           <Text style={[type('xs', 'regular', colors.textSubtle), { textAlign: 'center', marginTop: spacing.sm }]} numberOfLines={1}>
-            Road Yatra · v{version}
+            {BRAND.short} · v{version}
           </Text>
         </View>
       </ScrollView>
     </Screen>
+  );
+}
+
+type AboutIcon = 'location-outline' | 'person-outline' | 'document-text-outline' | 'mail-outline' | 'globe-outline';
+
+function AboutLine({ icon, text, onPress }: { icon: AboutIcon; text: string; onPress?: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'link' : undefined}
+      style={({ pressed }) => [{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }, pressed && { opacity: 0.6 }]}
+    >
+      <Ionicons name={icon} size={16} color={colors.brand} style={{ marginTop: 1 }} />
+      <Text style={[type('sm', onPress ? 'semibold' : 'medium', onPress ? colors.brand : colors.text), { flex: 1 }]}>{text}</Text>
+    </Pressable>
   );
 }
 
@@ -176,5 +249,6 @@ const st = StyleSheet.create({
   stats: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.card, paddingHorizontal: spacing.sm, ...shadowSoft },
   statSep: { width: 1, height: 36, backgroundColor: colors.border },
   qaIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' },
+  aboutBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.pill },
   group: { ...type('xs', 'bold', colors.textMuted), letterSpacing: 0.6, marginTop: spacing.sm, marginLeft: spacing.xs },
 });

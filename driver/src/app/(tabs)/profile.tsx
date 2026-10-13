@@ -5,16 +5,17 @@ import { API_URL, fileUrl, getConfig } from '../../api';
 import { useAuth } from '../../auth';
 import { useDuties } from '../../duties';
 import { fmtDate } from '../../format';
+import { BRAND } from '../../brand';
 import { colors, fonts, radius, space } from '../../theme';
 import { Avatar, Badge, Button, callPhone, Card, confirm, Divider, Header, Ionicons, ListRow, SectionTitle, showError, Skeleton, T } from '../../ui';
 
 export default function Profile() {
   const { user, logout } = useAuth();
   const { driver, sharing } = useDuties();
-  const [support, setSupport] = useState<string | null>(null);
+  const [support, setSupport] = useState<string | null>(BRAND.phone);
 
   useEffect(() => {
-    getConfig().then((c) => setSupport(c.supportPhone), showError);
+    getConfig().then((c) => setSupport(c.supportPhone || BRAND.phone), showError);
   }, []);
 
   const name = driver?.name ?? user?.name ?? '';
@@ -42,7 +43,7 @@ export default function Profile() {
             <View style={st.roleChip}>
               <Ionicons name="id-card-outline" size={14} color={colors.onBrand} />
               <T v="caption" color={colors.onBrand} style={{ fontFamily: fonts.bold }}>
-                Road Yatra driver
+                {BRAND.short} driver
               </T>
             </View>
           </View>

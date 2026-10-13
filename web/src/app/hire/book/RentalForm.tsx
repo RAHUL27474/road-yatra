@@ -11,13 +11,14 @@ type Props = {
   vehicle: { id: string; name: string; seats: number };
   user: { name: string; phone: string };
   allowCash: boolean;
+  allowOnline: boolean;
 };
 
-export default function RentalForm({ request, vehicle, user, allowCash }: Props) {
+export default function RentalForm({ request, vehicle, user, allowCash, allowOnline }: Props) {
   const router = useRouter();
   const hasDrop = request.rentalType === "ONE_WAY" || request.rentalType === "ROUND_TRIP";
   const [form, setForm] = useState({ passengerName: user.name, passengerPhone: user.phone, passengers: 1, pickupAddress: "", dropAddress: "" });
-  const [payment, setPayment] = useState<Payment>("ONLINE");
+  const [payment, setPayment] = useState<Payment>(allowOnline ? "ONLINE" : "CASH");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -75,7 +76,7 @@ export default function RentalForm({ request, vehicle, user, allowCash }: Props)
         </div>
       )}
       <div className="border-t border-slate-100 pt-5">
-        <PaymentChoice value={payment} onChange={setPayment} allowCash={allowCash} />
+        <PaymentChoice value={payment} onChange={setPayment} allowCash={allowCash} allowOnline={allowOnline} />
       </div>
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <button className="btn-accent btn-lg w-full" disabled={busy}>

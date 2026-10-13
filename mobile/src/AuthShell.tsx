@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LogoMark } from './brand';
+import { BRAND, Devotional, Emblem, RouteMotif } from './brand';
 import { colors, fonts, radius, shadow, spacing, type } from './theme';
 
 /** Branded frame for the login / register screens: gradient top with the logo, then a card form. */
@@ -30,13 +30,18 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
             <Ionicons name="close" size={24} color={colors.white} />
           </Pressable>
           <View style={{ alignItems: 'center', marginTop: spacing.xs }}>
+            <Devotional size={13} style={{ marginBottom: spacing.sm }} />
             <View style={st.logo}>
-              <LogoMark size={60} tone="light" />
+              <Emblem size={76} />
             </View>
-            <Text style={[type('xxl', 'extrabold', colors.white), { marginTop: spacing.md, letterSpacing: -0.5 }]}>
-              Road <Text style={{ color: '#FFB98A' }}>Yatra</Text>
+            <Text style={[type('xxl', 'extrabold', colors.white), { marginTop: spacing.md, letterSpacing: -0.5, textAlign: 'center' }]} numberOfLines={1} adjustsFontSizeToFit>
+              {BRAND.wordmark}
             </Text>
-            <Text style={[type('sm', 'medium', colors.onBrandMuted), { marginTop: 2 }]}>Khatima se Delhi – Seat bhi, Puri Cab bhi</Text>
+            <Text style={[type('xs', 'bold', colors.gold), { letterSpacing: 2, marginTop: 1 }]}>{BRAND.wordmarkSub.toUpperCase()}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
+              <RouteMotif width={40} />
+              <Text style={type('sm', 'medium', colors.onBrandMuted)}>{BRAND.tagline}</Text>
+            </View>
           </View>
         </LinearGradient>
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -40 }}>
@@ -88,7 +93,7 @@ export function OtpInput({ value, onChange, onSubmit, length = 6 }: { value: str
 const st = StyleSheet.create({
   decor: { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(255,255,255,0.06)', top: -80, right: -80 },
   close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginLeft: -spacing.sm },
-  logo: { borderRadius: 16, ...shadow },
+  logo: { borderRadius: 38, ...shadow },
   card: { backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.xl, ...shadow },
   otpBox: {
     flex: 1,

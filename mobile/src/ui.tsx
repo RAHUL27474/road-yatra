@@ -47,6 +47,7 @@ export const hapticSelect = () => {
 /** Vehicle type → MaterialCommunityIcons glyph. */
 export const VEHICLE_ICON: Record<VehicleType, MciName> = {
   SEDAN: 'car',
+  HATCHBACK: 'car-hatchback',
   ERTIGA: 'car-estate',
   SUV: 'car-estate',
   INNOVA_CRYSTA: 'van-passenger',
@@ -207,7 +208,7 @@ export function Card({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      android_ripple={{ color: 'rgba(11,94,215,0.06)' }}
+      android_ripple={{ color: colors.brandRipple }}
       style={({ pressed }) => [base, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
     >
       {children}
@@ -461,7 +462,7 @@ export function Input({
   return (
     <View style={[{ marginBottom: spacing.lg }, containerStyle]}>
       {label ? <Text style={[type('xs', 'semibold', colors.textMuted), { marginBottom: 6 }]}>{label}</Text> : null}
-      <View style={[ui.inputRing, focused && { borderColor: error ? 'rgba(220,38,38,0.16)' : 'rgba(11,94,215,0.16)' }]}>
+      <View style={[ui.inputRing, focused && { borderColor: error ? 'rgba(220,38,38,0.16)' : colors.brandRing }]}>
       <View
         style={[
           ui.inputBox,

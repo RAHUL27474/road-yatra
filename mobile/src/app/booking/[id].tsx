@@ -6,6 +6,7 @@ import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, Share, St
 import QRCode from 'react-native-qrcode-svg';
 import { api, Booking, Config, errorMessage, getConfig } from '../../api';
 import { useAuth } from '../../auth';
+import { supportPhone } from '../../brand';
 import { fmtDate, fmtDateTime, fmtDuration, fmtTime, inr, RENTAL_TYPE, VEHICLE_TYPE } from '../../format';
 import { VehicleArt } from '../../illustrations';
 import { openPage, openPayment, reachableUrl } from '../../store';
@@ -20,7 +21,7 @@ const BANNER: Record<Tone, readonly [string, string]> = {
   success: ['#16A34A', '#128A3E'],
   warning: ['#E08A0B', '#C2700A'],
   danger: ['#DC2626', '#B91C1C'],
-  brand: ['#0B5ED7', '#0847A6'],
+  brand: ['#1E3A8A', '#0B3D91'],
   neutral: ['#64748B', '#475569'],
 };
 
@@ -139,7 +140,7 @@ export default function BookingDetail() {
   const shareTrip = () => {
     if (!trackUrl) return;
     const what = b.trip ? `${b.trip.fromCity} → ${b.trip.toCity}` : b.dropCity ? `${b.pickupCity} → ${b.dropCity}` : (b.pickupCity ?? 'my trip');
-    Share.share({ message: `Follow my Road Yatra trip ${what} (booking ${b.code}) live: ${trackUrl}` }).catch(() => {});
+    Share.share({ message: `Follow my Jai Shree Shyam Travels trip ${what} (booking ${b.code}) live: ${trackUrl}` }).catch(() => {});
   };
 
   const mins = Math.max(0, Math.floor(holdMs / 60000));
@@ -157,7 +158,7 @@ export default function BookingDetail() {
   if (trackUrl) actions.push({ key: 'track', icon: 'navigate-outline', label: 'Track', onPress: () => openPage(trackUrl) });
   if (trackUrl) actions.push({ key: 'share', icon: 'share-social-outline', label: 'Share', onPress: shareTrip });
   if (b.invoiceUrl) actions.push({ key: 'invoice', icon: 'document-text-outline', label: 'Invoice', onPress: () => openPage(b.invoiceUrl!) });
-  if (config) actions.push({ key: 'help', icon: 'headset-outline', label: 'Support', onPress: () => call(config.supportPhone) });
+  actions.push({ key: 'help', icon: 'headset-outline', label: 'Support', onPress: () => call(supportPhone(config?.supportPhone)) });
   if (onTrip) actions.push({ key: 'sos', icon: 'alert-circle', label: 'SOS 112', onPress: () => call('112'), danger: true });
 
   return (
@@ -603,7 +604,7 @@ const st = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.brandLight,
     borderWidth: 1,
-    borderColor: '#C9DCFA',
+    borderColor: '#C7D3EE',
     alignItems: 'center',
     justifyContent: 'center',
   },

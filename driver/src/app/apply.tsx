@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../auth';
 import { fmtYmd } from '../format';
 import { pickPhoto } from '../photos';
+import { BRAND } from '../brand';
 import { colors, fonts, radius, shadow, space } from '../theme';
 import {
   Badge,
@@ -351,7 +352,7 @@ export default function Apply() {
               <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'center', marginTop: space.md, paddingHorizontal: space.xs }}>
                 <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted} />
                 <T v="caption" color={colors.textMuted} style={{ flex: 1 }}>
-                  Your licence and Aadhaar photos are only seen by the Road Yatra office.
+                  Your licence and Aadhaar photos are only seen by the {BRAND.short} office.
                 </T>
               </View>
             </>
@@ -642,7 +643,7 @@ const st = StyleSheet.create({
     width: '100%',
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: '#93C5FD',
+    borderColor: '#A9B9E6',
     borderRadius: radius.card,
     backgroundColor: '#F8FAFC',
     alignItems: 'center',

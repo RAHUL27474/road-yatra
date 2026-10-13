@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { db } from "./db";
+import { jwtSecret } from "./secret";
 import { HttpError } from "./http";
 import { notify, smsConfigured } from "./notify";
 
@@ -8,7 +9,7 @@ const MAX_ATTEMPTS = 5;
 const MAX_PER_HOUR = 5;
 
 const hash = (phone: string, code: string) =>
-  crypto.createHmac("sha256", process.env.JWT_SECRET || "dev-secret").update(`${phone}:${code}`).digest("hex");
+  crypto.createHmac("sha256", jwtSecret()).update(`${phone}:${code}`).digest("hex");
 
 /**
  * OTP_DEV_MODE=true returns the code in the API response when no SMS provider is set up,

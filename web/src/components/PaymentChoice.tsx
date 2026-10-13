@@ -4,9 +4,21 @@ import { Banknote, CreditCard } from "lucide-react";
 
 export type Payment = "ONLINE" | "CASH";
 
-/** "Pay online" / "Pay cash to driver" radio pair. Renders nothing when cash is switched off. */
-export default function PaymentChoice({ value, onChange, allowCash }: { value: Payment; onChange: (p: Payment) => void; allowCash: boolean }) {
-  if (!allowCash) return null;
+/** "Pay online" / "Pay cash to driver" choice. Shows only the methods that are switched on. */
+export default function PaymentChoice({ value, onChange, allowCash, allowOnline = true }: { value: Payment; onChange: (p: Payment) => void; allowCash: boolean; allowOnline?: boolean }) {
+  if (!allowCash && allowOnline) return null;
+  if (allowCash && !allowOnline)
+    return (
+      <div className="flex items-center gap-3 rounded-xl border-2 border-brand bg-brand-light/60 p-3.5 text-sm">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand text-white">
+          <Banknote className="h-5 w-5" aria-hidden />
+        </span>
+        <span>
+          <span className="block font-semibold text-ink">Pay cash to driver</span>
+          <span className="text-xs text-slate-500">Your booking is confirmed now. Pay when you board.</span>
+        </span>
+      </div>
+    );
   return (
     <fieldset>
       <legend className="label">Payment</legend>

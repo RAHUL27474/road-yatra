@@ -18,7 +18,7 @@ const GAP = 8;
 type SeatState = 'free' | 'sel' | 'taken';
 const SEAT_COLORS: Record<SeatState, { fill: string; stroke: string; back: string; fg: string }> = {
   free: { fill: colors.white, stroke: '#7FA3D6', back: '#EAF1FB', fg: colors.text },
-  sel: { fill: colors.brand, stroke: colors.brandDark, back: '#2F7BE6', fg: colors.white },
+  sel: { fill: colors.brand, stroke: colors.brandDark, back: '#3A5BB8', fg: colors.white },
   taken: { fill: '#E5E9EF', stroke: '#CFD6DF', back: '#D9DEE6', fg: colors.textSubtle },
 };
 

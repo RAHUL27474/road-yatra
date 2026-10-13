@@ -96,8 +96,8 @@ export async function startLocationSharing(): Promise<boolean> {
       showsBackgroundLocationIndicator: true,
       foregroundService: {
         notificationTitle: 'Sharing trip location',
-        notificationBody: 'Road Yatra is sharing the vehicle location with passengers during your trip.',
-        notificationColor: '#0b5ed7',
+        notificationBody: 'JSS Travels is sharing the vehicle location with passengers during your trip.',
+        notificationColor: '#1E3A8A',
         killServiceOnDestroy: false,
       },
     });

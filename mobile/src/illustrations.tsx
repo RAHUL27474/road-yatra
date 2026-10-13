@@ -30,9 +30,10 @@ function Wheel({ cx, cy, r = 7.5 }: { cx: number; cy: number; r?: number }) {
   );
 }
 
-type Art = 'sedan' | 'muv' | 'suv' | 'traveller';
+type Art = 'sedan' | 'hatchback' | 'muv' | 'suv' | 'traveller';
 const ART_FOR: Record<VehicleType, Art> = {
   SEDAN: 'sedan',
+  HATCHBACK: 'hatchback',
   ERTIGA: 'muv',
   SUV: 'suv',
   INNOVA_CRYSTA: 'suv',
@@ -57,6 +58,28 @@ function Sedan() {
       <Rect x="8" y="26" width="3.5" height="2.6" rx="1.2" fill={C.tail} />
       <Wheel cx={31} cy={37} />
       <Wheel cx={92} cy={37} />
+    </G>
+  );
+}
+
+/** Premium hatchback (Tata Altroz): short tail, steep rear glass, long sloping windscreen. */
+function Hatchback() {
+  return (
+    <G>
+      <Path
+        d="M12 36 L12 26 Q12 21.5 14.6 18.8 L21.6 11.6 Q23.4 10 26.4 10 L69 10 Q72.6 10 75.2 12 L88 21.6 L102 23.4 Q108 24.4 108 29.5 L108 36 Q108 38 106 38 L14 38 Q12 38 12 36 Z"
+        fill={C.body}
+      />
+      <Path d="M12 31 L108 31 L108 36 Q108 38 106 38 L14 38 Q12 38 12 36 Z" fill={C.lower} />
+      <Path d="M24 13 L40.5 13 L40.5 21.6 L17 21.6 Z" fill={C.glass} />
+      <Path d="M43.5 13 L68.5 13 L83.5 21.6 L43.5 21.6 Z" fill={C.glass} />
+      <Path d="M47 14.2 L51 14.2 L48 20.6 L46 20.6 Z" fill={C.glassHi} />
+      <Line x1="42" y1="21.6" x2="42" y2="34" stroke={C.line} strokeWidth={0.8} />
+      <Line x1="64" y1="21.6" x2="64" y2="34" stroke={C.line} strokeWidth={0.8} />
+      <Rect x="103.5" y="25.6" width="4.5" height="2.6" rx="1.2" fill={C.head} />
+      <Rect x="12" y="23" width="3.5" height="3.2" rx="1.2" fill={C.tail} />
+      <Wheel cx={30} cy={37} />
+      <Wheel cx={89} cy={37} />
     </G>
   );
 }
@@ -130,7 +153,7 @@ function Traveller() {
   );
 }
 
-const ARTS: Record<Art, () => ReactElement> = { sedan: Sedan, muv: Muv, suv: Suv, traveller: Traveller };
+const ARTS: Record<Art, () => ReactElement> = { sedan: Sedan, hatchback: Hatchback, muv: Muv, suv: Suv, traveller: Traveller };
 
 /** Side-view vehicle drawing (120 x 48 artboard) for a vehicle type. */
 export function VehicleArt({ type, width = 96, style }: { type?: VehicleType | string | null; width?: number; style?: StyleProp<ViewStyle> }) {
@@ -149,10 +172,10 @@ export function VehicleArt({ type, width = 96, style }: { type?: VehicleType | s
 
 export type IllustrationKind = 'noTrips' | 'tickets' | 'login' | 'error' | 'noVehicles';
 
-const BLUE = '#0B5ED7';
-const BLUE_SOFT = '#E8F1FF';
-const BLUE_MID = '#BFD5F6';
-const ORANGE = '#FF6D38';
+const BLUE = '#1E3A8A';
+const BLUE_SOFT = '#E8EEFB';
+const BLUE_MID = '#BCCAEB';
+const ORANGE = '#F57C00';
 
 /** 160 x 120 spot illustration for empty and error states. */
 export function Illustration({ kind, size = 160 }: { kind: IllustrationKind; size?: number }) {
@@ -205,13 +228,13 @@ export function Illustration({ kind, size = 160 }: { kind: IllustrationKind; siz
           <Path d="M72 30 L88 30 L104 94 L56 94 Z" fill={ORANGE} />
           <Path d="M67.5 50 L92.5 50 L95.5 62 L64.5 62 Z" fill="#FFFFFF" />
           <Path d="M61 74 L99 74 L101.5 84 L58.5 84 Z" fill="#FFFFFF" />
-          <Rect x="70" y="26" width="20" height="6" rx="3" fill="#E85A2A" />
+          <Rect x="70" y="26" width="20" height="6" rx="3" fill="#D32F2F" />
         </G>
       ) : null}
       {kind === 'noVehicles' ? (
         <G>
           <G transform="translate(20 46)">
-            <Ellipse cx="60" cy="44.5" rx="54" ry="2.6" fill="#D6E2F2" />
+            <Ellipse cx="60" cy="44.5" rx="54" ry="2.6" fill="#D3DCF0" />
             <Muv />
           </G>
           <Circle cx="118" cy="40" r="13" fill="#FFFFFF" stroke={BLUE} strokeWidth={4} />

@@ -4,20 +4,21 @@ import { AppState, Image, RefreshControl, ScrollView, StyleSheet, View } from 'r
 import { Application, fileSource, fileUrl, getConfig } from '../api';
 import { Access, useAuth } from '../auth';
 import { fmtDate, fmtTime } from '../format';
+import { BRAND } from '../brand';
 import { colors, fonts, radius, space, Tone, tones } from '../theme';
 import { Avatar, Badge, Button, callPhone, Card, confirm, Divider, Header, IconName, Ionicons, Notice, SectionTitle, showError, T } from '../ui';
 
 /** Under review (PENDING), not approved (REJECTED), or status not loaded (offline). */
 export default function ApplicationStatus() {
   const { user, application, access, refreshAccess, logout } = useAuth();
-  const [support, setSupport] = useState<string | null>(null);
+  const [support, setSupport] = useState<string | null>(BRAND.phone);
   const [checking, setChecking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [checkedAt, setCheckedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     getConfig().then(
-      (c) => setSupport(c.supportPhone),
+      (c) => setSupport(c.supportPhone || BRAND.phone),
       () => {},
     );
   }, []);
@@ -60,7 +61,7 @@ export default function ApplicationStatus() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Header
-        title="Road Yatra Driver"
+        title={`${BRAND.short} Driver`}
         subtitle={user ? `Logged in as +91 ${user.phone}` : undefined}
         right={
           <Button title="Log out" icon="log-out-outline" variant="light" small onPress={askLogout} style={{ paddingHorizontal: space.md }} />

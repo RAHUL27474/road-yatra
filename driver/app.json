@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Road Yatra Driver",
+    "name": "JSS Travels Driver",
     "slug": "road-yatra-driver",
     "scheme": "roadyatradriver",
     "version": "1.0.0",
@@ -19,7 +19,7 @@
     "android": {
       "package": "in.roadyatra.driver",
       "adaptiveIcon": {
-        "backgroundColor": "#0b5ed7",
+        "backgroundColor": "#1E3A8A",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -44,15 +44,15 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Road Yatra Driver uses the camera to scan passenger ticket QR codes and to take photos for your driver application.",
+          "cameraPermission": "JSS Travels Driver uses the camera to scan passenger ticket QR codes and to take photos for your driver application.",
           "recordAudioAndroid": false
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Road Yatra Driver shares your location with passengers and the office while a trip is in progress.",
-          "locationAlwaysAndWhenInUsePermission": "Road Yatra Driver keeps sharing your location during a trip, even when the app is in the background, so passengers can track the vehicle.",
+          "locationWhenInUsePermission": "JSS Travels Driver shares your location with passengers and the office while a trip is in progress.",
+          "locationAlwaysAndWhenInUsePermission": "JSS Travels Driver keeps sharing your location during a trip, even when the app is in the background, so passengers can track the vehicle.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true,
           "isIosBackgroundLocationEnabled": true
@@ -62,12 +62,22 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Road Yatra Driver needs your photos so you can add your licence, Aadhaar and profile photo to your driver application.",
-          "cameraPermission": "Road Yatra Driver uses the camera to scan passenger ticket QR codes and to take photos for your driver application.",
+          "photosPermission": "JSS Travels Driver needs your photos so you can add your licence, Aadhaar and profile photo to your driver application.",
+          "cameraPermission": "JSS Travels Driver uses the camera to scan passenger ticket QR codes and to take photos for your driver application.",
           "microphonePermission": false
         }
       ],
-      "@react-native-community/datetimepicker"
-    ]
+      "@react-native-community/datetimepicker",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#1E3A8A"
+        }
+      ]
+    ],
+    "primaryColor": "#1E3A8A"
   }
 }

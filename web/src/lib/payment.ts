@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { db } from "./db";
 import { HttpError } from "./http";
 import { expireStaleHolds, onBookingConfirmed } from "./booking";
+import { onlinePaymentsAvailable } from "./payment-mode";
 
 const keyId = () => process.env.RAZORPAY_KEY_ID || "";
 const keySecret = () => process.env.RAZORPAY_KEY_SECRET || "";
@@ -10,6 +11,7 @@ const keySecret = () => process.env.RAZORPAY_KEY_SECRET || "";
 export const isDemoPayments = () => !keyId() || !keySecret();
 
 async function payableBooking(bookingId: string) {
+  if (!onlinePaymentsAvailable()) throw new HttpError(503, "Online payment is not available yet. Please book with cash to driver, or call us.");
   await expireStaleHolds();
   const booking = await db.booking.findUnique({ where: { id: bookingId } });
   if (!booking) throw new HttpError(404, "Booking not found.");

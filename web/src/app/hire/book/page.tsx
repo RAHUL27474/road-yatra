@@ -8,6 +8,7 @@ import { HttpError } from "@/lib/http";
 import { parseHireParams, toQuery } from "@/lib/hire-params";
 import { fmtDateTime, inr, RENTAL_TYPES, VEHICLE_TYPES } from "@/lib/format";
 import { getSettings } from "@/lib/settings";
+import { onlinePaymentsAvailable } from "@/lib/payment-mode";
 import VehicleImage from "@/components/VehicleImage";
 import RentalForm from "./RentalForm";
 
@@ -45,6 +46,7 @@ export default async function HireBookPage({ searchParams }: { searchParams: Pro
           vehicle={publicVehicle(vehicle)}
           user={{ name: user.name, phone: user.phone }}
           allowCash={(await getSettings()).allowCash}
+          allowOnline={onlinePaymentsAvailable()}
         />
         <aside className="h-fit lg:sticky lg:top-24">
           <div className="card overflow-hidden text-sm">

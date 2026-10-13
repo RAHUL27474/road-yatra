@@ -1,14 +1,19 @@
-// Road Yatra design tokens. Shared design language with the driver app — keep the two in sync.
+// Jai Shree Shyam Tour & Travels design tokens (same palette as the website). Shared design language with the driver app — keep the two in sync.
 import { Platform, TextStyle, ViewStyle } from 'react-native';
 
 export const colors = {
-  brand: '#0B5ED7',
-  brandDark: '#0847A6',
-  brandLight: '#E8F1FF',
-  accent: '#FF6D38',
-  accentLight: '#FFF1EA',
-  accentGradient: ['#FF8A3D', '#FF5A36'] as const,
-  brandGradient: ['#0B5ED7', '#0847A6'] as const,
+  brand: '#1E3A8A',
+  brandDark: '#0B3D91',
+  brandLight: '#E8EEFB',
+  /** Saffron: secondary highlights (promo labels, small CTAs). */
+  accent: '#F57C00',
+  accentLight: '#FFF3E0',
+  /** Primary CTA gradient: devotional red into saffron. */
+  accentGradient: ['#D32F2F', '#F57C00'] as const,
+  brandGradient: ['#1E3A8A', '#0B3D91'] as const,
+  /** Golden yellow: the devotional line, emblem ring and small highlights. */
+  gold: '#FFC107',
+  goldLight: '#FFF8E1',
   success: '#16A34A',
   successLight: '#DCFCE7',
   warning: '#D97706',
@@ -23,8 +28,11 @@ export const colors = {
   surface: '#F8FAFC',
   card: '#FFFFFF',
   white: '#FFFFFF',
-  onBrandMuted: '#C7DBFF',
+  onBrandMuted: '#C9D6F2',
   seatTaken: '#E2E8F0',
+  /** Brand-tinted ripple / focus ring. */
+  brandRipple: 'rgba(30,58,138,0.06)',
+  brandRing: 'rgba(30,58,138,0.16)',
   overlay: 'rgba(15, 23, 42, 0.45)',
 } as const;
 

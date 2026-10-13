@@ -4,6 +4,7 @@ import { Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, Styl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError } from '../api';
 import { useAuth } from '../auth';
+import { BRAND, Devotional, Emblem } from '../brand';
 import { colors, fonts, gradient, radius, shadow, space } from '../theme';
 import { Button, Card, Field, haptic, Ionicons, MaterialCommunityIcons, Notice, OtpInput, showError, T, TextLink } from '../ui';
 
@@ -112,16 +113,23 @@ export default function Login() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={{ alignItems: 'center', marginBottom: space.xxl }}>
+            <Devotional size={14} style={{ marginBottom: space.sm }} />
             <View style={st.logo}>
-              <MaterialCommunityIcons name="steering" size={48} color={colors.brand} />
+              <Emblem size={84} />
+              <View style={st.steering}>
+                <MaterialCommunityIcons name="steering" size={18} color={colors.brand} />
+              </View>
             </View>
-            <T v="display" color={colors.onBrand} center>
-              Road Yatra Driver
+            <T v="display" color={colors.onBrand} center numberOfLines={1} adjustsFontSizeToFit>
+              {BRAND.wordmark}
+            </T>
+            <T v="overline" color={colors.gold} center style={{ letterSpacing: 2, marginTop: 2 }}>
+              {`${BRAND.wordmarkSub} · Driver`}
             </T>
             <View style={st.routeChip}>
               <Ionicons name="location" size={14} color={colors.onBrand} />
               <T v="bodyStrong" color={colors.onBrand}>
-                Khatima ⇄ Delhi
+                Delhi · Haridwar · Hill stations
               </T>
             </View>
           </View>
@@ -135,7 +143,7 @@ export default function Login() {
                 </T>
               </View>
             ) : null}
-            <T v="title">{mode === 'otp' ? 'Enter OTP' : mode === 'name' ? 'Welcome to Road Yatra' : intent === 'apply' ? 'Apply to drive' : 'Log in'}</T>
+            <T v="title">{mode === 'otp' ? 'Enter OTP' : mode === 'name' ? `Welcome to ${BRAND.short}` : intent === 'apply' ? 'Apply to drive' : 'Log in'}</T>
             <T v="body" color={colors.textMuted} style={{ marginTop: 4, marginBottom: space.xl }}>
               {mode === 'otp'
                 ? `We sent a 6-digit code to +91 ${phone.replace(/\D/g, '').slice(-10)}`
@@ -269,7 +277,7 @@ export default function Login() {
             <Pressable
               onPress={() => switchIntent('apply')}
               accessibilityRole="button"
-              accessibilityLabel="New driver? Apply to drive with Road Yatra"
+              accessibilityLabel={`New driver? Apply to drive with ${BRAND.short}`}
               style={({ pressed }) => [st.applyCard, pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }]}
             >
               <View style={st.applyIcon}>
@@ -278,14 +286,14 @@ export default function Login() {
               <View style={{ flex: 1 }}>
                 <T v="bodyStrong">New driver?</T>
                 <T v="label" color={colors.textMuted} style={{ fontFamily: fonts.medium, marginTop: 2 }}>
-                  Apply to drive with Road Yatra
+                  Apply to drive with {BRAND.short}
                 </T>
               </View>
               <Ionicons name="chevron-forward" size={22} color={colors.accent} />
             </Pressable>
           ) : (
             <View style={{ marginTop: space.md }}>
-              <TextLink title="Already a Road Yatra driver? Log in" icon="log-in-outline" onPress={() => switchIntent('login')} />
+              <TextLink title={`Already a ${BRAND.short} driver? Log in`} icon="log-in-outline" onPress={() => switchIntent('login')} />
             </View>
           )}
 
@@ -305,15 +313,19 @@ const st = StyleSheet.create({
   hero: { position: 'absolute', top: 0, left: 0, right: 0, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden' },
   ring1: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 40, borderColor: 'rgba(255,255,255,0.06)', top: -80, right: -90 },
   ring2: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -60, left: -50 },
-  logo: {
-    width: 88,
-    height: 88,
-    borderRadius: 26,
+  logo: { width: 84, height: 84, borderRadius: 42, marginBottom: space.md, ...shadow.raised },
+  steering: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: space.lg,
-    ...shadow.raised,
   },
   routeChip: {
     flexDirection: 'row',
@@ -357,7 +369,7 @@ const st = StyleSheet.create({
     borderRadius: radius.card,
     backgroundColor: colors.card,
     borderWidth: 1.5,
-    borderColor: '#FDBA9B',
+    borderColor: '#FFCC80',
     ...shadow.card,
   },
   applyIcon: { width: 48, height: 48, borderRadius: 14, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' },

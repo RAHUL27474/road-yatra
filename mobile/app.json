@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Road Yatra",
+    "name": "Jai Shree Shyam Travels",
     "slug": "road-yatra",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,7 +12,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0b5ed7",
+        "backgroundColor": "#1E3A8A",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -30,8 +30,17 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker",
       "expo-font",
-      "expo-splash-screen"
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#1E3A8A"
+        }
+      ]
     ],
-    "scheme": "roadyatra"
+    "scheme": "roadyatra",
+    "primaryColor": "#1E3A8A"
   }
 }

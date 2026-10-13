@@ -8,7 +8,7 @@ import { Alert, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleShee
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, Config, errorMessage, getConfig, QuoteResponse, RentalRequest, RentalType, TripSummary } from '../../api';
 import { useAuth } from '../../auth';
-import { Logo } from '../../brand';
+import { BRAND, Logo, supportPhone, telUrl } from '../../brand';
 import { DateTimeField } from '../../DateTimeField';
 import { cityRegion, fmtDuration, fmtYmdShort, inr, nextDays, relativeDay, ymdIST } from '../../format';
 import { VehicleArt } from '../../illustrations';
@@ -25,6 +25,9 @@ const RENTAL_TYPES: { key: RentalType; label: string; icon: IonName }[] = [
 
 const DEFAULT_FROM = 'Khatima';
 const DEFAULT_TO = 'Delhi';
+/** Second daily shared-taxi route featured on Home. */
+const SECOND_TO = 'Haridwar';
+const HILL_STATIONS = ['Nainital', 'Mussoorie', 'Rishikesh', 'Auli'];
 const OVERLAP = 56;
 
 /** Tomorrow (IST) at the given hour. */
@@ -90,7 +93,7 @@ export default function Home() {
   const loadRoutes = useCallback(async () => {
     const pairs: [string, string][] = [
       [DEFAULT_FROM, DEFAULT_TO],
-      [DEFAULT_TO, DEFAULT_FROM],
+      [DEFAULT_FROM, SECOND_TO],
     ];
     const infos = await Promise.all(
       pairs.map(async ([from, to]) => {
@@ -124,7 +127,13 @@ export default function Home() {
   };
 
   const hasDefaultRoute = cities.includes(DEFAULT_FROM) && cities.includes(DEFAULT_TO);
-  const callSupport = () => config && Linking.openURL(`tel:${config.supportPhone.replace(/[^\d+]/g, '')}`).catch(() => {});
+  const phone = supportPhone(config?.supportPhone);
+  const callSupport = () => Linking.openURL(telUrl(phone)).catch(() => {});
+  const openHire = () => {
+    hapticTap();
+    setTab('hire');
+    scroll.current?.scrollTo({ y: 0, animated: true });
+  };
   const firstName = user?.name.split(/\s+/)[0];
 
   return (
@@ -146,9 +155,8 @@ export default function Home() {
           <View style={st.decor1} />
           <View style={st.decor2} />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Logo light size={34} style={{ flex: 1 }} />
-            {config ? (
-              <Pressable
+            <Logo light devotional size={42} style={{ flex: 1, marginRight: spacing.sm }} />
+            <Pressable
                 onPress={callSupport}
                 hitSlop={6}
                 style={({ pressed }) => [st.headerIcon, pressed && { opacity: 0.7 }]}
@@ -157,13 +165,12 @@ export default function Home() {
               >
                 <Ionicons name="headset" size={20} color={colors.white} />
               </Pressable>
-            ) : null}
           </View>
           <Text style={[type('xl', 'extrabold', colors.white), { marginTop: spacing.xl, letterSpacing: -0.3 }]} numberOfLines={1}>
             {firstName ? `Namaste, ${firstName}` : 'Namaste'}
           </Text>
           <Text style={[type('sm', 'medium', colors.onBrandMuted), { marginTop: 2 }]} numberOfLines={1}>
-            Khatima ↔ Delhi · Shared seats and private cabs
+            Delhi · Haridwar · Hill stations · 24×7 taxi
           </Text>
         </LinearGradient>
 
@@ -197,6 +204,7 @@ export default function Home() {
               title="Pay your way"
               text={config?.allowCash ? 'UPI, card or cash to driver' : 'UPI, cards and net banking'}
             />
+            <WhyTile icon="moon" tint={colors.brand} bg={colors.goldLight} title="24×7 service" text="Day and night, one way or round trip" />
             <WhyTile icon="receipt" tint={colors.warning} bg={colors.warningLight} title="Clear fares" text="GST invoice with every trip" />
           </ScrollView>
 
@@ -205,7 +213,7 @@ export default function Home() {
               <SectionHeader title="Popular routes" />
               <View style={{ gap: spacing.md }}>
                 {routes === null
-                  ? [0, 1].map((i) => (
+                  ? [0, 1, 2].map((i) => (
                       <View key={i} style={[st.routeCard, { gap: spacing.md }]}>
                         <Skeleton width={44} height={44} r={12} />
                         <View style={{ flex: 1, gap: 8 }}>
@@ -217,38 +225,35 @@ export default function Home() {
                     ))
                   : routes.map((r) => (
                       <RouteCard
-                        key={r.from}
+                        key={`${r.from}-${r.to}`}
                         info={r}
                         onPress={() => router.push({ pathname: '/results', params: { from: r.from, to: r.to, date: tomorrow } })}
                       />
                     ))}
+                {routes !== null ? <HillStationsCard onPress={openHire} /> : null}
               </View>
             </>
           ) : null}
 
           <Pressable
-            onPress={() => {
-              hapticTap();
-              setTab('hire');
-              scroll.current?.scrollTo({ y: 0, animated: true });
-            }}
+            onPress={openHire}
             style={({ pressed }) => [st.promo, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
             accessibilityRole="button"
             accessibilityLabel="Book a full cab"
           >
-            <LinearGradient colors={['#FFF4EC', '#FFFFFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.promoInner}>
+            <LinearGradient colors={['#FFF3E0', '#FFFFFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.promoInner}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[type('xs', 'bold', colors.accent), { letterSpacing: 0.6 }]}>PRIVATE CAB</Text>
                 <Text style={[type('lg', 'extrabold'), { marginTop: 2 }]}>Book a full cab</Text>
                 <Text style={[type('xs', 'regular', colors.textMuted), { marginTop: 2 }]} numberOfLines={2}>
-                  One way, round trip, local or airport. Your own car with a driver.
+                  Ertiga, Dzire or Altroz with a driver. One way or round trip, day and night.
                 </Text>
                 <View style={st.promoCta}>
                   <Text style={type('sm', 'bold', colors.white)}>Get prices</Text>
                   <Ionicons name="arrow-forward" size={16} color={colors.white} />
                 </View>
               </View>
-              <VehicleArt type="INNOVA_CRYSTA" width={124} style={{ marginRight: -spacing.sm, marginTop: spacing.xl }} />
+              <VehicleArt type="ERTIGA" width={124} style={{ marginRight: -spacing.sm, marginTop: spacing.xl }} />
             </LinearGradient>
           </Pressable>
 
@@ -260,8 +265,7 @@ export default function Home() {
             <TrustItem icon="headset-outline" label="24×7 support" />
           </View>
 
-          {config ? (
-            <View style={st.support}>
+          <View style={st.support}>
               <View style={st.supportIcon}>
                 <Ionicons name="headset" size={22} color={colors.brand} />
               </View>
@@ -270,7 +274,7 @@ export default function Home() {
                   Need help?
                 </Text>
                 <Text style={[type('sm', 'medium', colors.textMuted), tabular]} numberOfLines={1}>
-                  Call us on {config.supportPhone}
+                  Call us on {phone}
                 </Text>
               </View>
               <Pressable
@@ -280,13 +284,15 @@ export default function Home() {
                 }}
                 style={({ pressed }) => [st.callBtn, pressed && { opacity: 0.85 }]}
                 accessibilityRole="button"
-                accessibilityLabel={`Call ${config.supportPhone}`}
+                accessibilityLabel={`Call ${phone}`}
               >
                 <Ionicons name="call" size={16} color={colors.white} />
                 <Text style={type('sm', 'bold', colors.white)}>Call</Text>
               </Pressable>
-            </View>
-          ) : null}
+          </View>
+          <Text style={[type('xs', 'semibold', colors.textSubtle), { textAlign: 'center', marginTop: spacing.lg }]} numberOfLines={1}>
+            {BRAND.name} · {BRAND.values}
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -641,6 +647,28 @@ function RouteCard({ info, onPress }: { info: RouteInfo; onPress: () => void }) 
   );
 }
 
+function HillStationsCard({ onPress }: { onPress: () => void }) {
+  return (
+    <Card onPress={onPress} padded={false} style={st.routeCard}>
+      <View style={[st.routeIcon, { backgroundColor: colors.goldLight }]}>
+        <MaterialCommunityIcons name="image-filter-hdr" size={22} color={colors.accent} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={type('md', 'bold')} numberOfLines={1}>
+          Hill stations
+        </Text>
+        <Text style={type('xs', 'regular', colors.textMuted)} numberOfLines={2}>
+          {HILL_STATIONS.join(' · ')}
+        </Text>
+        <Text style={type('xs', 'semibold', colors.accent)} numberOfLines={1}>
+          Full cab · one way or round trip
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
+    </Card>
+  );
+}
+
 function TrustItem({ icon, label }: { icon: IonName; label: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
@@ -724,7 +752,7 @@ const st = StyleSheet.create({
     borderRadius: radius.card,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: '#FFE1CF',
+    borderColor: '#FFE0B2',
     overflow: 'hidden',
   },
   promoCta: {

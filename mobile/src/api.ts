@@ -1,6 +1,6 @@
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000').replace(/\/+$/, '');
 
-export type VehicleType = 'SEDAN' | 'ERTIGA' | 'SUV' | 'INNOVA_CRYSTA' | 'TEMPO_TRAVELLER' | 'BUS' | 'OTHER';
+export type VehicleType = 'SEDAN' | 'HATCHBACK' | 'ERTIGA' | 'SUV' | 'INNOVA_CRYSTA' | 'TEMPO_TRAVELLER' | 'BUS' | 'OTHER';
 export type Vehicle = {
   id: string;
   name: string;

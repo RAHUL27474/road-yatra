@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts && tsx prisma/rebrand.ts",
-    "setup": "prisma db push && tsx prisma/seed.ts && tsx prisma/rebrand.ts"
+    "setup": "prisma db push && tsx prisma/seed.ts && tsx prisma/rebrand.ts",
+    "start:prod": "prisma db push --skip-generate && tsx prisma/prod-init.ts && next start",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -42,5 +44,8 @@
     "@prisma/engines@6.19.3": true,
     "esbuild@0.28.2": true,
     "prisma@6.19.3": true
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

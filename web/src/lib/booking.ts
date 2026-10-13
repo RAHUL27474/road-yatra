@@ -6,6 +6,7 @@ import { signToken } from "./auth";
 import { getSettings, type CancellationSlab } from "./settings";
 import { notify } from "./notify";
 import { fmtDateTime } from "./format";
+import { onlinePaymentsAvailable } from "./payment-mode";
 
 export const GST_RATE = 0.05; // 5% GST on passenger transport — confirm the right treatment with your CA
 export const HOLD_MINUTES = 10; // unpaid online bookings are released after this
@@ -51,6 +52,9 @@ export type PaymentChoice = "ONLINE" | "CASH";
 type Channel = { source?: "ONLINE" | "OFFLINE"; payment: PaymentChoice; markPaid?: boolean };
 
 async function checkCashAllowed(c: Channel) {
+  if (c.payment === "ONLINE" && c.source !== "OFFLINE" && !onlinePaymentsAvailable()) {
+    throw new HttpError(400, "Online payment is not available yet. Please choose Pay cash to driver.");
+  }
   if (c.payment === "CASH" && c.source !== "OFFLINE" && !(await getSettings()).allowCash) {
     throw new HttpError(400, "Cash payment is not available right now. Please pay online.");
   }

@@ -126,7 +126,7 @@ function BookingCard({ b }: { b: Booking }) {
   return (
     <Pressable
       onPress={() => router.push({ pathname: '/booking/[id]', params: { id: b.id } })}
-      android_ripple={{ color: 'rgba(11,94,215,0.06)' }}
+      android_ripple={{ color: colors.brandRipple }}
       accessibilityRole="button"
       accessibilityLabel={`${from} to ${to}, ${b.code}`}
       style={({ pressed }) => [st.card, pressed && { opacity: 0.95, transform: [{ scale: 0.99 }] }]}

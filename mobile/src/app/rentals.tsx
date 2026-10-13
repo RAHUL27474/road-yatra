@@ -117,7 +117,7 @@ function QuoteCard({ quote, req }: { quote: Quote; req: RentalRequest }) {
       <Pressable
         onPress={quote.available ? select : undefined}
         disabled={!quote.available}
-        android_ripple={{ color: 'rgba(11,94,215,0.06)' }}
+        android_ripple={{ color: colors.brandRipple }}
         style={({ pressed }) => [{ padding: spacing.lg }, pressed && { backgroundColor: colors.surface }]}
         accessibilityRole="button"
         accessibilityLabel={`${v.name}, ${inr(quote.totalAmount)}${quote.available ? '' : ', sold out'}`}

@@ -21,19 +21,20 @@ type Props = {
   pickupStops: Stop[];
   dropStops: Stop[];
   allowCash: boolean;
+  allowOnline: boolean;
   user: { name: string; phone: string } | null;
   /** Display-only details for the summary panel. */
   summary?: { departLabel: string; vehicleName: string };
 };
 
-export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, user, summary }: Props) {
+export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, allowOnline, user, summary }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<number[]>([]);
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [pickup, setPickup] = useState(pickupStops[0]?.id ?? "");
   const [drop, setDrop] = useState(dropStops[0]?.id ?? "");
-  const [payment, setPayment] = useState<Payment>("ONLINE");
+  const [payment, setPayment] = useState<Payment>(allowOnline ? "ONLINE" : "CASH");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -175,7 +176,7 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, u
               </div>
             </div>
           </div>
-          <PaymentChoice value={payment} onChange={setPayment} allowCash={allowCash} />
+          <PaymentChoice value={payment} onChange={setPayment} allowCash={allowCash} allowOnline={allowOnline} />
         </section>
       </div>
 

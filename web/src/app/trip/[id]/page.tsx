@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getTripDetail } from "@/lib/trips";
 import { getCurrentUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
+import { onlinePaymentsAvailable } from "@/lib/payment-mode";
 import { publicStop } from "@/lib/booking";
 import { fmtDate, fmtDuration, fmtTime, VEHICLE_TYPES, ymd } from "@/lib/format";
 import VehicleImage from "@/components/VehicleImage";
@@ -68,6 +69,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
           pickupStops={stops.filter((s) => s.city === trip.fromCity).map(publicStop)}
           dropStops={stops.filter((s) => s.city === trip.toCity).map(publicStop)}
           allowCash={settings.allowCash}
+          allowOnline={onlinePaymentsAvailable()}
           user={user ? { name: user.name, phone: user.phone } : null}
           summary={{ departLabel: `${fmtDate(trip.departAt)}, ${fmtTime(trip.departAt)}`, vehicleName: trip.vehicle.name }}
         />
