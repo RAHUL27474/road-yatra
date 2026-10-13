@@ -1,7 +1,12 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CarFront, Phone } from "lucide-react";
+import { db } from "@/lib/db";
 import { searchTrips } from "@/lib/trips";
-import { fmtDuration, fmtTime, inr, VEHICLE_TYPES } from "@/lib/format";
+import { EMPTY_ROAD_IMAGE, tomorrowMorning } from "@/lib/media";
+import ModifyBar from "@/components/ModifyBar";
+import TripResults from "./TripResults";
 
 export const metadata = { title: "Search results" };
 
@@ -13,88 +18,80 @@ function shiftDate(date: string, days: number) {
 export default async function SearchPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const { from, to, date } = await searchParams;
   if (!from || !to || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) notFound();
-  const trips = await searchTrips(from, to, date);
+  const [trips, routes] = await Promise.all([searchTrips(from, to, date), db.route.findMany({ select: { fromCity: true, toCity: true } })]);
+  const cities = [...new Set(routes.flatMap((r) => [r.fromCity, r.toCity]))].sort();
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-  const days = [-2, -1, 0, 1, 2, 3, 4].map((n) => shiftDate(date, n)).filter((d) => d >= today);
+  const start = shiftDate(date, -3) < today ? today : shiftDate(date, -3);
+  const days = Array.from({ length: 7 }, (_, n) => shiftDate(start, n));
+  const dateLabel = new Date(`${date}T12:00:00+05:30`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  const phone = process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? "";
+  const hireHref = `/hire?${new URLSearchParams({ type: "ONE_WAY", pickup: from, drop: to, start: date > today ? `${date}T09:00` : tomorrowMorning() })}`;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      <div className="card mb-4 flex flex-wrap items-center justify-between gap-3 p-4">
-        <div>
-          <h1 className="text-xl font-bold">
-            {from} → {to}
-          </h1>
-          <p className="text-sm text-slate-500">{trips.length} trip(s) found</p>
-        </div>
-        <Link href="/" className="btn-ghost">Modify search</Link>
-      </div>
+    <div className="pb-12">
+      <ModifyBar
+        title={
+          <>
+            {from} <span className="text-slate-400">→</span> {to}
+          </>
+        }
+        subtitle={`${dateLabel} · ${trips.length} departure${trips.length === 1 ? "" : "s"} · Shared seat`}
+        cities={cities}
+        initialTab="seats"
+        initial={{ from, to, date }}
+      />
 
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {days.map((d) => {
-          const label = new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-          return (
-            <Link
-              key={d}
-              href={`/search?${new URLSearchParams({ from, to, date: d })}`}
-              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold ${d === date ? "bg-brand text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"}`}
-            >
-              {label}
-            </Link>
-          );
-        })}
-      </div>
+      <div className="container-x">
+        <nav className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" aria-label="Choose date">
+          {days.map((d) => {
+            const dt = new Date(`${d}T12:00:00+05:30`);
+            const active = d === date;
+            return (
+              <Link
+                key={d}
+                href={`/search?${new URLSearchParams({ from, to, date: d })}`}
+                aria-current={active ? "date" : undefined}
+                className={`flex min-w-[84px] shrink-0 flex-col items-center rounded-xl px-3 py-2 text-center transition sm:flex-1 ${
+                  active ? "bg-brand text-white shadow-md shadow-brand/25" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-brand/50"
+                }`}
+              >
+                <span className={`text-[11px] font-semibold uppercase ${active ? "text-blue-100" : "text-slate-400"}`}>
+                  {d === today ? "Today" : dt.toLocaleDateString("en-IN", { weekday: "short" })}
+                </span>
+                <span className="text-sm font-bold">{dt.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-      {trips.length === 0 ? (
-        <div className="card p-10 text-center">
-          <p className="text-5xl">🛣️</p>
-          <p className="mt-3 text-lg font-bold">No trips on this date</p>
-          <p className="text-slate-500">Try another date, or hire a whole vehicle for your trip instead.</p>
-          <Link href="/?tab=hire" className="btn-primary mt-4">Hire a vehicle</Link>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {trips.map((t) => (
-            <div key={t.id} className="card grid gap-4 p-5 sm:grid-cols-[1.4fr_2fr_1fr] sm:items-center">
-              <div>
-                <p className="font-bold">{t.vehicle.name}</p>
-                <p className="text-sm text-slate-500">{VEHICLE_TYPES[t.vehicle.type] ?? t.vehicle.type}</p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {t.vehicle.amenities.map((a) => (
-                    <span key={a} className="badge bg-slate-100 text-slate-600">{a}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div>
-                  <p className="text-2xl font-bold">{fmtTime(t.departAt)}</p>
-                  <p className="max-w-36 text-xs text-slate-500">{t.fromCity}</p>
-                </div>
-                <div className="flex-1 text-center text-xs text-slate-500">
-                  <div className="border-t border-dashed border-slate-300" />
-                  <span className="relative -top-2 bg-white px-2">{fmtDuration(t.durationMins)}</span>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold">{fmtTime(t.arriveAt)}</p>
-                  <p className="max-w-36 text-xs text-slate-500">{t.toCity}</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-end">
-                <div className="sm:text-right">
-                  <p className="text-2xl font-extrabold">{inr(t.fare)}</p>
-                  <p className={`text-xs font-semibold ${t.seatsLeft <= 3 ? "text-red-600" : "text-green-700"}`}>
-                    {t.seatsLeft > 0 ? `${t.seatsLeft} seats left` : "Sold out"}
-                  </p>
-                </div>
-                {t.seatsLeft > 0 ? (
-                  <Link href={`/trip/${t.id}`} className="btn-accent">Select seats</Link>
-                ) : (
-                  <span className="btn-ghost pointer-events-none opacity-50">Sold out</span>
+        {trips.length === 0 ? (
+          <div className="card mt-6 grid overflow-hidden md:grid-cols-[1fr_1.1fr]">
+            <div className="relative aspect-[16/10] md:aspect-auto">
+              <Image src={EMPTY_ROAD_IMAGE} alt="An empty road" fill sizes="(min-width: 768px) 480px, 100vw" className="object-cover" />
+            </div>
+            <div className="p-8 sm:p-10">
+              <h2 className="text-xl font-extrabold text-ink">No shared departures on this date</h2>
+              <p className="mt-2 text-slate-500">
+                Try another date from the strip above, or hire a whole cab for {from} to {to} at a time that suits you.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href={hireHref} className="btn-accent">
+                  <CarFront className="h-4 w-4" aria-hidden /> See full cab fares
+                </Link>
+                {phone && (
+                  <a href={`tel:${phone.replace(/\s/g, "")}`} className="btn-ghost">
+                    <Phone className="h-4 w-4" aria-hidden /> Call {phone}
+                  </a>
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ) : (
+          <TripResults
+            trips={trips.map((t) => ({ ...t, departAt: t.departAt.toISOString(), arriveAt: t.arriveAt.toISOString() }))}
+          />
+        )}
+      </div>
     </div>
   );
 }

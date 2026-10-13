@@ -25,7 +25,7 @@ export default async function VehicleForm({ params, searchParams }: { params: Pr
 
   return (
     <form action={saveVehicle} className="space-y-4">
-      <h1 className="text-2xl font-bold">{v ? `Edit ${v.name}` : "Add vehicle"}</h1>
+      <h1 className="page-title">{v ? `Edit ${v.name}` : "Add vehicle"}</h1>
       <Flash error={error} />
       <input type="hidden" name="id" value={v?.id ?? ""} />
 

@@ -30,7 +30,7 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Bookings</h1>
+        <h1 className="page-title">Bookings</h1>
         <Link href="/admin/bookings/new" className="btn-primary">+ Phone booking (full cab)</Link>
       </div>
       <Flash error={error} />

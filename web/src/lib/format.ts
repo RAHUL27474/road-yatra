@@ -22,6 +22,7 @@ export function fmtDuration(mins: number) {
 
 export const VEHICLE_TYPES: Record<string, string> = {
   SEDAN: "Sedan",
+  HATCHBACK: "Hatchback",
   ERTIGA: "Ertiga / MUV",
   SUV: "SUV / Innova",
   INNOVA_CRYSTA: "Innova Crysta",

@@ -17,7 +17,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Reports</h1>
+      <h1 className="page-title">Reports</h1>
       <div className="flex flex-wrap gap-1">
         {Object.entries(REPORTS).map(([k, label]) => (
           <Link key={k} href={`/admin/reports?${new URLSearchParams({ type: k, from, to })}`} className={`rounded-full px-3 py-1 text-sm font-semibold ${k === type ? "bg-brand text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>
@@ -36,7 +36,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <input type="date" name="to" defaultValue={to} className="input" />
         </div>
         <button className="btn-primary">Show</button>
-        <a href={`/admin/reports/export?${q}`} className="btn-ghost">⬇️ Download CSV (Excel)</a>
+        <a href={`/admin/reports/export?${q}`} className="btn-ghost">Download CSV (Excel)</a>
       </form>
 
       <div className="card overflow-x-auto">

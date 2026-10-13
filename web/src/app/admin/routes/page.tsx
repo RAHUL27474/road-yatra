@@ -9,7 +9,7 @@ export default async function RoutesPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Routes &amp; fares</h1>
+      <h1 className="page-title">Routes &amp; fares</h1>
       <p className="text-sm text-slate-500">
         Routes set the distance, travel time, toll and parking between two cities. They are used for scheduled shared trips and to price
         one-way and round-trip full cabs. Adding an existing route again updates it.

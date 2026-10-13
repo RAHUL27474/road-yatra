@@ -2,31 +2,80 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ArrowLeftRight, Armchair, CalendarDays, CarFront, Clock, MapPin, Plane, Repeat, Route, Search, type LucideIcon } from "lucide-react";
+import { cityState } from "@/lib/media";
 
 const todayIST = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-const tomorrowAt9 = () => {
-  const d = new Date(Date.now() + 24 * 3600_000).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-  return `${d}T09:00`;
-};
+const tomorrowIST = () => new Date(Date.now() + 24 * 3600_000).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+const tomorrowAt9 = () => `${tomorrowIST()}T09:00`;
 
-const HIRE_TYPES = [
-  { id: "ONE_WAY", label: "One Way" },
-  { id: "ROUND_TRIP", label: "Round Trip" },
-  { id: "LOCAL", label: "Local" },
-  { id: "AIRPORT", label: "Airport" },
+const HIRE_TYPES: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "ONE_WAY", label: "One Way", icon: Route },
+  { id: "ROUND_TRIP", label: "Round Trip", icon: Repeat },
+  { id: "LOCAL", label: "Local (8 hr / 80 km)", icon: Clock },
+  { id: "AIRPORT", label: "Airport", icon: Plane },
 ];
 
-export default function SearchBox({ cities, initialTab = "seats" }: { cities: string[]; initialTab?: "seats" | "hire" }) {
+export type SearchInitial = {
+  from?: string;
+  to?: string;
+  date?: string;
+  hireType?: string;
+  start?: string;
+  ret?: string;
+};
+
+function dayParts(ymd: string) {
+  const d = new Date(`${ymd}T12:00:00+05:30`);
+  if (isNaN(d.getTime())) return { big: "Select date", small: "" };
+  const day = d.toLocaleDateString("en-IN", { day: "numeric", timeZone: "Asia/Kolkata" });
+  const mon = d.toLocaleDateString("en-IN", { month: "short", timeZone: "Asia/Kolkata" });
+  const yr = d.toLocaleDateString("en-IN", { year: "2-digit", timeZone: "Asia/Kolkata" });
+  const wk = d.toLocaleDateString("en-IN", { weekday: "long", timeZone: "Asia/Kolkata" });
+  const rel = ymd === todayIST() ? "Today · " : ymd === tomorrowIST() ? "Tomorrow · " : "";
+  return { big: `${day} ${mon} '${yr}`, small: `${rel}${wk}` };
+}
+
+function dateTimeParts(v: string) {
+  if (!v) return { big: "Add date", small: "Tap to choose" };
+  const [ymd, hm = "09:00"] = v.split("T");
+  const p = dayParts(ymd);
+  const [h, m] = hm.split(":").map(Number);
+  const time = new Date(2000, 0, 1, h, m).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+  return { big: p.big, small: `${p.small.split(" · ").pop()}, ${time}` };
+}
+
+const openPicker = (e: React.MouseEvent<HTMLInputElement>) => {
+  try {
+    e.currentTarget.showPicker?.();
+  } catch {
+    /* older browsers: the native control still works */
+  }
+};
+
+export default function SearchBox({
+  cities,
+  initialTab = "seats",
+  initial = {},
+  variant = "hero",
+}: {
+  cities: string[];
+  initialTab?: "seats" | "hire";
+  initial?: SearchInitial;
+  variant?: "hero" | "inline";
+}) {
   const router = useRouter();
+  const pick = (v: string | undefined, fallback: string, alt: string) => (v && cities.includes(v) ? v : cities.includes(fallback) ? fallback : alt);
   const [tab, setTab] = useState(initialTab);
-  const [from, setFrom] = useState(cities.includes("Khatima") ? "Khatima" : cities[0] ?? "");
-  const [to, setTo] = useState(cities.includes("Delhi") ? "Delhi" : cities[1] ?? "");
-  const [date, setDate] = useState(todayIST());
-  const [hireType, setHireType] = useState("ONE_WAY");
-  const [start, setStart] = useState(tomorrowAt9());
-  const [ret, setRet] = useState("");
+  const [from, setFrom] = useState(pick(initial.from, "Khatima", cities[0] ?? ""));
+  const [to, setTo] = useState(pick(initial.to, "Delhi", cities[1] ?? ""));
+  const [date, setDate] = useState(initial.date && initial.date >= todayIST() ? initial.date : todayIST());
+  const [hireType, setHireType] = useState(initial.hireType ?? "ONE_WAY");
+  const [start, setStart] = useState(initial.start ?? tomorrowAt9());
+  const [ret, setRet] = useState(initial.ret ?? "");
 
   const needsDrop = hireType === "ONE_WAY" || hireType === "ROUND_TRIP";
+  const hero = variant === "hero";
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,91 +89,177 @@ export default function SearchBox({ cities, initialTab = "seats" }: { cities: st
     }
   }
 
-  const citySelect = (value: string, onChange: (v: string) => void, label: string) => (
-    <div className="flex-1 rounded-lg border border-slate-200 px-4 py-3 hover:border-brand">
-      <label className="label">{label}</label>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-transparent text-xl font-bold outline-none">
+  const field = "group relative flex min-h-[84px] flex-1 flex-col justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-brand/60 hover:bg-brand-light/30 focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15";
+  const fieldLabel = "flex items-center gap-1.5 text-xs font-semibold text-slate-500";
+
+  const cityField = (value: string, onChange: (v: string) => void, label: string, extra = "") => (
+    <label className={`${field} ${extra}`}>
+      <span className={fieldLabel}>
+        <MapPin className="h-3.5 w-3.5 text-brand" aria-hidden /> {label}
+      </span>
+      <span className="mt-0.5 truncate text-2xl leading-tight font-extrabold text-ink">{value || "Select city"}</span>
+      <span className="truncate text-xs text-slate-500">{value ? cityState(value) : ""}</span>
+      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0">
         {cities.map((c) => (
           <option key={c}>{c}</option>
         ))}
       </select>
-    </div>
+    </label>
   );
 
+  const dateField = (label: string, parts: { big: string; small: string }, input: React.ReactNode) => (
+    <label className={field}>
+      <span className={fieldLabel}>
+        <CalendarDays className="h-3.5 w-3.5 text-brand" aria-hidden /> {label}
+      </span>
+      <span className="mt-0.5 truncate text-2xl leading-tight font-extrabold text-ink">{parts.big}</span>
+      <span className="truncate text-xs text-slate-500">{parts.small}</span>
+      {input}
+    </label>
+  );
+
+  const overlayInput = "absolute inset-0 h-full w-full cursor-pointer opacity-0";
+
   return (
-    <div className="relative">
-      <div className="absolute -top-6 left-1/2 z-10 flex -translate-x-1/2 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-slate-200">
-        {[
-          { id: "seats", icon: "💺", label: "Book Seats" },
-          { id: "hire", icon: "🚗", label: "Hire a Vehicle" },
-        ].map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id as "seats" | "hire")}
-            className={`flex items-center gap-2 px-6 py-3 text-sm font-bold ${tab === t.id ? "bg-brand-light text-brand" : "text-slate-500 hover:bg-slate-50"}`}
-          >
-            <span className="text-lg">{t.icon}</span>
-            {t.label}
-          </button>
-        ))}
+    <div className={`relative ${hero ? "pt-0" : ""}`}>
+      <div className="relative z-10 flex">
+        <div role="tablist" aria-label="Booking type" className="flex rounded-t-2xl bg-white p-1.5 pb-0 shadow-[0_-6px_20px_rgb(15_23_42/0.08)]">
+          {(
+            [
+              { id: "seats", icon: Armchair, label: "Shared seat", sub: "Per seat, fixed timings" },
+              { id: "hire", icon: CarFront, label: "Full cab", sub: "Whole car, your timing" },
+            ] as const
+          ).map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(t.id)}
+                className={`relative flex items-center gap-2.5 rounded-t-xl px-4 py-3 text-left transition sm:px-6 ${
+                  active ? "text-brand" : "text-slate-500 hover:text-ink"
+                }`}
+              >
+                <span className={`grid h-9 w-9 place-items-center rounded-lg transition ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "bg-slate-100"}`}>
+                  <t.icon className="h-5 w-5" aria-hidden />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold">{t.label}</span>
+                  <span className="hidden text-[11px] font-medium text-slate-400 sm:block">{t.sub}</span>
+                </span>
+                {active && <span className="absolute inset-x-3 bottom-0 h-[3px] rounded-full bg-brand" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <form onSubmit={submit} className="card px-5 pb-10 pt-12">
+      <form
+        onSubmit={submit}
+        className={`relative rounded-2xl rounded-tl-none bg-white px-4 pt-5 sm:px-6 ${hero ? "pb-10 shadow-[var(--shadow-widget)] sm:pb-12" : "pb-5 shadow-[var(--shadow-soft)] ring-1 ring-slate-200/70"}`}
+      >
         {tab === "hire" && (
-          <div className="mb-4 flex flex-wrap gap-4">
-            {HIRE_TYPES.map((t) => (
-              <label key={t.id} className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
-                <input type="radio" name="hireType" checked={hireType === t.id} onChange={() => setHireType(t.id)} className="accent-brand" />
-                {t.label}
-              </label>
+          <div className="mb-4 flex flex-wrap gap-2" role="radiogroup" aria-label="Trip type">
+            {HIRE_TYPES.map((t) => {
+              const active = hireType === t.id;
+              return (
+                <label
+                  key={t.id}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold ring-1 transition ${
+                    active ? "bg-brand-light text-brand ring-brand" : "bg-white text-slate-600 ring-slate-200 hover:ring-slate-300"
+                  }`}
+                >
+                  <input type="radio" name="hireType" checked={active} onChange={() => setHireType(t.id)} className="sr-only" />
+                  <t.icon className="h-4 w-4" aria-hidden />
+                  {t.label}
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch">
+          <div className="relative flex flex-1 flex-col gap-2 sm:flex-row lg:flex-[2]">
+            {cityField(from, setFrom, tab === "hire" ? "Pickup city" : "From")}
+            {(tab === "seats" || needsDrop) && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Swap cities"
+                  title="Swap cities"
+                  onClick={() => {
+                    setFrom(to);
+                    setTo(from);
+                  }}
+                  className="absolute top-1/2 right-6 z-10 grid h-10 w-10 -translate-y-1/2 rotate-90 place-items-center rounded-full bg-white text-brand shadow-md ring-1 ring-slate-200 transition hover:rotate-[270deg] hover:bg-brand hover:text-white sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:rotate-0 sm:hover:rotate-180"
+                >
+                  <ArrowLeftRight className="h-4 w-4" aria-hidden />
+                </button>
+                {cityField(to, setTo, tab === "hire" ? "Drop city" : "To", "sm:pl-8")}
+              </>
+            )}
+          </div>
+
+          {tab === "seats" ? (
+            <div className="flex flex-1 flex-col gap-2">
+              {dateField(
+                "Travel date",
+                dayParts(date),
+                <input type="date" aria-label="Travel date" required min={todayIST()} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} onClick={openPicker} className={overlayInput} />,
+              )}
+            </div>
+          ) : (
+            <>
+              {dateField(
+                "Pickup date & time",
+                dateTimeParts(start),
+                <input type="datetime-local" aria-label="Pickup date and time" required value={start} onChange={(e) => setStart(e.target.value)} onClick={openPicker} className={overlayInput} />,
+              )}
+              {hireType === "ROUND_TRIP" &&
+                dateField(
+                  "Return date & time",
+                  dateTimeParts(ret),
+                  <input type="datetime-local" aria-label="Return date and time" required value={ret} min={start} onChange={(e) => setRet(e.target.value)} onClick={openPicker} className={overlayInput} />,
+                )}
+            </>
+          )}
+
+          {!hero && (
+            <button type="submit" className="btn-accent btn-lg lg:w-44">
+              <Search className="h-5 w-5" aria-hidden /> Search
+            </button>
+          )}
+        </div>
+
+        {tab === "seats" && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-slate-400">Quick pick:</span>
+            {[
+              [todayIST(), "Today"],
+              [tomorrowIST(), "Tomorrow"],
+            ].map(([d, l]) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setDate(d)}
+                className={`rounded-full px-3 py-1 font-semibold ring-1 transition ${date === d ? "bg-brand text-white ring-brand" : "text-slate-600 ring-slate-200 hover:ring-slate-300"}`}
+              >
+                {l}
+              </button>
             ))}
           </div>
         )}
 
-        <div className="flex flex-col gap-3 lg:flex-row">
-          {citySelect(from, setFrom, tab === "hire" ? "Pickup city" : "From")}
-          {(tab === "seats" || needsDrop) && (
-            <>
-              <button
-                type="button"
-                aria-label="Swap cities"
-                onClick={() => {
-                  setFrom(to);
-                  setTo(from);
-                }}
-                className="mx-auto -my-5 z-10 grid h-10 w-10 shrink-0 place-items-center self-center rounded-full bg-white text-brand shadow ring-1 ring-slate-200 lg:-mx-5 lg:my-0"
-              >
-                ⇄
-              </button>
-              {citySelect(to, setTo, tab === "hire" ? "Drop city" : "To")}
-            </>
-          )}
-
-          {tab === "seats" ? (
-            <div className="flex-1 rounded-lg border border-slate-200 px-4 py-3 hover:border-brand">
-              <label className="label">Travel date</label>
-              <input type="date" required min={todayIST()} value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-transparent text-xl font-bold outline-none" />
-            </div>
-          ) : (
-            <>
-              <div className="flex-1 rounded-lg border border-slate-200 px-4 py-3 hover:border-brand">
-                <label className="label">Pickup date & time</label>
-                <input type="datetime-local" required value={start} onChange={(e) => setStart(e.target.value)} className="w-full bg-transparent text-lg font-bold outline-none" />
-              </div>
-              {hireType === "ROUND_TRIP" && (
-                <div className="flex-1 rounded-lg border border-slate-200 px-4 py-3 hover:border-brand">
-                  <label className="label">Return date & time</label>
-                  <input type="datetime-local" required value={ret} min={start} onChange={(e) => setRet(e.target.value)} className="w-full bg-transparent text-lg font-bold outline-none" />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <button type="submit" className="btn-accent absolute -bottom-6 left-1/2 -translate-x-1/2 rounded-full px-14 py-3.5 text-lg uppercase tracking-wide">
-          Search
-        </button>
+        {hero && (
+          <button
+            type="submit"
+            className="btn-accent absolute -bottom-7 left-1/2 w-[min(88%,320px)] -translate-x-1/2 rounded-full py-4 text-lg font-extrabold tracking-wide uppercase shadow-xl shadow-accent/30"
+          >
+            <Search className="h-5 w-5" aria-hidden strokeWidth={3} /> Search
+          </button>
+        )}
       </form>
     </div>
   );

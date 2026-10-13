@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { MapPin, UserRound } from "lucide-react";
 import PaymentChoice, { type Payment } from "@/components/PaymentChoice";
 import { apiFetch, payPath } from "@/lib/client";
 
@@ -38,9 +39,11 @@ export default function RentalForm({ request, vehicle, user, allowCash }: Props)
   }
 
   return (
-    <form onSubmit={submit} className="card space-y-4 p-5">
-      <h1 className="text-xl font-bold">Traveller details</h1>
-      <div className="grid gap-4 sm:grid-cols-2">
+    <form onSubmit={submit} className="card h-fit space-y-5 p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
+        <UserRound className="h-5 w-5 text-brand" aria-hidden /> Traveller details
+      </h2>
+      <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <label className="label">Full name</label>
           <input className="input" required value={form.passengerName} onChange={set("passengerName")} />
@@ -58,6 +61,9 @@ export default function RentalForm({ request, vehicle, user, allowCash }: Props)
           </select>
         </div>
       </div>
+      <h2 className="flex items-center gap-2 border-t border-slate-100 pt-5 text-lg font-bold text-ink">
+        <MapPin className="h-5 w-5 text-brand" aria-hidden /> Addresses
+      </h2>
       <div>
         <label className="label">Pickup address in {request.pickupCity}</label>
         <textarea className="input" rows={2} required minLength={5} placeholder="House no., street, landmark, area" value={form.pickupAddress} onChange={set("pickupAddress")} />
@@ -68,9 +74,11 @@ export default function RentalForm({ request, vehicle, user, allowCash }: Props)
           <textarea className="input" rows={2} placeholder="e.g. Anand Vihar ISBT, or full address" value={form.dropAddress} onChange={set("dropAddress")} />
         </div>
       )}
-      <PaymentChoice value={payment} onChange={setPayment} allowCash={allowCash} />
-      {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      <button className="btn-accent w-full py-3 text-base" disabled={busy}>
+      <div className="border-t border-slate-100 pt-5">
+        <PaymentChoice value={payment} onChange={setPayment} allowCash={allowCash} />
+      </div>
+      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      <button className="btn-accent btn-lg w-full" disabled={busy}>
         {busy ? "Reserving vehicle…" : payment === "CASH" ? "Confirm booking" : "Proceed to pay"}
       </button>
       <p className="text-center text-xs text-slate-400">

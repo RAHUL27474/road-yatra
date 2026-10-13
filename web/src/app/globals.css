@@ -1,47 +1,135 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #0b5ed7;
-  --color-brand-dark: #0847a6;
-  --color-brand-light: #e8f1ff;
-  --color-accent: #ff6d38;
-  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --color-brand: #0b3d91;
+  --color-brand-dark: #082e6e;
+  --color-brand-darker: #061f4d;
+  --color-brand-light: #e8eefb;
+  --color-accent: #e65100;
+  --color-accent-dark: #c62828;
+  --color-accent-light: #fff3e0;
+  --color-saffron-from: #d32f2f;
+  --color-saffron-to: #f57c00;
+  --color-gold: #ffc107;
+  --color-gold-light: #fff8e1;
+  --color-ink: #0f172a;
+  --color-canvas: #f5f6fa;
+  --font-sans: var(--font-jakarta), var(--font-deva), "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px rgb(15 23 42 / 0.06);
+  --shadow-lift: 0 4px 10px rgb(15 23 42 / 0.06), 0 18px 40px rgb(15 23 42 / 0.12);
+  --shadow-widget: 0 10px 30px rgb(11 61 145 / 0.18), 0 30px 60px rgb(15 23 42 / 0.12);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  @apply bg-slate-100 text-slate-800 antialiased;
+  @apply bg-canvas text-slate-800 antialiased;
 }
 
+::selection {
+  background: rgb(255 193 7 / 0.35);
+}
+
+/* ---------- Layout ---------- */
+@utility container-x {
+  @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+}
+@utility section {
+  @apply py-14 sm:py-20;
+}
+@utility eyebrow {
+  @apply text-xs font-bold uppercase tracking-[0.14em] text-accent;
+}
+@utility deva {
+  font-family: var(--font-deva), var(--font-jakarta), sans-serif;
+}
+@utility saffron-gradient {
+  @apply bg-gradient-to-r from-saffron-from to-saffron-to;
+}
+@utility section-title {
+  @apply text-2xl font-extrabold tracking-tight text-ink sm:text-3xl;
+}
+@utility section-sub {
+  @apply mt-2 max-w-2xl text-slate-500;
+}
+@utility page-title {
+  @apply text-2xl font-extrabold tracking-tight text-ink;
+}
+
+/* ---------- Buttons ---------- */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition duration-150 select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
 }
 @utility btn-primary {
-  @apply btn bg-brand text-white hover:bg-brand-dark;
+  @apply btn bg-brand text-white shadow-sm shadow-brand/20 hover:bg-brand-dark;
 }
 @utility btn-accent {
-  @apply btn bg-gradient-to-r from-orange-500 to-accent text-white shadow hover:brightness-105;
+  @apply btn bg-gradient-to-r from-saffron-from to-saffron-to text-white shadow-md shadow-accent/25 [text-shadow:0_1px_1px_rgb(0_0_0/0.15)] hover:brightness-110 focus-visible:outline-accent;
 }
 @utility btn-ghost {
-  @apply btn text-slate-600 ring-1 ring-slate-300 hover:bg-slate-50;
+  @apply btn bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 hover:ring-slate-400;
+}
+@utility btn-soft {
+  @apply btn bg-brand-light text-brand hover:bg-brand/15;
 }
 @utility btn-danger {
   @apply btn bg-red-600 text-white hover:bg-red-700;
 }
+@utility btn-lg {
+  @apply rounded-xl px-6 py-3.5 text-base;
+}
 
 @layer components {
-  .card { @apply rounded-xl bg-white shadow-sm ring-1 ring-slate-200; }
-  .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500; }
-  .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20; }
-  .badge { @apply inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold; }
-  .table { @apply w-full text-left text-sm; }
-  .table th { @apply border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase text-slate-500; }
-  .table td { @apply border-b border-slate-100 px-3 py-2 align-top; }
+  .card {
+    @apply rounded-2xl bg-white shadow-[var(--shadow-soft)] ring-1 ring-slate-200/70;
+  }
+  .card-hover {
+    @apply transition duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)];
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-semibold tracking-wide text-slate-500 uppercase;
+  }
+  .input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 transition outline-none placeholder:text-slate-400 hover:border-slate-400 focus:border-brand focus:ring-4 focus:ring-brand/15;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600;
+  }
+  .table {
+    @apply w-full text-left text-sm;
+  }
+  .table th {
+    @apply border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-semibold tracking-wide text-slate-500 uppercase;
+  }
+  .table td {
+    @apply border-b border-slate-100 px-3 py-2.5 align-top;
+  }
+  .table tbody tr {
+    @apply transition-colors hover:bg-slate-50/70;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+}
+
+/* Native <details> accordion marker */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
 }
 
 @media print {
   body > header,
-  body > footer {
-    display: none;
+  body > footer,
+  .no-print {
+    display: none !important;
   }
   body {
     background: white;

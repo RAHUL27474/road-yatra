@@ -18,7 +18,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
   return (
     <form action={saveSettings} className="space-y-4">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="page-title">Settings</h1>
       <Flash success={saved ? "Settings saved." : undefined} />
 
       <section className="card grid gap-4 p-5 sm:grid-cols-2">

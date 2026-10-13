@@ -33,11 +33,11 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
       : `Cab hire with driver: ${bookingTitle(b)}, ${b.vehicle?.name ?? ""}, ${b.estimatedKm} km, ${b.startAt ? fmtDateTime(b.startAt) : ""}`;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
+    <div className="container-x max-w-3xl py-8 print:max-w-none print:p-0">
       <div className="mb-3 flex justify-end print:hidden">
         <PrintButton />
       </div>
-      <div className="card p-8 text-sm print:shadow-none print:ring-0">
+      <div className="card rounded-xl p-8 text-sm print:rounded-none print:p-0 print:shadow-none print:ring-0">
         <div className="flex flex-wrap justify-between gap-4 border-b border-slate-200 pb-4">
           <div>
             <p className="text-xl font-extrabold">{business.legalName}</p>

@@ -10,7 +10,7 @@ export type Settings = {
 
 export const DEFAULT_SETTINGS: Settings = {
   business: {
-    legalName: process.env.NEXT_PUBLIC_BRAND_NAME || "Road Yatra",
+    legalName: process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels",
     gstin: "",
     address: "Khatima, Udham Singh Nagar, Uttarakhand",
     stateName: "Uttarakhand",

@@ -41,7 +41,7 @@ export default async function DriverForm({ params, searchParams }: { params: Pro
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{title}</h1>
+      <h1 className="page-title">{title}</h1>
       <Flash error={error} success={success} />
 
       {d?.appliedAt && (

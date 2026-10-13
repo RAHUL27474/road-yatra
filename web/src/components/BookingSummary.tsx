@@ -55,15 +55,15 @@ export default function BookingSummary({ b }: { b: B }) {
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-4 py-2">
             <dt className="text-slate-500">{k}</dt>
-            <dd className="text-right font-medium">{v}</dd>
+            <dd className="text-right font-medium text-ink">{v}</dd>
           </div>
         ))}
       </dl>
-      <div className="mt-3 space-y-1 rounded-lg bg-slate-50 p-3">
+      <div className="mt-4 space-y-1.5 rounded-xl bg-slate-50 p-4">
         <div className="flex justify-between"><span>Fare</span><span>{inr(b.baseAmount)}</span></div>
         <div className="flex justify-between"><span>GST</span><span>{inr(b.taxAmount)}</span></div>
         {b.extraCharges > 0 && <div className="flex justify-between"><span>Toll &amp; parking</span><span>{inr(b.extraCharges)}</span></div>}
-        <div className="flex justify-between border-t border-slate-200 pt-1 text-base font-bold"><span>Total</span><span>{inr(b.totalAmount)}</span></div>
+        <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-extrabold text-ink"><span>Total</span><span>{inr(b.totalAmount)}</span></div>
         {b.status === "CANCELLED" && b.refundAmount != null && (
           <div className="flex justify-between text-slate-500"><span>Refund</span><span>{inr(b.refundAmount)}</span></div>
         )}

@@ -7,7 +7,7 @@ export default async function VehiclesPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Vehicles</h1>
+        <h1 className="page-title">Vehicles</h1>
         <Link href="/admin/vehicles/new" className="btn-primary">+ Add vehicle</Link>
       </div>
       <div className="card overflow-x-auto">

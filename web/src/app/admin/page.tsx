@@ -59,7 +59,7 @@ export default async function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <h1 className="page-title">Dashboard</h1>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {stats.map(([label, value, sub]) => (
           <div key={label} className="card p-4">
@@ -72,14 +72,14 @@ export default async function AdminDashboard() {
 
       {pendingDrivers > 0 && (
         <Link href="/admin/drivers" className="card flex items-center justify-between border-l-4 border-brand p-4 hover:shadow-md">
-          <span className="font-bold">🧑‍✈️ {pendingDrivers} driver application{pendingDrivers > 1 ? "s" : ""} waiting for your approval</span>
+          <span className="font-bold">{pendingDrivers} driver application{pendingDrivers > 1 ? "s" : ""} waiting for your approval</span>
           <span className="text-sm font-semibold text-brand">Review →</span>
         </Link>
       )}
 
       {alerts.length > 0 && (
         <div className="card border-l-4 border-amber-500 p-4">
-          <h2 className="mb-2 font-bold text-amber-800">⚠️ Documents expiring soon</h2>
+          <h2 className="mb-2 font-bold text-amber-800">Documents expiring soon</h2>
           <ul className="grid gap-1 text-sm sm:grid-cols-2">
             {alerts.map((a) => (
               <li key={a.what} className={a.date < now ? "font-semibold text-red-700" : ""}>

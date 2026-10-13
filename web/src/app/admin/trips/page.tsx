@@ -22,7 +22,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Trips & schedule</h1>
+      <h1 className="page-title">Trips & schedule</h1>
       <Flash error={error} success={success} />
 
       <form action={scheduleTrips} className="card space-y-3 p-4">

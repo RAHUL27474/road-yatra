@@ -51,7 +51,7 @@ export default async function TripManifest({ params, searchParams }: { params: P
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold">
+          <h1 className="page-title">
             {trip.route.fromCity} → {trip.route.toCity}
           </h1>
           <p className="text-slate-500">
@@ -115,7 +115,7 @@ export default async function TripManifest({ params, searchParams }: { params: P
       {editable && (
         <div className="grid gap-4 lg:grid-cols-2 print:hidden">
           <form action={offlineSeatBooking} className="card space-y-3 p-4">
-            <h2 className="font-bold">☎️ Phone / walk-in booking</h2>
+            <h2 className="font-bold">Phone / walk-in booking</h2>
             <input type="hidden" name="tripId" value={trip.id} />
             {seatCheckboxes("seatNos")}
             <div className="grid gap-2 sm:grid-cols-2">
@@ -139,7 +139,7 @@ export default async function TripManifest({ params, searchParams }: { params: P
           </form>
 
           <form action={blockSeats} className="card space-y-3 p-4">
-            <h2 className="font-bold">🔒 Block seats</h2>
+            <h2 className="font-bold">Block seats</h2>
             <input type="hidden" name="tripId" value={trip.id} />
             {seatCheckboxes("seatNos")}
             <select name="reason" className="input" required>
@@ -196,7 +196,7 @@ export default async function TripManifest({ params, searchParams }: { params: P
                 <td className="text-xs">
                   {b.paymentStatus === "UNPAID" ? <b className="text-amber-700">Collect {inr(b.totalAmount)}</b> : `${b.paymentStatus} · ${inr(b.totalAmount)}`}
                 </td>
-                <td className="text-xs">{b.boardedAt ? `✅ ${fmtTime(b.boardedAt)}` : b.noShow ? "❌ No-show" : "—"}</td>
+                <td className="text-xs">{b.boardedAt ? `Boarded ${fmtTime(b.boardedAt)}` : b.noShow ? "No-show" : "—"}</td>
                 <td className="print:hidden">
                   {b.paymentStatus === "UNPAID" && b.status !== "PENDING" && (
                     <form action={updateBooking}>

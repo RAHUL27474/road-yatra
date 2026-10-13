@@ -20,7 +20,7 @@ export default async function DriversPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Drivers</h1>
+        <h1 className="page-title">Drivers</h1>
         <Link href="/admin/drivers/new" className="btn-primary">+ Add driver</Link>
       </div>
       <p className="text-sm text-slate-500">

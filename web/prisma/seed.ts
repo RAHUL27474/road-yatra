@@ -1,4 +1,5 @@
-// Sample data so the app works straight away: Khatima <-> Delhi service.
+// Base sample data (logins, sample vehicles, routes, stops, trips). prisma/rebrand.ts then applies
+// Jai Shree Shyam Tour & Travels' real fleet, routes and business details (npm run setup runs both).
 // Edit or delete it from the admin panel. Run with: npm run db:seed
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";

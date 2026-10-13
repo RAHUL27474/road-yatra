@@ -13,7 +13,7 @@ export default async function MessagesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">SMS / WhatsApp log</h1>
+      <h1 className="page-title">SMS / WhatsApp log</h1>
       <div className="card p-4 text-sm">
         <p>
           SMS (MSG91): {configured.sms ? <b className="text-green-700">connected</b> : <b className="text-amber-700">not set up</b>} · WhatsApp:{" "}

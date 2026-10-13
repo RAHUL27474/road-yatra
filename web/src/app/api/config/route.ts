@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const s = await getSettings();
   return ok({
-    brandName: process.env.NEXT_PUBLIC_BRAND_NAME || "Road Yatra",
+    brandName: process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels",
     supportPhone: process.env.NEXT_PUBLIC_SUPPORT_PHONE || "",
     demoPayments: isDemoPayments(),
     allowCash: s.allowCash,

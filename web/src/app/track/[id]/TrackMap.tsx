@@ -5,12 +5,17 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Track } from "./TrackView";
 
-const pin = (emoji: string, bg: string) =>
+const ICONS = {
+  pickup: '<circle cx="12" cy="12" r="5" fill="white"/>',
+  drop: '<path d="M8 5v14M8 5h9l-2 3 2 3H8" stroke="white" stroke-width="2" fill="none" stroke-linejoin="round"/>',
+  car: '<path d="M5 15l1.5-5A2 2 0 0 1 8.4 8.6h7.2a2 2 0 0 1 1.9 1.4L19 15v3h-2v-1H7v1H5z" fill="white"/><circle cx="8" cy="15" r="1.2" fill="#0b3d91"/><circle cx="16" cy="15" r="1.2" fill="#0b3d91"/>',
+};
+const pin = (kind: keyof typeof ICONS, bg: string, size = 34) =>
   L.divIcon({
     className: "",
-    html: `<div style="background:${bg};width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:18px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.35)">${emoji}</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    html: `<div style="background:${bg};width:${size}px;height:${size}px;border-radius:50%;display:grid;place-items:center;border:3px solid white;box-shadow:0 3px 10px rgba(15,23,42,.35)"><svg viewBox="0 0 24 24" width="${size - 12}" height="${size - 12}">${ICONS[kind]}</svg></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 
 /** OpenStreetMap map with the vehicle, pickup and drop markers. */
@@ -39,15 +44,15 @@ export default function TrackMap({ data }: { data: Track }) {
     layer.current.clearLayers();
     const points: L.LatLngExpression[] = [];
     if (data.pickup) {
-      L.marker([data.pickup.lat, data.pickup.lng], { icon: pin("🟢", "#dcfce7") }).bindTooltip(`Pickup: ${data.pickup.name}`).addTo(layer.current);
+      L.marker([data.pickup.lat, data.pickup.lng], { icon: pin("pickup", "#16a34a") }).bindTooltip(`Pickup: ${data.pickup.name}`).addTo(layer.current);
       points.push([data.pickup.lat, data.pickup.lng]);
     }
     if (data.drop) {
-      L.marker([data.drop.lat, data.drop.lng], { icon: pin("🏁", "#fee2e2") }).bindTooltip(`Drop: ${data.drop.name}`).addTo(layer.current);
+      L.marker([data.drop.lat, data.drop.lng], { icon: pin("drop", "#dc2626") }).bindTooltip(`Drop: ${data.drop.name}`).addTo(layer.current);
       points.push([data.drop.lat, data.drop.lng]);
     }
     if (data.location) {
-      L.marker([data.location.lat, data.location.lng], { icon: pin("🚙", "#dbeafe"), zIndexOffset: 1000 }).bindTooltip(data.vehicle?.number ?? "Vehicle").addTo(layer.current);
+      L.marker([data.location.lat, data.location.lng], { icon: pin("car", "#0b3d91", 40), zIndexOffset: 1000 }).bindTooltip(data.vehicle?.number ?? "Vehicle").addTo(layer.current);
       points.push([data.location.lat, data.location.lng]);
     }
     // Fit everything once; after that, follow the vehicle without fighting the user's zoom.
@@ -59,5 +64,5 @@ export default function TrackMap({ data }: { data: Track }) {
     }
   }, [data]);
 
-  return <div ref={el} className="h-80 w-full overflow-hidden rounded-xl ring-1 ring-slate-200 sm:h-96" />;
+  return <div ref={el} className="relative z-0 h-80 w-full overflow-hidden rounded-2xl ring-1 ring-slate-200 sm:h-[26rem]" />;
 }

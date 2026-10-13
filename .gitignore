@@ -1,6 +1,7 @@
 # Dependencies & builds
 node_modules/
 .next/
+.next-preview/
 .expo/
 dist/
 web-build/

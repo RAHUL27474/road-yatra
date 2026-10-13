@@ -15,7 +15,7 @@ export default async function NewPhoneBooking({ searchParams }: { searchParams: 
 
   return (
     <form action={offlineRentalBooking} className="space-y-4">
-      <h1 className="text-2xl font-bold">New phone booking — full cab</h1>
+      <h1 className="page-title">New phone booking — full cab</h1>
       <p className="text-sm text-slate-500">
         For shared seats, open the trip in <Link href="/admin/trips" className="font-semibold text-brand">Trips &amp; schedule</Link> and use
         &quot;Phone / walk-in booking&quot;. The fare is calculated automatically from the vehicle&apos;s rates. The booking is confirmed straight

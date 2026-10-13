@@ -14,7 +14,7 @@ export default async function StopsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Pickup &amp; drop points</h1>
+      <h1 className="page-title">Pickup &amp; drop points</h1>
       <p className="text-sm text-slate-500">
         Customers booking a shared seat choose one of these points in the departure and arrival city. Coordinates are used for the live-tracking
         map and ETA — copy them from Google Maps (right-click a place → the numbers at the top).
