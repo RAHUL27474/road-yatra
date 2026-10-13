@@ -277,3 +277,13 @@ model Counter {
   key   String @id
   value Int
 }
+
+// Uploaded images (driver photos and documents), stored in the database so the app works on
+// serverless hosting such as Vercel with no file storage.
+model StoredFile {
+  name        String   @id // e.g. "<uuid>.jpg"
+  visibility  String // public | private
+  contentType String
+  data        Bytes
+  createdAt   DateTime @default(now())
+}

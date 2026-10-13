@@ -10,7 +10,8 @@
     "db:seed": "tsx prisma/seed.ts && tsx prisma/rebrand.ts",
     "setup": "prisma db push && tsx prisma/seed.ts && tsx prisma/rebrand.ts",
     "start:prod": "prisma db push --skip-generate && tsx prisma/prod-init.ts && next start",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "vercel-build": "node scripts/prisma-postgres.mjs && prisma generate --schema prisma/schema.postgres.prisma && prisma db push --schema prisma/schema.postgres.prisma --skip-generate && tsx prisma/prod-init.ts && next build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
