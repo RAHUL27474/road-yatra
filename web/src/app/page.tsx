@@ -28,7 +28,7 @@ import { db } from "@/lib/db";
 import { fmtDuration, inr, VEHICLE_TYPES } from "@/lib/format";
 import { getSettings } from "@/lib/settings";
 import { HOLD_MINUTES } from "@/lib/booking";
-import { BRAND, cityPhoto, HERO_IMAGE, HILLS_IMAGE, ROADTRIP_IMAGE, routeHref, whatsappLink } from "@/lib/media";
+import { cityPhoto, HERO_IMAGE, HILLS_IMAGE, ROADTRIP_IMAGE, routeHref, whatsappLink } from "@/lib/media";
 import SearchBox from "@/components/SearchBox";
 import VehicleImage from "@/components/VehicleImage";
 import Amenities from "@/components/Amenities";
@@ -454,15 +454,22 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <a href={BRAND.bannerTemple} target="_blank" rel="noopener" className="group relative col-span-2 aspect-[1408/768] overflow-hidden rounded-2xl ring-1 ring-slate-200">
-              <Image src={BRAND.bannerTemple} alt="Our Hindi banner with the Khatu Shyam temple" fill sizes="(min-width: 1024px) 620px, 100vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
-            </a>
-            <a href={BRAND.bannerKhatushyam} target="_blank" rel="noopener" className="group relative aspect-[1408/768] overflow-hidden rounded-2xl ring-1 ring-slate-200">
-              <Image src={BRAND.bannerKhatushyam} alt="Our Hindi banner with Khatu Shyam ji" fill sizes="(min-width: 1024px) 300px, 50vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
-            </a>
-            <a href={BRAND.bannerWide} target="_blank" rel="noopener" className="group relative aspect-[1408/768] overflow-hidden rounded-2xl ring-1 ring-slate-200">
-              <Image src={BRAND.bannerWide} alt="Our banner with the fleet and routes" fill sizes="(min-width: 1024px) 300px, 50vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
-            </a>
+            {(
+              [
+                ["Haridwar", "Daily from Khatima", "col-span-2 aspect-[16/8]"],
+                ["Delhi", "Daily from Khatima", "aspect-[4/3]"],
+                ["Nainital", "Hill station trips", "aspect-[4/3]"],
+              ] as const
+            ).map(([city, caption, cls]) => (
+              <div key={city} className={`group relative overflow-hidden rounded-2xl ring-1 ring-slate-200 ${cls}`}>
+                <Image src={cityPhoto(city)} alt={city} fill sizes="(min-width: 1024px) 620px, 100vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                <div className="absolute bottom-3 left-4 text-white">
+                  <p className="text-lg font-extrabold drop-shadow">{city}</p>
+                  <p className="text-xs font-medium text-white/85">{caption}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

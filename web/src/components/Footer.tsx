@@ -133,7 +133,8 @@ export default async function Footer() {
       <div className="border-t border-white/10">
         <div className="container-x flex flex-col gap-2 py-5 text-xs text-blue-200/50 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © {new Date().getFullYear()} {business.legalName || brand}. All rights reserved.
+            © {new Date().getFullYear()} {business.legalName || brand}. All rights reserved. ·{" "}
+            <a href="/credits" className="underline-offset-2 hover:text-white hover:underline">Photo credits</a>
           </p>
           <p>5% GST is shown upfront before you pay. Toll and parking on full cab trips are listed separately.</p>
         </div>

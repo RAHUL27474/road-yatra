@@ -16,13 +16,13 @@ export const BRAND = {
 
 /** WhatsApp chat link for an Indian phone number such as "+91 99976 81790". */
 export function whatsappLink(phone: string) {
-  const digits = phone.replace(/D/g, "");
+  const digits = phone.replace(/\D/g, "");
   return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`;
 }
 
 const VEHICLE_PHOTOS: Record<string, string> = {
   SEDAN: "/images/car-sedan.jpg",
-  HATCHBACK: "/images/fleet-altroz.jpg",
+  HATCHBACK: "/images/fleet-altroz-photo.jpg",
   ERTIGA: "/images/car-mpv.jpg",
   SUV: "/images/car-suv.jpg",
   INNOVA_CRYSTA: "/images/car-suv.jpg",
@@ -31,12 +31,12 @@ const VEHICLE_PHOTOS: Record<string, string> = {
   OTHER: "/images/car-mpv.jpg",
 };
 
-/** Photos of our own fleet, cropped from the owner's banner, matched by vehicle name. */
+/** Photos of the vehicle models we run (see CREDITS.md), matched by vehicle name. */
 const FLEET_PHOTOS: [RegExp, string][] = [
-  [/ertiga/i, "/images/fleet-ertiga.jpg"],
-  [/dzire.*old/i, "/images/fleet-dzire-old.jpg"],
-  [/dzire/i, "/images/fleet-dzire-new.jpg"],
-  [/altroz/i, "/images/fleet-altroz.jpg"],
+  [/ertiga/i, "/images/fleet-ertiga-photo.jpg"],
+  [/dzire.*old/i, "/images/fleet-dzire-old-photo.jpg"],
+  [/dzire/i, "/images/fleet-dzire-new-photo.jpg"],
+  [/altroz/i, "/images/fleet-altroz-photo.jpg"],
 ];
 
 /** Photo for a vehicle (used when the office has not uploaded one): our fleet photo by name, else a stock photo by type. */

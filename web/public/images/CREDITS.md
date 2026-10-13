@@ -1,6 +1,6 @@
 # Image credits
 
-Stock photos in this folder are free-licence photos from Unsplash or Pexels, cropped, resized and recompressed for the Jai Shree Shyam Tour & Travels website. Brand artwork (the `brand/` folder and the `fleet-*.jpg` crops) was supplied by the owner and is listed separately at the end.
+Stock photos in this folder are free-licence photos from Unsplash or Pexels, cropped, resized and recompressed for the Jai Shree Shyam Tour & Travels website. Brand artwork (the `brand/` folder) was supplied by the owner and is listed separately at the end.
 
 | File | Subject | Photographer | Source page URL | Licence |
 |---|---|---|---|---|
@@ -33,7 +33,15 @@ These images belong to Jai Shree Shyam Tour & Travels and are used with the owne
 | brand/banner-temple-hi.jpg | Hindi banner with Khatu Shyam temple | Supplied by owner |
 | brand/banner-khatushyam-hi.jpg | Hindi banner with Khatu Shyam ji | Supplied by owner |
 | brand/emblem-khatushyam.jpg | Round header emblem, cropped from poster-portrait.jpg | Supplied by owner (crop) |
-| fleet-ertiga.jpg | Maruti Ertiga, cropped from banner-wide.jpg | Supplied by owner (crop) |
-| fleet-dzire-new.jpg | Maruti Dzire (new model), cropped from banner-wide.jpg | Supplied by owner (crop) |
-| fleet-dzire-old.jpg | Maruti Dzire (old model), cropped from banner-wide.jpg | Supplied by owner (crop) |
-| fleet-altroz.jpg | Tata Altroz, cropped from banner-wide.jpg | Supplied by owner (crop) |
+
+
+## Fleet photos (Wikimedia Commons)
+
+Representative photos of the vehicle models we run, cropped and resized. Replace them with photos of our own cars when available.
+
+| File | Photo | Author | Licence |
+|---|---|---|---|
+| fleet-ertiga-photo.jpg | [2022 Maruti Suzuki Ertiga LXi](https://commons.wikimedia.org/wiki/File:2022_Maruti_Suzuki_Ertiga_LXi.jpg) | Ramakrishna Mission Vidyapith | Public domain |
+| fleet-dzire-new-photo.jpg | [2026 Suzuki Dzire GL in Arctic White Pearl](https://commons.wikimedia.org/wiki/File:2026_Suzuki_Dzire_GL_in_Arctic_White_Pearl_01.jpg) | Haysnawri10 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| fleet-dzire-old-photo.jpg | [Suzuki Dzire 1.2 GL 2023](https://commons.wikimedia.org/wiki/File:Suzuki_Dzire_1.2_GL_2023_(1).jpg) (padded to 16:9 with a blurred edge) | Captainmorlypogi1959 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| fleet-altroz-photo.jpg | [Tata Altroz front](https://commons.wikimedia.org/wiki/File:Tata_Altroz_front_20230617.jpg) | Dairokkan9 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |

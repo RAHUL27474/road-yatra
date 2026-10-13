@@ -7,3 +7,7 @@ next-env.d.ts
 uploads
 .next-preview
 prisma/schema.postgres.prisma
+.vercel
+
+.vercel
+.env*
