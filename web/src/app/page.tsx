@@ -71,6 +71,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   const cabFromPerKm = rentalRates.length ? Math.min(...rentalRates) : null;
   const fromKhatima = (city: string) => routes.find((r) => r.fromCity === "Khatima" && r.toCity === city);
   const featured = FEATURED.map(fromKhatima).filter((r) => !!r);
+  const returns = [...FEATURED, ...HILL_STATIONS].map((city) => routes.find((r) => r.fromCity === city && r.toCity === "Khatima")).filter((r) => !!r);
   const hills = HILL_STATIONS.map(fromKhatima).filter((r) => !!r);
   const stopsBy = (city: string) => stops.filter((s) => s.city === city).map((s) => s.name);
   const luggageVehicles = vehicles.filter((v) => /luggage/i.test(v.amenities)).map((v) => v.name);
@@ -257,6 +258,36 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
               );
             })}
           </div>
+
+          {returns.length > 0 && (
+            <>
+            <h3 className="mt-10 text-lg font-bold text-ink">Coming back to Khatima</h3>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {returns.map((r) => {
+                const { hasSeats, from, href } = routeInfo(r);
+                return (
+                  <Link key={r.id} href={href} className="card card-hover flex items-center gap-4 p-4">
+                    <span className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl">
+                      <Image src={cityPhoto(r.fromCity)} alt={r.fromCity} fill sizes="96px" className="object-cover" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold uppercase tracking-wide text-accent">{hasSeats ? "Return journey · Daily shared" : "Return journey · Full cab"}</span>
+                      <span className="block text-lg font-extrabold text-ink">
+                        {r.fromCity} → Khatima
+                      </span>
+                      <span className="text-sm text-slate-500">
+                        {r.distanceKm} km · {fmtDuration(r.durationMins)}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-brand">
+                      {hasSeats ? `from ${inr(from!)}` : "Book cab"} <ArrowRight className="h-4 w-4" aria-hidden />
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+            </>
+          )}
 
           {hills.length > 0 && (
             <>

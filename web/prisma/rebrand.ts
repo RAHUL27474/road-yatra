@@ -55,14 +55,25 @@ async function main() {
     }
   }
 
-  // Haridwar pickup / drop points
+  // Pickup / drop points in Delhi and Haridwar (approximate coordinates — adjust in Admin → Pickup points)
   const stops: [string, string, string, number, number, number][] = [
+    ["Delhi", "Anand Vihar ISBT", "Anand Vihar, Delhi", 28.6469, 77.3159, 0],
+    ["Delhi", "Kashmere Gate ISBT", "Kashmere Gate, Delhi", 28.6675, 77.2283, 1],
+    ["Delhi", "New Delhi Railway Station", "Paharganj side, New Delhi", 28.643, 77.2194, 2],
+    ["Delhi", "Old Delhi Railway Station", "Chandni Chowk, Delhi", 28.6612, 77.2276, 3],
+    ["Delhi", "Hazrat Nizamuddin Railway Station", "Nizamuddin, New Delhi", 28.5893, 77.2531, 4],
+    ["Delhi", "Anand Vihar Railway Terminal", "Anand Vihar, Delhi", 28.6502, 77.3152, 5],
+    ["Delhi", "Sarai Kale Khan ISBT", "Ring Road, Sarai Kale Khan, Delhi", 28.5886, 77.256, 6],
+    ["Delhi", "Delhi Airport (T1)", "IGI Airport Terminal 1, Domestic", 28.5665, 77.1031, 7],
+    ["Delhi", "Delhi Airport (T3)", "IGI Airport Terminal 3", 28.5562, 77.087, 8],
+    ["Delhi", "Akshardham Metro", "Akshardham, Delhi", 28.6185, 77.279, 9],
+    ["Delhi", "Noida Sector 62", "Sector 62, Noida", 28.6271, 77.3725, 10],
     ["Haridwar", "Har Ki Pauri", "Har Ki Pauri, Haridwar", 29.9561, 78.1702, 0],
     ["Haridwar", "Haridwar Railway Station", "Railway Road, Haridwar", 29.9475, 78.1601, 1],
     ["Haridwar", "Haridwar Bus Stand (ISBT)", "Delhi–Haridwar Road, Haridwar", 29.9457, 78.1555, 2],
   ];
   for (const [city, name, address, lat, lng, sortOrder] of stops) {
-    await db.stop.upsert({ where: { city_name: { city, name } }, update: {}, create: { city, name, address, lat, lng, sortOrder } });
+    await db.stop.upsert({ where: { city_name: { city, name } }, update: { sortOrder }, create: { city, name, address, lat, lng, sortOrder } });
   }
 
   // Shared fare ₹800 per seat on upcoming Khatima ⇄ Delhi trips

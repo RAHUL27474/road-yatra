@@ -17,6 +17,8 @@ export type Config = {
   brandName: string;
   supportPhone: string;
   demoPayments: boolean;
+  /** false until Razorpay is connected: customers can only pay cash to the driver. */
+  onlinePayments?: boolean;
   allowCash: boolean;
   otpLogin: boolean;
   gstRate: number;

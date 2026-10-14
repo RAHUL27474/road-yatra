@@ -377,7 +377,8 @@ function PassengerForm({
       .catch(() => {});
   }, []);
   const allowCash = !!config?.allowCash;
-  const mode: PaymentChoice = allowCash ? payment : 'ONLINE';
+  const allowOnline = config?.onlinePayments !== false;
+  const mode: PaymentChoice = !allowOnline ? 'CASH' : allowCash ? payment : 'ONLINE';
 
   const pay = async (fallbackName = '', fallbackPhone = '') => {
     setError(null);
@@ -505,6 +506,7 @@ function PassengerForm({
 
           <Section icon="wallet-outline" title="Payment method">
             <View style={{ gap: spacing.sm }}>
+              {allowOnline ? (
               <PayOption
                 on={mode === 'ONLINE'}
                 icon="phone-portrait-outline"
@@ -512,6 +514,7 @@ function PassengerForm({
                 subtitle="UPI, debit / credit card or net banking. Confirmed instantly after payment."
                 onPress={() => setPayment('ONLINE')}
               />
+              ) : null}
               {allowCash ? (
                 <PayOption
                   on={mode === 'CASH'}
