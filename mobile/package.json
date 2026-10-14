@@ -1,6 +1,7 @@
 {
   "name": "road-yatra",
   "version": "1.0.0",
+  "author": "Sanjeev Kushwaha",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

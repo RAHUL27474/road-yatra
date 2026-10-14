@@ -1,6 +1,7 @@
 {
   "name": "road-yatra-web",
   "version": "0.1.0",
+  "author": "Sanjeev Kushwaha",
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
