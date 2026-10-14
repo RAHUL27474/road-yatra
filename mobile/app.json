@@ -41,6 +41,13 @@
       ]
     ],
     "scheme": "roadyatra",
-    "primaryColor": "#1E3A8A"
+    "primaryColor": "#1E3A8A",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6c3aaa34-e993-4b41-afa0-668f986867f0"
+      }
+    },
+    "owner": "rahul27474"
   }
 }

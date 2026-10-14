@@ -26,12 +26,12 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION",
-        "CAMERA"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -78,6 +78,13 @@
         }
       ]
     ],
-    "primaryColor": "#1E3A8A"
+    "primaryColor": "#1E3A8A",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5df153f4-7ac2-4cc9-99ad-8abf9fb0238e"
+      }
+    },
+    "owner": "rahul27474"
   }
 }

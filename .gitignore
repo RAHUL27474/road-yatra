@@ -33,3 +33,8 @@ web/uploads/
 npm-debug.*
 .metro-health-check*
 .vercel
+.env*
+!.env.example
+
+# APKs downloaded from EAS builds
+apk/
