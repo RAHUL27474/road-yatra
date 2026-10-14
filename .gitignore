@@ -32,3 +32,4 @@ web/uploads/
 .DS_Store
 npm-debug.*
 .metro-health-check*
+.vercel

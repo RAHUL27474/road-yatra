@@ -1,0 +1,9 @@
+mobile
+driver
+**/node_modules
+web/.next
+web/.next-preview
+web/prisma/*.db
+web/uploads
+**/.env
+**/.env.local
