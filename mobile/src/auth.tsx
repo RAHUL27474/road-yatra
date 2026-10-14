@@ -5,12 +5,17 @@ import { api, ApiError, setAuthToken, User } from './api';
 const TOKEN_KEY = 'ry_token';
 
 export type OtpRequestResult = { sent: boolean; isNewUser: boolean; devOtp?: string };
+/** Sign-up details. `channel` is where the verification OTP goes: the mobile number or the email. */
+export type RegisterInput = { name: string; email?: string; phone: string; password: string; channel: 'PHONE' | 'EMAIL' };
 
 type AuthState = {
   ready: boolean;
   user: User | null;
   login: (login: string, password: string) => Promise<void>;
-  register: (input: { name: string; email?: string; phone: string; password: string }) => Promise<void>;
+  /** Sign-up step 1: checks the details and sends the OTP. Returns where it went (and the OTP in test mode). */
+  requestRegisterOtp: (input: RegisterInput) => Promise<{ sentTo: string; devOtp?: string }>;
+  /** Sign-up step 2: verifies the OTP, creates the account and logs in. */
+  register: (input: RegisterInput & { otp: string }) => Promise<void>;
   /** Sends a 6-digit OTP. Throws ApiError(503) when OTP login is not set up on the server. */
   requestOtp: (phone: string) => Promise<OtpRequestResult>;
   /** Logs in with the OTP. Returns `needsName` for a new number sent without a name (resend with the name). */
@@ -57,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const r = await api<{ token: string; user: User }>('/api/auth/login', { body: { login: login.trim(), password } });
         await save(r.token, r.user);
       },
+      requestRegisterOtp: (input) => api<{ sentTo: string; devOtp?: string }>('/api/auth/register/otp', { body: input }),
       register: async (input) => {
         const r = await api<{ token: string; user: User }>('/api/auth/register', { body: input });
         await save(r.token, r.user);

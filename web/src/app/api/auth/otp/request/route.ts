@@ -3,11 +3,16 @@ import { db } from "@/lib/db";
 import { handle, ok } from "@/lib/http";
 import { requestOtp } from "@/lib/otp";
 import { phoneSchema } from "@/lib/schemas";
+import { assertNewAccount, optionalEmail, otpChannel, signupTarget } from "@/lib/signup";
 
-// POST /api/auth/otp/request { phone } -> { isNewUser, devOtp? }
+const schema = z.object({ phone: phoneSchema, email: optionalEmail, channel: otpChannel });
+
+// POST /api/auth/otp/request { phone, email?, channel? } -> { sent, isNewUser, devOtp? }
+// channel "EMAIL" sends the OTP to `email` and is only for new accounts: existing users log in with their mobile OTP or password.
 export const POST = handle(async (req: Request) => {
-  const { phone } = z.object({ phone: phoneSchema }).parse(await req.json());
-  const { devOtp } = await requestOtp(phone);
-  const isNewUser = !(await db.user.findUnique({ where: { phone }, select: { id: true } }));
+  const { phone, email, channel } = schema.parse(await req.json());
+  if (channel === "EMAIL") await assertNewAccount(phone, email);
+  const { devOtp } = await requestOtp(signupTarget(channel, phone, email), channel);
+  const isNewUser = channel === "EMAIL" || !(await db.user.findUnique({ where: { phone }, select: { id: true } }));
   return ok({ sent: true, isNewUser, devOtp });
 });

@@ -22,10 +22,13 @@ type AuthState = {
   user: User | null;
   application: Application | null;
   access: Access | null;
-  /** Sends an OTP; returns the dev-mode OTP when the server is in test mode. */
-  requestOtp: (phone: string) => Promise<{ devOtp?: string; isNewUser?: boolean }>;
+  /**
+   * Sends an OTP to the mobile number, or to `email` when given (new accounts only).
+   * Returns the dev-mode OTP when the server is in test mode.
+   */
+  requestOtp: (phone: string, email?: string) => Promise<{ devOtp?: string; isNewUser?: boolean }>;
   /** Verifies the OTP. Resolves `{ needsName: true }` for a new number: ask for the name and call again with it. */
-  verifyOtp: (phone: string, otp: string, name?: string) => Promise<{ needsName: boolean }>;
+  verifyOtp: (phone: string, otp: string, name?: string, email?: string) => Promise<{ needsName: boolean }>;
   loginPassword: (login: string, password: string) => Promise<void>;
   /** Reloads the account and driver application, which re-runs the status routing. */
   refreshAccess: () => Promise<Access | null>;
@@ -140,10 +143,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       application: session?.application ?? null,
       access: session?.access ?? null,
-      requestOtp: (phone) => api<{ sent: boolean; isNewUser?: boolean; devOtp?: string }>('/api/auth/otp/request', { body: { phone } }),
-      verifyOtp: async (phone, otp, name) => {
+      requestOtp: (phone, email) =>
+        api<{ sent: boolean; isNewUser?: boolean; devOtp?: string }>('/api/auth/otp/request', { body: email ? { phone, email, channel: 'EMAIL' } : { phone } }),
+      verifyOtp: async (phone, otp, name, email) => {
         const body: Record<string, string> = { phone, otp };
         if (name?.trim()) body.name = name.trim();
+        if (email) Object.assign(body, { email, channel: 'EMAIL' });
         const r = await api<{ token?: string; user?: User; needsName?: boolean }>('/api/auth/otp/verify', { body });
         if (r.needsName || !r.token || !r.user) return { needsName: true };
         await accept({ token: r.token, user: r.user });

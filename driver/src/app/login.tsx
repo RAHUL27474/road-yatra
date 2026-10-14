@@ -1,8 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ApiError } from '../api';
+import { ApiError, getConfig } from '../api';
 import { useAuth } from '../auth';
 import { BRAND, Devotional, Emblem } from '../brand';
 import { colors, fonts, gradient, radius, shadow, space } from '../theme';
@@ -25,6 +25,19 @@ export default function Login() {
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // New drivers verify their mobile number by SMS, or their email when the server can send email OTPs.
+  const [emailOtp, setEmailOtp] = useState(false);
+  const [verifyBy, setVerifyBy] = useState<'PHONE' | 'EMAIL'>('PHONE');
+  const [email, setEmail] = useState('');
+  const otpEmail = intent === 'apply' && verifyBy === 'EMAIL' ? email.trim().toLowerCase() : undefined;
+  const digits = phone.replace(/\D/g, '').slice(-10);
+  const sentTo = otpEmail ?? `+91 ${digits}`;
+
+  useEffect(() => {
+    getConfig()
+      .then((c) => setEmailOtp(!!c.emailOtp))
+      .catch(() => {});
+  }, []);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -39,16 +52,16 @@ export default function Login() {
 
   const sendOtp = () =>
     run(async () => {
-      const p = phone.replace(/\D/g, '').slice(-10);
-      if (p.length !== 10) throw new Error('Enter your 10-digit mobile number.');
+      if (digits.length !== 10) throw new Error('Enter your 10-digit mobile number.');
+      if (otpEmail !== undefined && !/^\S+@\S+\.\S+$/.test(otpEmail)) throw new Error('Enter a valid email address.');
       try {
-        const r = await requestOtp(p);
+        const r = await requestOtp(digits, otpEmail);
         setDevOtp(r.devOtp ?? null);
         setOtp('');
         setMode('otp');
       } catch (e) {
-        // OTP login not set up on the server: switch to password silently.
-        if (e instanceof ApiError && e.status === 503) {
+        // OTP login not set up on the server: switch to password silently (email OTP errors are shown as they are).
+        if (e instanceof ApiError && e.status === 503 && !otpEmail) {
           setNote(e.message);
           setMode('password');
         } else throw e;
@@ -58,7 +71,7 @@ export default function Login() {
   const submitOtp = (code = otp) =>
     run(async () => {
       if (!/^\d{6}$/.test(code)) throw new Error('Enter the 6-digit OTP.');
-      const r = await verifyOtp(phone.replace(/\D/g, '').slice(-10), code);
+      const r = await verifyOtp(digits, code, undefined, otpEmail);
       // A new number: the OTP is still valid, so ask for the name and resubmit it.
       if (r.needsName) {
         setMode('name');
@@ -71,7 +84,7 @@ export default function Login() {
     run(async () => {
       if (name.trim().length < 2) throw new Error('Enter your full name.');
       try {
-        const r = await verifyOtp(phone.replace(/\D/g, '').slice(-10), otp, name);
+        const r = await verifyOtp(digits, otp, name, otpEmail);
         if (r.needsName) throw new Error('Enter your full name.');
       } catch (e) {
         // The OTP is only checked now (with the name): a wrong or expired code goes back to the OTP step.
@@ -89,6 +102,7 @@ export default function Login() {
     setIntent(next);
     setNote(null);
     setOtp('');
+    setVerifyBy('PHONE');
     setMode('phone');
   };
 
@@ -146,13 +160,13 @@ export default function Login() {
             <T v="title">{mode === 'otp' ? 'Enter OTP' : mode === 'name' ? `Welcome to ${BRAND.short}` : intent === 'apply' ? 'Apply to drive' : 'Log in'}</T>
             <T v="body" color={colors.textMuted} style={{ marginTop: 4, marginBottom: space.xl }}>
               {mode === 'otp'
-                ? `We sent a 6-digit code to +91 ${phone.replace(/\D/g, '').slice(-10)}`
+                ? `We sent a 6-digit code to ${sentTo}`
                 : mode === 'name'
-                  ? `+91 ${phone.replace(/\D/g, '').slice(-10)} is verified. Tell us your name to create your account.`
+                  ? `${sentTo} is verified. Tell us your name to create your account.`
                   : mode === 'password'
                     ? 'Use your mobile number and password'
                     : intent === 'apply'
-                      ? 'Verify your mobile number to start. The application takes about 5 minutes.'
+                      ? `Verify your ${verifyBy === 'EMAIL' ? 'email' : 'mobile number'} to start. The application takes about 5 minutes.`
                       : 'Use your registered mobile number'}
             </T>
 
@@ -171,6 +185,50 @@ export default function Login() {
                 onSubmitEditing={mode === 'phone' ? sendOtp : undefined}
                 style={{ fontSize: 22, fontFamily: fonts.bold, letterSpacing: 1 }}
               />
+            ) : null}
+
+            {mode === 'phone' && intent === 'apply' && emailOtp ? (
+              <>
+                <T v="label" color={colors.textMuted} style={{ marginBottom: space.sm }}>
+                  Send the OTP to my
+                </T>
+                <View style={st.seg} accessibilityRole="tablist">
+                  {(['PHONE', 'EMAIL'] as const).map((k) => {
+                    const on = verifyBy === k;
+                    return (
+                      <Pressable
+                        key={k}
+                        onPress={() => {
+                          if (!on) haptic.tap();
+                          setVerifyBy(k);
+                        }}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: on }}
+                        style={[st.segBtn, on && st.segOn]}
+                      >
+                        <Ionicons name={k === 'PHONE' ? 'call-outline' : 'mail-outline'} size={18} color={on ? colors.brand : colors.textMuted} />
+                        <T v="bodyStrong" color={on ? colors.brand : colors.textMuted}>
+                          {k === 'PHONE' ? 'Mobile (SMS)' : 'Email'}
+                        </T>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {verifyBy === 'EMAIL' ? (
+                  <Field
+                    label="Email"
+                    icon="mail-outline"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    onSubmitEditing={sendOtp}
+                  />
+                ) : null}
+              </>
             ) : null}
 
             {mode === 'phone' && <Button title="Send OTP" icon="arrow-forward" onPress={sendOtp} loading={busy} />}
@@ -373,6 +431,9 @@ const st = StyleSheet.create({
     ...shadow.card,
   },
   applyIcon: { width: 48, height: 48, borderRadius: 14, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' },
+  seg: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: radius.input + 4, backgroundColor: colors.background, marginBottom: space.lg },
+  segBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.input },
+  segOn: { backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.brand },
   or: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.lg },
   orLine: { flex: 1, height: 1, backgroundColor: colors.border },
 });

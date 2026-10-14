@@ -3,7 +3,7 @@ import { isDemoPayments } from "@/lib/payment";
 import { onlinePaymentsAvailable } from "@/lib/payment-mode";
 import { GST_RATE, HOLD_MINUTES } from "@/lib/booking";
 import { getSettings } from "@/lib/settings";
-import { smsConfigured } from "@/lib/notify";
+import { otpAvailable } from "@/lib/otp";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,8 @@ export async function GET() {
     demoPayments: isDemoPayments(),
     onlinePayments: onlinePaymentsAvailable(),
     allowCash: s.allowCash,
-    otpLogin: smsConfigured() || process.env.OTP_DEV_MODE === "true",
+    otpLogin: otpAvailable("PHONE"),
+    emailOtp: otpAvailable("EMAIL"),
     gstRate: GST_RATE,
     holdMinutes: HOLD_MINUTES,
     cancellationSlabs: s.cancellationSlabs,

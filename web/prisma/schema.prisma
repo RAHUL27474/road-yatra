@@ -26,7 +26,7 @@ model User {
 // One-time passwords sent by SMS for login.
 model OtpCode {
   id        String   @id @default(cuid())
-  phone     String
+  phone     String // where the OTP was sent: a mobile number, or an email address for email OTPs
   codeHash  String
   expiresAt DateTime
   attempts  Int      @default(0)

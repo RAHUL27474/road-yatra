@@ -2,7 +2,8 @@ export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000
 export const TOKEN_KEY = 'ry_driver_token';
 
 export type User = { id: string; name: string; email: string | null; phone: string; role: 'CUSTOMER' | 'DRIVER' | 'ADMIN' };
-export type Config = { brandName: string; supportPhone: string; otpLogin: boolean };
+/** emailOtp: new drivers can verify by email instead of SMS. */
+export type Config = { brandName: string; supportPhone: string; otpLogin: boolean; emailOtp?: boolean };
 export type Stop = { id: string; city: string; name: string; address: string; lat: number | null; lng: number | null };
 export type DutyStatus = 'SCHEDULED' | 'STARTED' | 'COMPLETED';
 export type DutyVehicle = { id: string; name: string; regNumber: string; seats: number };

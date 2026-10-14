@@ -21,6 +21,8 @@ export type Config = {
   onlinePayments?: boolean;
   allowCash: boolean;
   otpLogin: boolean;
+  /** Email OTPs can be sent (for verifying a new account by email). */
+  emailOtp?: boolean;
   gstRate: number;
   holdMinutes: number;
   cancellationSlabs: { minHoursBefore: number; refundPercent: number }[];

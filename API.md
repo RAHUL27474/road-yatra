@@ -9,10 +9,11 @@ using the `token` returned by any login call (valid 30 days).
 ## Auth
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| POST | `/api/auth/otp/request` | `{ phone }` | `{ sent, isNewUser, devOtp? }` — `devOtp` only in test mode (no SMS provider) |
-| POST | `/api/auth/otp/verify` | `{ phone, otp (6 digits), name? }` | `{ token, user }`, or `{ needsName: true }` for a new number without `name` (OTP not used up yet; resend with `name`) |
+| POST | `/api/auth/otp/request` | `{ phone, email?, channel? }` | `{ sent, isNewUser, devOtp? }` — `devOtp` only in test mode (no SMS/email provider). `channel: "EMAIL"` sends the OTP to `email` instead (new accounts only; 409 if the phone or email is already registered) |
+| POST | `/api/auth/otp/verify` | `{ phone, otp (6 digits), name?, email?, channel? }` | `{ token, user }`, or `{ needsName: true }` for a new number without `name` (OTP not used up yet; resend with `name`) |
 | POST | `/api/auth/login` | `{ login (email or phone), password }` | `{ token, user }` |
-| POST | `/api/auth/register` | `{ name, phone, email?, password }` | `{ token, user }` |
+| POST | `/api/auth/register/otp` | `{ name, phone, email?, password, channel: "PHONE" \| "EMAIL" }` | `{ sent, channel, sentTo, devOtp? }` — sign-up step 1: checks the details (409 if already registered) and sends the OTP to the mobile or the email |
+| POST | `/api/auth/register` | `{ name, phone, email?, password, channel, otp }` | `{ token, user }` — sign-up step 2: the OTP from step 1 |
 | POST | `/api/auth/logout` | – | `{ ok }` |
 | GET | `/api/auth/me` | – | `{ user }` (401 if not logged in) |
 
@@ -22,7 +23,7 @@ If `/api/auth/otp/request` returns 503, OTP login is not set up: fall back to pa
 ## Public data
 | Method | Path | Returns |
 |---|---|---|
-| GET | `/api/config` | `{ brandName, supportPhone, demoPayments, allowCash, otpLogin, gstRate, holdMinutes, cancellationSlabs: {minHoursBefore, refundPercent}[] }` |
+| GET | `/api/config` | `{ brandName, supportPhone, demoPayments, allowCash, otpLogin, emailOtp, gstRate, holdMinutes, cancellationSlabs: {minHoursBefore, refundPercent}[] }` |
 | GET | `/api/cities` | `{ cities: string[] }` |
 | GET | `/api/stops?city=Khatima` | `{ stops: Stop[] }` (all cities if `city` omitted) |
 | GET | `/api/trips/search?from=Khatima&to=Delhi&date=YYYY-MM-DD` | `{ trips: TripSummary[] }` |
@@ -88,7 +89,7 @@ type Booking = {
 |---|---|---|
 
 ## Driver registration (driver app, any logged-in user)
-A new driver verifies their mobile with OTP (`/api/auth/otp/request` → `/api/auth/otp/verify` with `name`; the account starts as role CUSTOMER), then applies.
+A new driver verifies their mobile (or their email, with `channel: "EMAIL"`) with OTP (`/api/auth/otp/request` → `/api/auth/otp/verify` with `name`; the account starts as role CUSTOMER), then applies.
 The office approves in Admin → Drivers; on approval the role becomes DRIVER and the driver can use the endpoints below.
 
 | Method | Path | Body | Returns |

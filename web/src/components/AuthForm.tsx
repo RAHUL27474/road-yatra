@@ -8,13 +8,18 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/client";
 
-export default function AuthForm({ mode, otpEnabled }: { mode: "login" | "register"; otpEnabled: boolean }) {
+export default function AuthForm({ mode, otpEnabled, emailOtpEnabled }: { mode: "login" | "register"; otpEnabled: boolean; emailOtpEnabled: boolean }) {
   const params = useSearchParams();
   const next = params.get("next") || "/";
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
   const [method, setMethod] = useState<"otp" | "password">(otpEnabled && mode === "login" ? "otp" : "password");
   const [form, setForm] = useState({ name: "", email: "", phone: "", login: "", password: "", otp: "" });
+  // OTP login: "phone" = enter number, "code" = enter OTP. Sign-up: "phone" = the form, "code" = verify the OTP.
   const [otpStep, setOtpStep] = useState<"phone" | "code">("phone");
+  // Sign-up verifies the mobile number or the email with an OTP.
+  const channels = [...(otpEnabled ? (["PHONE"] as const) : []), ...(emailOtpEnabled ? (["EMAIL"] as const) : [])];
+  const [channel, setChannel] = useState<"PHONE" | "EMAIL">(channels[0] ?? "PHONE");
+  const [sentTo, setSentTo] = useState("");
   const [isNewUser, setIsNewUser] = useState(false);
   const [devOtp, setDevOtp] = useState<string | undefined>();
   const [error, setError] = useState("");
@@ -52,8 +57,17 @@ export default function AuthForm({ mode, otpEnabled }: { mode: "login" | "regist
         await apiFetch("/api/auth/login", { body: { login: form.login, password: form.password } });
         done();
       } else {
-        await apiFetch("/api/auth/register", { body: { name: form.name, email: form.email, phone: form.phone, password: form.password } });
-        done();
+        const body = { name: form.name, email: form.email, phone: form.phone, password: form.password, channel };
+        if (otpStep === "phone") {
+          const r = await apiFetch<{ sentTo: string; devOtp?: string }>("/api/auth/register/otp", { body });
+          setSentTo(r.sentTo);
+          setDevOtp(r.devOtp);
+          setForm({ ...form, otp: "" });
+          setOtpStep("code");
+        } else {
+          await apiFetch("/api/auth/register", { body: { ...body, otp: form.otp } });
+          done();
+        }
       }
     });
   };
@@ -134,17 +148,57 @@ export default function AuthForm({ mode, otpEnabled }: { mode: "login" | "regist
             </>
           )
         ) : mode === "register" ? (
-          <>
-            <div>
-              <label className="label">Full name</label>
-              <input className="input" required value={form.name} onChange={set("name")} />
-            </div>
-            {phoneInput}
-            <div>
-              <label className="label">Email (optional)</label>
-              <input className="input" type="email" value={form.email} onChange={set("email")} />
-            </div>
-          </>
+          otpStep === "code" ? (
+            <>
+              <p className="text-sm text-slate-500">
+                OTP sent to <b>{channel === "PHONE" ? `+91 ${sentTo}` : sentTo}</b>.{" "}
+                <button type="button" className="font-semibold text-brand" onClick={() => setOtpStep("phone")}>
+                  Change
+                </button>
+              </p>
+              {devOtp && (
+                <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-800">
+                  Test mode (no {channel === "EMAIL" ? "email" : "SMS"} provider set up): your OTP is {devOtp}
+                </p>
+              )}
+              <div>
+                <label className="label">6-digit OTP</label>
+                <input className="input text-center text-xl tracking-[0.5em]" required autoFocus inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={form.otp} onChange={set("otp")} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="label">Full name</label>
+                <input className="input" required value={form.name} onChange={set("name")} />
+              </div>
+              {phoneInput}
+              <div>
+                <label className="label">{channel === "EMAIL" ? "Email" : "Email (optional)"}</label>
+                <input className="input" type="email" required={channel === "EMAIL"} value={form.email} onChange={set("email")} />
+              </div>
+              {channels.length > 1 && (
+                <div>
+                  <label className="label">Verify with an OTP sent to your</label>
+                  <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1 text-sm font-semibold">
+                    {channels.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setChannel(c)}
+                        className={`rounded-lg py-2 transition ${channel === c ? "bg-white text-brand shadow" : "text-slate-500 hover:text-ink"}`}
+                      >
+                        {c === "PHONE" ? "Mobile number" : "Email"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {channels.length === 0 && (
+                <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Sign-up verification is not set up yet. Please call us to book, or try again later.</p>
+              )}
+            </>
+          )
         ) : (
           <div>
             <label className="label">Email or mobile number</label>
@@ -152,7 +206,7 @@ export default function AuthForm({ mode, otpEnabled }: { mode: "login" | "regist
           </div>
         )}
 
-        {method === "password" && (
+        {method === "password" && !(mode === "register" && otpStep === "code") && (
           <div>
             <label className="label">Password</label>
             <input className="input" type="password" required minLength={mode === "register" ? 6 : 1} value={form.password} onChange={set("password")} />
@@ -160,8 +214,18 @@ export default function AuthForm({ mode, otpEnabled }: { mode: "login" | "regist
         )}
 
         {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <button className="btn-primary btn-lg w-full" disabled={busy}>
-          {busy ? "Please wait…" : method === "otp" ? (otpStep === "phone" ? "Send OTP" : "Verify & continue") : mode === "login" ? "Login" : "Create account"}
+        <button className="btn-primary btn-lg w-full" disabled={busy || (mode === "register" && channels.length === 0)}>
+          {busy
+            ? "Please wait…"
+            : method === "otp"
+              ? otpStep === "phone"
+                ? "Send OTP"
+                : "Verify & continue"
+              : mode === "login"
+                ? "Login"
+                : otpStep === "phone"
+                  ? "Send OTP"
+                  : "Verify & create account"}
         </button>
         {method === "password" && (
           <p className="text-center text-sm text-slate-500">
