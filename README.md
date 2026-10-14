@@ -70,7 +70,9 @@ All keys go in `web/.env` (see `web/.env.example`).
 | Service | What for | Keys |
 |---|---|---|
 | Razorpay | Online payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` (demo mode until set) |
-| MSG91 | OTP and booking SMS | `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_*` (DLT-approved templates are required in India) |
+| Message Central | OTP SMS (login and sign-up), no DLT registration needed | `MESSAGE_CENTRAL_CUSTOMER_ID`, `MESSAGE_CENTRAL_PASSWORD` |
+| SMTP (Gmail, Brevo, Mailjet…) | Email OTP for sign-up | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` |
+| MSG91 | Booking SMS (and OTP SMS if Message Central is not set) | `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_*` (DLT-approved templates are required in India) |
 | WhatsApp Business (Meta Cloud API) | Confirmations, driver details, tracking link | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_TEMPLATE_*` |
 
 Until SMS and WhatsApp are connected, messages are only recorded in Admin → SMS / WhatsApp log.
