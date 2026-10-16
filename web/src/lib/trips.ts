@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { expireStaleHolds, getTakenSeats, publicVehicle } from "./booking";
+import { womenSeatInfo } from "./ladies";
 
 /** Scheduled trips on a route for one IST calendar day (date = YYYY-MM-DD). */
 export async function searchTrips(from: string, to: string, date: string) {
@@ -49,5 +50,6 @@ export async function getTripDetail(id: string) {
     dropPoint: t.dropPoint,
     vehicle: publicVehicle(t.vehicle),
     takenSeats: await getTakenSeats(t.id),
+    ...(await womenSeatInfo(t.id, t.vehicle)),
   };
 }

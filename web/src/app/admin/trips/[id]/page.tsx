@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { cashDue } from "@/lib/booking";
 import { BLOCK_REASONS, fmtDateTime, fmtTime, inr } from "@/lib/format";
 import { STATUS_STYLE } from "@/components/BookingSummary";
 import Flash from "@/components/Flash";
@@ -30,7 +31,7 @@ export default async function TripManifest({ params, searchParams }: { params: P
   const blocked = trip.seats.filter((s) => !s.bookingId);
   const confirmed = trip.bookings.filter((b) => b.status !== "PENDING");
   const sold = confirmed.reduce((n, b) => n + b.passengers, 0);
-  const cashDue = confirmed.filter((b) => b.paymentStatus === "UNPAID").reduce((n, b) => n + b.totalAmount, 0);
+  const cashToCollect = confirmed.reduce((n, b) => n + cashDue(b), 0);
   const editable = trip.status === "SCHEDULED";
   const back = `/admin/trips/${trip.id}`;
 
@@ -58,7 +59,7 @@ export default async function TripManifest({ params, searchParams }: { params: P
             {fmtDateTime(trip.departAt)} → {fmtTime(trip.arriveAt)} · {trip.vehicle.name} ({trip.vehicle.regNumber}) · {inr(trip.fare)}/seat
           </p>
           <p className="text-sm">
-            <b>{sold}</b>/{trip.vehicle.seats} seats sold · {blocked.length} blocked · cash to collect <b>{inr(cashDue)}</b>
+            <b>{sold}</b>/{trip.vehicle.seats} seats sold · {blocked.length} blocked · cash to collect <b>{inr(cashToCollect)}</b>
           </p>
         </div>
         <span className="badge bg-slate-100 text-base text-slate-700">{trip.status}</span>
@@ -200,11 +201,11 @@ export default async function TripManifest({ params, searchParams }: { params: P
                   <span className={`badge ${STATUS_STYLE[b.status] ?? ""}`}>{b.status === "PENDING" ? "AWAITING PAYMENT" : b.status}</span>
                 </td>
                 <td className="text-xs">
-                  {b.paymentStatus === "UNPAID" ? <b className="text-amber-700">Collect {inr(b.totalAmount)}</b> : `${b.paymentStatus} · ${inr(b.totalAmount)}`}
+                  {cashDue(b) > 0 ? <b className="text-amber-700">Collect {inr(cashDue(b))}</b> : `${b.paymentStatus} · ${inr(b.totalAmount)}`}
                 </td>
                 <td className="text-xs">{b.boardedAt ? `Boarded ${fmtTime(b.boardedAt)}` : b.noShow ? "No-show" : "—"}</td>
                 <td className="print:hidden">
-                  {b.paymentStatus === "UNPAID" && b.status !== "PENDING" && (
+                  {cashDue(b) > 0 && b.status !== "PENDING" && (
                     <form action={updateBooking}>
                       <input type="hidden" name="id" value={b.id} />
                       <input type="hidden" name="back" value={back} />

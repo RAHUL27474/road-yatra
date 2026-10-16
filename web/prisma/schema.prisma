@@ -126,6 +126,8 @@ model Stop {
   address   String  @default("")
   lat       Float?
   lng       Float?
+  landmark  String  @default("") // e.g. "Opposite SBI ATM, next to the tea stall" — shown on the ticket
+  photoUrl  String? // photo of the pickup spot, so passengers find it
   sortOrder Int     @default(0)
   active    Boolean @default(true)
 
@@ -212,6 +214,15 @@ model Booking {
   driverRespondedAt DateTime?
   driverNote        String?
 
+  // Free change of date / trip (once) and pickup point
+  changeCount Int       @default(0)
+  changedAt   DateTime?
+  // Price adjustments and partial payments
+  discountPercent Float @default(0) // e.g. return-trip discount, applied to the fare
+  amountPaid      Float @default(0) // online advance paid so far (the rest is cash to the driver)
+  // "Driver is near your pickup" was sent
+  nearNotifiedAt DateTime?
+
   // Passenger's rating after the trip (1-5 stars)
   rating        Int?
   ratingComment String?
@@ -257,6 +268,10 @@ model BookedSeat {
   seatNo      Int
   bookingId   String? // empty when the seat is blocked by admin
   blockReason String? // DRIVER | VIP | CORPORATE | OFFLINE | EMERGENCY | OPERATIONS
+  // Who sits here, when the booker gave a different person per seat (family, students...)
+  passengerName  String?
+  passengerPhone String? // gets their own ticket and trip updates on WhatsApp
+  female         Boolean @default(false) // the seat next to a woman can only be booked by a woman
 
   trip    Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
   booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)

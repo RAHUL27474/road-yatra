@@ -20,5 +20,11 @@ export async function GET() {
     gstRate: GST_RATE,
     holdMinutes: HOLD_MINUTES,
     cancellationSlabs: s.cancellationSlabs,
+    travelPolicy: s.travelPolicy,
+    returnDiscountPercent: s.returnDiscountPercent,
+    freeChangeHours: s.freeChangeHours,
+    // Advance only makes sense with real online payments.
+    advancePerSeat: onlinePaymentsAvailable() ? s.advancePerSeat : 0,
+    whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || process.env.NEXT_PUBLIC_SUPPORT_PHONE || "",
   });
 }

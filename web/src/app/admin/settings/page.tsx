@@ -1,6 +1,6 @@
 import { getSettings } from "@/lib/settings";
 import { isDemoPayments } from "@/lib/payment";
-import { smsConfigured } from "@/lib/notify";
+import { otpAvailable } from "@/lib/otp";
 import Flash from "@/components/Flash";
 import { saveSettings } from "../actions";
 
@@ -60,9 +60,33 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           Let customers choose &quot;Pay cash to driver&quot; (booking is confirmed without online payment)
         </label>
         <p className="text-sm text-slate-500">
-          Online payments: {isDemoPayments() ? <b className="text-amber-700">demo mode (add Razorpay keys in .env)</b> : <b className="text-green-700">Razorpay connected</b>} · SMS
-          OTP: {smsConfigured() ? <b className="text-green-700">connected</b> : <b className="text-amber-700">not set up</b>}
+          Online payments: {isDemoPayments() ? <b className="text-amber-700">not set up (add Razorpay keys)</b> : <b className="text-green-700">Razorpay connected</b>} · Mobile
+          OTP: {otpAvailable("PHONE") && process.env.OTP_DEV_MODE !== "true" ? <b className="text-green-700">connected</b> : <b className="text-amber-700">not set up</b>}
         </p>
+        <label className="block max-w-xs text-sm font-medium">
+          Advance per seat (₹), paid online to hold a seat
+          <input name="advancePerSeat" type="number" min={0} step={10} defaultValue={s.advancePerSeat} className="input mt-1" />
+          <span className="text-xs font-normal text-slate-500">Needs Razorpay. The rest is paid in cash to the driver. 0 = off.</span>
+        </label>
+      </section>
+
+      <section className="card grid gap-4 p-5 sm:grid-cols-2">
+        <h2 className="font-bold sm:col-span-2">Passenger benefits</h2>
+        <label className="text-sm font-medium">
+          Return-trip discount (%)
+          <input name="returnDiscountPercent" type="number" min={0} max={50} step={1} defaultValue={s.returnDiscountPercent} className="input mt-1" />
+          <span className="text-xs font-normal text-slate-500">Off the fare when the customer already has the onward trip within 15 days. 0 = off.</span>
+        </label>
+        <label className="text-sm font-medium">
+          Free change of date / pickup, up to (hours before departure)
+          <input name="freeChangeHours" type="number" min={0} max={72} step={1} defaultValue={s.freeChangeHours} className="input mt-1" />
+          <span className="text-xs font-normal text-slate-500">One free date change per booking. 0 = off.</span>
+        </label>
+        <label className="text-sm font-medium sm:col-span-2">
+          Luggage, children &amp; pets (one rule per line)
+          <textarea name="travelPolicy" rows={5} defaultValue={s.travelPolicy} className="input mt-1" />
+          <span className="text-xs font-normal text-slate-500">Shown on the seat screen, before booking and on the ticket.</span>
+        </label>
       </section>
 
       <button className="btn-primary px-8 py-3">Save settings</button>

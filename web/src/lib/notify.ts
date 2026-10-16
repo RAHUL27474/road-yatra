@@ -27,7 +27,9 @@ export type NotifyEvent =
   | "DRIVER_REJECTED"
   | "DUTY_ASSIGNED" // to the driver: a trip or full-cab booking was given to them
   | "DUTY_REJECTED" // to the office: a driver turned a duty down
-  | "SOS"; // to the office and the driver's emergency contact
+  | "SOS" // to the office and the driver's emergency contact
+  | "DRIVER_NEARBY" // to the passenger: the vehicle is a few minutes from their pickup point
+  | "BOOKING_CHANGED"; // to the passenger: date / trip or pickup point changed
 
 /**
  * Every WhatsApp template the system uses, with its body variables in order. Create each one in
@@ -38,6 +40,8 @@ export const WHATSAPP_TEMPLATES: { event: NotifyEvent; to: string; category: str
   { event: "OTP", to: "Customer / driver", category: "Authentication", vars: ["code"] },
   { event: "BOOKING_CONFIRMED", to: "Customer", category: "Utility", vars: ["booking code", "route", "date & time", "boarding OTP"] },
   { event: "DRIVER_ASSIGNED", to: "Customer", category: "Utility", vars: ["booking code", "driver name", "driver phone", "vehicle number", "tracking link"] },
+  { event: "DRIVER_NEARBY", to: "Customer", category: "Utility", vars: ["booking code", "minutes away", "pickup point", "vehicle number", "driver phone"] },
+  { event: "BOOKING_CHANGED", to: "Customer", category: "Utility", vars: ["booking code", "route", "new date & time", "pickup point"] },
   { event: "BOOKING_CANCELLED", to: "Customer", category: "Utility", vars: ["booking code", "refund amount"] },
   { event: "REFUND_DONE", to: "Customer", category: "Utility", vars: ["booking code", "refund amount"] },
   { event: "DUTY_ASSIGNED", to: "Driver", category: "Utility", vars: ["route", "date & time", "vehicle number"] },

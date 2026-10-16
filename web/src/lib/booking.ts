@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Prisma, type Booking, type Trip, type Route, type Vehicle, type Stop, type Driver, type User } from "@prisma/client";
+import { Prisma, type Booking, type BookedSeat, type Trip, type Route, type Vehicle, type VehicleLocation, type Stop, type Driver, type User } from "@prisma/client";
 import { db } from "./db";
 import { HttpError } from "./http";
 import { signToken } from "./auth";
@@ -7,6 +7,7 @@ import { getSettings, type CancellationSlab } from "./settings";
 import { notify } from "./notify";
 import { fmtDateTime } from "./format";
 import { onlinePaymentsAvailable } from "./payment-mode";
+import { womenSeatInfo } from "./ladies";
 
 export const GST_RATE = 0.05; // 5% GST on passenger transport — confirm the right treatment with your CA
 export const HOLD_MINUTES = 10; // unpaid online bookings are released after this
@@ -48,13 +49,19 @@ export async function findOrCreateCustomer(phone: string, name: string) {
   return (await db.user.findUnique({ where: { phone } })) ?? db.user.create({ data: { phone, name } });
 }
 
-export type PaymentChoice = "ONLINE" | "CASH";
+/** ADVANCE: pay settings.advancePerSeat online now (Razorpay), the rest in cash to the driver. */
+export type PaymentChoice = "ONLINE" | "CASH" | "ADVANCE";
+
+/** Cash the driver still has to collect: everything for UNPAID, the balance after an online advance for PARTIAL. */
+export const cashDue = (b: { status: string; paymentStatus: string; totalAmount: number; amountPaid: number }) =>
+  b.status === "CANCELLED" ? 0 : b.paymentStatus === "UNPAID" ? b.totalAmount : b.paymentStatus === "PARTIAL" ? Math.max(0, b.totalAmount - b.amountPaid) : 0;
 type Channel = { source?: "ONLINE" | "OFFLINE"; payment: PaymentChoice; markPaid?: boolean };
 
 async function checkCashAllowed(c: Channel) {
-  if (c.payment === "ONLINE" && c.source !== "OFFLINE" && !onlinePaymentsAvailable()) {
+  if ((c.payment === "ONLINE" || c.payment === "ADVANCE") && c.source !== "OFFLINE" && !onlinePaymentsAvailable()) {
     throw new HttpError(400, "Online payment is not available yet. Please choose Pay cash to driver.");
   }
+  if (c.payment === "ADVANCE" && !((await getSettings()).advancePerSeat > 0)) throw new HttpError(400, "Advance payment is not offered right now.");
   if (c.payment === "CASH" && c.source !== "OFFLINE" && !(await getSettings()).allowCash) {
     throw new HttpError(400, "Cash payment is not available right now. Please pay online.");
   }
@@ -63,10 +70,32 @@ async function checkCashAllowed(c: Channel) {
 /** Status fields for a new booking: online payments wait for the gateway, cash/offline ones are confirmed now. */
 function initialStatus(c: Channel) {
   if (c.payment === "ONLINE" && c.source !== "OFFLINE") return { status: "PENDING", paymentStatus: "UNPAID" };
+  if (c.payment === "ADVANCE" && c.source !== "OFFLINE") return { status: "PENDING", paymentStatus: "UNPAID", paymentMode: "ADVANCE" };
   return { status: "CONFIRMED", paymentStatus: c.markPaid ? "PAID" : "UNPAID", paymentMode: "CASH", paidAt: c.markPaid ? new Date() : null };
 }
 
 // ---------- Seat booking ----------
+
+export type SeatPassenger = { seatNo: number; name?: string; phone?: string; female?: boolean };
+
+/**
+ * Return-trip discount (Admin → Settings): the customer already holds the onward journey — the reverse route,
+ * departing within the 15 days before this trip.
+ */
+async function returnDiscount(userId: string, trip: { departAt: Date; route: { fromCity: string; toCity: string } }) {
+  const pct = (await getSettings()).returnDiscountPercent;
+  if (!(pct > 0)) return 0;
+  const onward = await db.booking.findFirst({
+    where: {
+      userId,
+      kind: "SEAT",
+      status: { in: ["CONFIRMED", "COMPLETED"] },
+      trip: { route: { fromCity: trip.route.toCity, toCity: trip.route.fromCity }, departAt: { lt: trip.departAt, gte: new Date(trip.departAt.getTime() - 15 * 24 * 3600_000) } },
+    },
+    select: { id: true },
+  });
+  return onward ? pct : 0;
+}
 
 export async function getTakenSeats(tripId: string) {
   const rows = await db.bookedSeat.findMany({ where: { tripId }, select: { seatNo: true } });
@@ -82,6 +111,8 @@ export async function createSeatBooking(
     passengerPhone: string;
     pickupStopId?: string;
     dropStopId?: string;
+    /** Optional: a different traveller per seat (name, WhatsApp number, woman). */
+    seatPassengers?: SeatPassenger[];
   },
 ) {
   await expireStaleHolds();
@@ -100,7 +131,14 @@ export async function createSeatBooking(
   if (input.pickupStopId && pickup?.city !== trip.route.fromCity) throw new HttpError(400, "Choose a pickup point in " + trip.route.fromCity + ".");
   if (input.dropStopId && drop?.city !== trip.route.toCity) throw new HttpError(400, "Choose a drop point in " + trip.route.toCity + ".");
 
-  const amounts = withTax(trip.fare * seatNos.length);
+  // Women's seats: a seat next to a woman can only go to a woman.
+  const seatInfo = new Map((input.seatPassengers ?? []).filter((p) => seatNos.includes(p.seatNo)).map((p) => [p.seatNo, p]));
+  const { womenOnlySeats: womenOnly } = await womenSeatInfo(trip.id, trip.vehicle);
+  const blocked = seatNos.filter((n) => womenOnly.includes(n) && !seatInfo.get(n)?.female);
+  if (blocked.length) throw new HttpError(400, `Seat ${blocked.join(", ")} is next to a woman passenger and can only be booked for a woman. Tick "Woman" for that seat, or choose another seat.`);
+
+  const discountPercent = await returnDiscount(input.userId, trip);
+  const amounts = withTax(trip.fare * seatNos.length * (1 - discountPercent / 100));
   let booking: Booking;
   try {
     booking = await db.$transaction(async (tx) => {
@@ -118,11 +156,17 @@ export async function createSeatBooking(
           passengerName: input.passengerName,
           passengerPhone: input.passengerPhone,
           boardingOtp: newOtp(),
+          discountPercent,
           ...initialStatus(input),
           ...amounts,
         },
       });
-      await tx.bookedSeat.createMany({ data: seatNos.map((seatNo) => ({ tripId: trip.id, seatNo, bookingId: b.id })) });
+      await tx.bookedSeat.createMany({
+        data: seatNos.map((seatNo) => {
+          const p = seatInfo.get(seatNo);
+          return { tripId: trip.id, seatNo, bookingId: b.id, passengerName: p?.name?.trim() || null, passengerPhone: p?.phone || null, female: !!p?.female };
+        }),
+      });
       return b;
     });
   } catch (e) {
@@ -259,6 +303,7 @@ export async function createRentalBooking(
     },
 ) {
   await expireStaleHolds();
+  if (input.payment === "ADVANCE") throw new HttpError(400, "Advance payment is only for shared seats. Please pay online or in cash.");
   await checkCashAllowed(input);
   const plan = await planRental(input, { allowPast: input.source === "OFFLINE" });
   const vehicle = await db.vehicle.findUnique({ where: { id: input.vehicleId } });
@@ -336,13 +381,20 @@ export async function onBookingConfirmed(bookingId: string) {
   const when = s.startAt ? fmtDateTime(s.startAt) : "";
   const where = s.trip ? `${s.trip.fromCity} to ${s.trip.toCity}` : `${b.pickupCity}${b.dropCity ? ` to ${b.dropCity}` : ""}`;
   const seats = s.seatNos.length ? `, seats ${s.seatNos.join(",")}` : "";
-  await notify(
-    b.passengerPhone,
-    "BOOKING_CONFIRMED",
-    [b.code, where, when, b.boardingOtp],
-    `Booking ${b.code} confirmed: ${where}, ${when}${seats}. Boarding OTP ${b.boardingOtp}. ${appUrl()}/booking/${b.code}`,
-  );
+  // The booker, and every traveller who was given their own WhatsApp number, gets the ticket.
+  for (const phone of [b.passengerPhone, ...otherPhones(b)])
+    await notify(
+      phone,
+      "BOOKING_CONFIRMED",
+      [b.code, where, when, b.boardingOtp],
+      `Booking ${b.code} confirmed: ${where}, ${when}${seats}. Boarding OTP ${b.boardingOtp}. ${appUrl()}/booking/${b.code}`,
+    );
 }
+
+/** WhatsApp numbers of the other travellers on a booking (given per seat), without the booker's own. */
+export const otherPhones = (b: { passengerPhone: string; seats?: BookedSeat[] }) => [
+  ...new Set((b.seats ?? []).map((s) => s.passengerPhone).filter((p): p is string => !!p && p !== b.passengerPhone)),
+];
 
 export async function notifyDriverAssigned(bookingIds: string[]) {
   const bookings = await db.booking.findMany({ where: { id: { in: bookingIds }, status: "CONFIRMED" }, include: bookingInclude });
@@ -350,8 +402,9 @@ export async function notifyDriverAssigned(bookingIds: string[]) {
     const s = serializeBooking(b);
     if (!s.driver) continue;
     const track = await trackLink(b.id);
+    for (const phone of [b.passengerPhone, ...otherPhones(b)])
     await notify(
-      b.passengerPhone,
+      phone,
       "DRIVER_ASSIGNED",
       [b.code, s.driver.name, s.driver.phone, s.vehicleNumber ?? "", track],
       `Booking ${b.code}: your driver is ${s.driver.name} (${s.driver.phone}), vehicle ${s.vehicleNumber}. Track: ${track}`,
@@ -407,6 +460,116 @@ export async function cancelBooking(bookingId: string, opts: { by: "CUSTOMER" | 
   );
 }
 
+/**
+ * Cancels some of the seats on a shared-seat booking (one traveller's plans changed). The refund for those
+ * seats follows the same slabs as a full cancellation. Cancelling every seat cancels the booking.
+ */
+export async function cancelSeats(bookingId: string, seatNos: number[]) {
+  const b = await db.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { trip: true } });
+  if (b.kind !== "SEAT" || !b.trip) throw new HttpError(400, "Only shared-seat bookings can cancel single seats.");
+  const current = b.seatNos ? b.seatNos.split(",").map(Number) : [];
+  const drop = [...new Set(seatNos)].filter((n) => current.includes(n));
+  if (!drop.length) throw new HttpError(400, "Choose the seats to cancel.");
+  if (drop.length >= current.length) return cancelBooking(bookingId, { by: "CUSTOMER", note: "Cancelled by customer" });
+  const settings = await getSettings();
+  const quote = cancellationQuote(b, settings.cancellationSlabs);
+  if (!quote.allowed) throw new HttpError(400, "This booking can no longer be cancelled online. Please call us.");
+
+  const keep = current.filter((n) => !drop.includes(n));
+  const amounts = withTax(b.trip.fare * keep.length * (1 - b.discountPercent / 100));
+  const removed = b.baseAmount + b.taxAmount - (amounts.baseAmount + amounts.taxAmount);
+  // Paid in full: refund the slab share of the removed seats. Paid an advance: refund only what now exceeds the new total.
+  const refund =
+    b.paymentStatus === "PAID" ? round((removed * quote.refundPercent) / 100) : b.paymentStatus === "PARTIAL" ? Math.max(0, b.amountPaid - amounts.totalAmount) : 0;
+  await db.$transaction([
+    db.bookedSeat.deleteMany({ where: { bookingId, seatNo: { in: drop } } }),
+    db.booking.update({
+      where: { id: bookingId },
+      data: {
+        seatNos: keep.join(","),
+        passengers: keep.length,
+        ...amounts,
+        ...(refund > 0 ? { refundAmount: (b.refundAmount ?? 0) + refund, paymentStatus: "REFUND_PENDING", amountPaid: b.paymentStatus === "PARTIAL" ? amounts.totalAmount : b.amountPaid } : {}),
+        adminNote: [b.adminNote, `Seat ${drop.join(", ")} cancelled by customer${refund ? ` (refund Rs ${refund})` : ""}.`].filter(Boolean).join(" "),
+      },
+    }),
+  ]);
+  await notify(
+    b.passengerPhone,
+    "BOOKING_CANCELLED",
+    [b.code, String(refund)],
+    `Booking ${b.code}: seat ${drop.join(", ")} cancelled, seat ${keep.join(", ")} still booked.${refund ? ` Refund of Rs ${refund} is on its way.` : ""}`,
+  );
+}
+
+/**
+ * Free change (Admin → Settings → hours): move a shared-seat booking to another trip on the same route once,
+ * and/or change its pickup / drop point. Seats are re-chosen on the new trip; the women's seat rule applies.
+ */
+export async function changeBooking(
+  bookingId: string,
+  input: { tripId?: string; seatNos?: number[]; seatPassengers?: SeatPassenger[]; pickupStopId?: string; dropStopId?: string },
+) {
+  const b = await db.booking.findUniqueOrThrow({ where: { id: bookingId }, include: bookingInclude });
+  const settings = await getSettings();
+  const w = changeWindow(b, settings.freeChangeHours);
+  if (!b.trip) throw new HttpError(400, "Only shared-seat bookings can be changed here. Please call us for a full cab.");
+  const data: Prisma.BookingUncheckedUpdateInput = {};
+  let newTrip = b.trip as Trip & { route: Route; vehicle: Vehicle };
+
+  if (input.tripId && input.tripId !== b.tripId) {
+    if (!w.canChangeDate) throw new HttpError(400, b.changeCount ? "This booking has already used its free date change." : `Changes are allowed up to ${settings.freeChangeHours} hours before departure.`);
+    const t = await db.trip.findUnique({ where: { id: input.tripId }, include: { route: true, vehicle: true } });
+    if (!t || t.status !== "SCHEDULED" || t.departAt <= new Date()) throw new HttpError(400, "That trip is not available.");
+    if (t.route.fromCity !== b.trip.route.fromCity || t.route.toCity !== b.trip.route.toCity) throw new HttpError(400, "You can only move to a trip on the same route.");
+    const seatNos = [...new Set(input.seatNos ?? [])].sort((x, y) => x - y);
+    const count = b.seatNos ? b.seatNos.split(",").length : 0;
+    if (seatNos.length !== count) throw new HttpError(400, `Choose ${count} seat${count > 1 ? "s" : ""} on the new trip.`);
+    if (seatNos.some((s) => s < 1 || s > t.vehicle.seats)) throw new HttpError(400, "Invalid seat selected.");
+    const amounts = withTax(t.fare * count * (1 - b.discountPercent / 100));
+    if (b.paymentStatus !== "UNPAID" && amounts.totalAmount !== b.totalAmount) throw new HttpError(400, "The fare on that trip is different. Please call the office to change a paid booking.");
+    newTrip = t;
+    Object.assign(data, { tripId: t.id, seatNos: seatNos.join(","), ...amounts, changeCount: { increment: 1 }, changedAt: new Date(), nearNotifiedAt: null });
+    // Travellers keep their details, in seat order.
+    const old = (b.seats ?? []).filter((s) => s.bookingId).sort((x, y) => x.seatNo - y.seatNo);
+    const given = new Map((input.seatPassengers ?? []).map((p) => [p.seatNo, p]));
+    const rows = seatNos.map((seatNo, i) => {
+      const p = given.get(seatNo) ?? { name: old[i]?.passengerName ?? undefined, phone: old[i]?.passengerPhone ?? undefined, female: old[i]?.female };
+      return { tripId: t.id, seatNo, bookingId: b.id, passengerName: p.name || null, passengerPhone: p.phone || null, female: !!p.female };
+    });
+    const { womenOnlySeats: womenOnly } = await womenSeatInfo(t.id, t.vehicle);
+    const blocked = rows.filter((r) => womenOnly.includes(r.seatNo) && !r.female).map((r) => r.seatNo);
+    if (blocked.length) throw new HttpError(400, `Seat ${blocked.join(", ")} is next to a woman passenger and can only be booked for a woman.`);
+    try {
+      await db.$transaction([db.bookedSeat.deleteMany({ where: { bookingId: b.id } }), db.bookedSeat.createMany({ data: rows })]);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new HttpError(409, "One of those seats was just booked. Please pick again.");
+      throw e;
+    }
+  }
+
+  for (const [key, id, city] of [
+    ["pickupStopId", input.pickupStopId, newTrip.route.fromCity],
+    ["dropStopId", input.dropStopId, newTrip.route.toCity],
+  ] as const) {
+    if (!id || id === b[key]) continue;
+    if (!w.canChangePickup) throw new HttpError(400, `Changes are allowed up to ${settings.freeChangeHours} hours before departure.`);
+    const stop = await db.stop.findUnique({ where: { id } });
+    if (!stop?.active || stop.city !== city) throw new HttpError(400, `Choose a point in ${city}.`);
+    data[key] = id;
+  }
+  if (!Object.keys(data).length) throw new HttpError(400, "Nothing to change.");
+
+  const updated = await db.booking.update({ where: { id: b.id }, data, include: bookingInclude });
+  const s = serializeBooking(updated);
+  const where = `${newTrip.route.fromCity} to ${newTrip.route.toCity}`;
+  const when = s.startAt ? fmtDateTime(s.startAt) : "";
+  const pickup = updated.pickupStop?.name ?? "";
+  for (const phone of [updated.passengerPhone, ...otherPhones(updated)])
+    await notify(phone, "BOOKING_CHANGED", [b.code, where, when, pickup], `Booking ${b.code} changed: ${where}, ${when}${s.seatNos.length ? `, seats ${s.seatNos.join(",")}` : ""}${pickup ? `, pickup ${pickup}` : ""}.`);
+  return updated;
+}
+
 // ---------- Links ----------
 
 export async function payLink(bookingId: string) {
@@ -431,10 +594,41 @@ export async function bookingLinks(b: { id: string; code: string; invoiceNo: str
   };
 }
 
-/** serializeBooking + links + refund preview: the full booking object returned by the API. */
+/** serializeBooking + links + refund preview + change window + live ETA: the full booking object returned by the API. */
 export async function bookingForApi(b: FullBooking) {
-  const s = serializeBooking(b, (await getSettings()).cancellationSlabs);
-  return { ...s, ...(await bookingLinks(b, s)) };
+  const settings = await getSettings();
+  const s = serializeBooking(b, settings.cancellationSlabs);
+  return { ...s, ...changeWindow(b, settings.freeChangeHours), ...vehicleEta(b), ...(await bookingLinks(b, s)) };
+}
+
+const LATE_AFTER_MIN = 10;
+
+/**
+ * A confirmed shared-seat booking can move to another date once, and change pickup / drop any number of times,
+ * up to settings.freeChangeHours before departure.
+ */
+export function changeWindow(b: FullBooking, freeChangeHours: number) {
+  const start = b.trip?.departAt;
+  const open =
+    freeChangeHours > 0 && b.kind === "SEAT" && b.status === "CONFIRMED" && !b.boardedAt && b.trip?.status === "SCHEDULED" && !!start &&
+    start.getTime() - Date.now() > freeChangeHours * 3600_000;
+  return {
+    canChangePickup: open,
+    canChangeDate: open && b.changeCount === 0,
+    changeDeadline: start && freeChangeHours > 0 ? new Date(start.getTime() - freeChangeHours * 3600_000) : null,
+  };
+}
+
+/** How far the vehicle is from the passenger's pickup point, while the trip is under way and they haven't boarded. */
+function vehicleEta(b: FullBooking) {
+  const loc = b.trip?.vehicle.location;
+  const stop = b.pickupStop;
+  const fresh = loc && Date.now() - loc.updatedAt.getTime() < 10 * 60_000;
+  if (b.trip?.status !== "STARTED" || b.boardedAt || !fresh || stop?.lat == null || stop.lng == null) return { vehicleKm: null, etaMinutes: null };
+  const r = (d: number) => (d * Math.PI) / 180;
+  const h = Math.sin(r(stop.lat - loc.lat) / 2) ** 2 + Math.cos(r(loc.lat)) * Math.cos(r(stop.lat)) * Math.sin(r(stop.lng - loc.lng) / 2) ** 2;
+  const km = 12742 * Math.asin(Math.sqrt(h)) * 1.3; // roads are longer than a straight line
+  return { vehicleKm: Math.round(km * 10) / 10, etaMinutes: Math.max(1, Math.round((km / 35) * 60)) };
 }
 
 // ---------- Serialisation ----------
@@ -453,11 +647,12 @@ export function publicVehicle(v: Vehicle) {
   };
 }
 
-export const publicStop = (s: Stop) => ({ id: s.id, city: s.city, name: s.name, address: s.address, lat: s.lat, lng: s.lng });
+export const publicStop = (s: Stop) => ({ id: s.id, city: s.city, name: s.name, address: s.address, landmark: s.landmark, photoUrl: s.photoUrl, lat: s.lat, lng: s.lng });
 
 type DriverWithUser = Driver & { user: User };
 type FullBooking = Booking & {
-  trip?: (Trip & { route: Route; vehicle: Vehicle; driver: DriverWithUser | null }) | null;
+  trip?: (Trip & { route: Route; vehicle: Vehicle & { location?: VehicleLocation | null }; driver: DriverWithUser | null }) | null;
+  seats?: BookedSeat[];
   vehicle?: Vehicle | null;
   driver?: DriverWithUser | null;
   pickupStop?: Stop | null;
@@ -465,7 +660,8 @@ type FullBooking = Booking & {
 };
 
 export const bookingInclude = {
-  trip: { include: { route: true, vehicle: true, driver: { include: { user: true } } } },
+  trip: { include: { route: true, vehicle: { include: { location: true } }, driver: { include: { user: true } } } },
+  seats: { orderBy: { seatNo: "asc" } },
   vehicle: true,
   driver: { include: { user: true } },
   pickupStop: true,
@@ -500,8 +696,16 @@ export function serializeBooking(b: FullBooking, slabs?: CancellationSlab[]) {
     extraCharges: b.extraCharges,
     totalAmount: b.totalAmount,
     seatNos: b.seatNos ? b.seatNos.split(",").map(Number) : [],
+    seatPassengers: (b.seats ?? []).filter((s) => s.bookingId).map((s) => ({ seatNo: s.seatNo, name: s.passengerName, phone: s.passengerPhone, female: s.female })),
     pickupStop: b.pickupStop ? publicStop(b.pickupStop) : null,
     dropStop: b.dropStop ? publicStop(b.dropStop) : null,
+    discountPercent: b.discountPercent,
+    amountPaid: b.amountPaid,
+    // What is still to be paid in cash to the driver (all of it, or the balance after an online advance).
+    cashDue: cashDue(b),
+    changeCount: b.changeCount,
+    // Departure time passed and the trip hasn't started.
+    runningLate: confirmed && tripStatus === "SCHEDULED" && !!start && Date.now() - start.getTime() > LATE_AFTER_MIN * 60_000,
     rentalType: b.rentalType,
     pickupCity: b.pickupCity,
     dropCity: b.dropCity,

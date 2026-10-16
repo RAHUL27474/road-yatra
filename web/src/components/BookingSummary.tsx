@@ -14,6 +14,7 @@ export const STATUS_STYLE: Record<string, string> = {
 export const PAYMENT_LABEL: Record<string, string> = {
   UNPAID: "Unpaid",
   PAID: "Paid",
+  PARTIAL: "Advance paid",
   REFUND_PENDING: "Refund pending",
   REFUNDED: "Refunded",
 };
@@ -25,6 +26,7 @@ export function bookingTitle(b: B) {
 
 export function paymentText(b: B) {
   if (b.paymentMode === "CASH" && b.paymentStatus === "UNPAID") return `Pay ${inr(b.totalAmount)} in cash to the driver`;
+  if (b.paymentStatus === "PARTIAL") return `Advance ${inr(b.amountPaid)} paid · pay ${inr(b.cashDue)} in cash to the driver`;
   return PAYMENT_LABEL[b.paymentStatus] ?? b.paymentStatus;
 }
 

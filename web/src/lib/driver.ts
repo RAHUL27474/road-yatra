@@ -2,7 +2,7 @@ import type { Vehicle } from "@prisma/client";
 import { db } from "./db";
 import { getRequestUser } from "./auth";
 import { HttpError } from "./http";
-import { assignInvoiceNo, publicStop } from "./booking";
+import { assignInvoiceNo, cashDue, publicStop } from "./booking";
 import { fmtDateTime } from "./format";
 import { notify, officePhone } from "./notify";
 
@@ -29,8 +29,8 @@ export async function requireDriver(req: Request) {
   return { user, driver };
 }
 
-const amountDue = (b: { paymentStatus: string; totalAmount: number; status: string }) =>
-  b.status !== "CANCELLED" && b.paymentStatus === "UNPAID" ? b.totalAmount : 0;
+const amountDue = cashDue;
+const NEAR_KM = 3; // "your driver is near" once the vehicle is this close to an unboarded passenger's pickup
 
 /** Trips and rentals assigned to the driver, from yesterday to `days` days ahead. */
 export async function listDuties(driverId: string, days = 7) {
@@ -46,7 +46,11 @@ export async function listDuties(driverId: string, days = 7) {
     include: {
       route: true,
       vehicle: true,
-      bookings: { where: { status: { in: ["CONFIRMED", "COMPLETED"] } }, include: { pickupStop: true, dropStop: true }, orderBy: { createdAt: "asc" } },
+      bookings: {
+        where: { status: { in: ["CONFIRMED", "COMPLETED"] } },
+        include: { pickupStop: true, dropStop: true, seats: { orderBy: { seatNo: "asc" } } },
+        orderBy: { createdAt: "asc" },
+      },
       seats: { where: { bookingId: null } },
     },
     orderBy: { departAt: "asc" },
@@ -83,6 +87,8 @@ export async function listDuties(driverId: string, days = 7) {
         name: b.passengerName,
         phone: b.passengerPhone,
         seatNos: b.seatNos ? b.seatNos.split(",").map(Number) : [],
+        // Who sits where, when the booker named a traveller per seat; female = women's seat.
+        seatPassengers: b.seats.map((s) => ({ seatNo: s.seatNo, name: s.passengerName, phone: s.passengerPhone, female: s.female })),
         pickupStop: b.pickupStop ? publicStop(b.pickupStop) : null,
         dropStop: b.dropStop ? publicStop(b.dropStop) : null,
         paymentStatus: b.paymentStatus,
@@ -168,13 +174,15 @@ export async function collectCash(driverId: string, bookingId: string) {
   const b = await db.booking.findUnique({ where: { id: bookingId }, include: { trip: true } });
   const mine = b && (b.driverId === driverId || b.trip?.driverId === driverId);
   if (!b || !mine) throw new HttpError(404, "Booking not found in your duties.");
-  if (b.paymentStatus !== "UNPAID" || b.status === "CANCELLED") throw new HttpError(400, "Nothing to collect for this booking.");
+  const due = cashDue(b);
+  if (due <= 0) throw new HttpError(400, "Nothing to collect for this booking.");
   await db.booking.update({
     where: { id: b.id },
-    data: { paymentStatus: "PAID", paymentMode: "CASH", paidAt: new Date(), cashCollectedBy: driverId, cashHandedOverAt: null },
+    // After an online advance the booking keeps paymentMode ADVANCE; the driver only collects the balance.
+    data: { paymentStatus: "PAID", paymentMode: b.paymentMode === "ADVANCE" ? "ADVANCE" : "CASH", paidAt: new Date(), cashCollectedBy: driverId, cashHandedOverAt: null },
   });
   await assignInvoiceNo(b.id);
-  return { collected: b.totalAmount };
+  return { collected: due };
 }
 
 export async function startTrip(driverId: string, tripId: string) {
@@ -230,7 +238,39 @@ export async function updateLocation(driverId: string, p: { lat: number; lng: nu
   if (!vehicleId) return { vehicleId: null };
   const data = { driverId, lat: p.lat, lng: p.lng, speed: p.speed ?? null, heading: p.heading ?? null };
   await db.vehicleLocation.upsert({ where: { vehicleId }, update: data, create: { vehicleId, ...data } });
+  if (trip) await notifyNearbyPassengers(trip.id, p);
   return { vehicleId };
+}
+
+const km = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+  const r = (d: number) => (d * Math.PI) / 180;
+  const h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+};
+
+/** Once per booking: WhatsApp "your driver is about N min away" when the vehicle nears the pickup point. */
+async function notifyNearbyPassengers(tripId: string, at: { lat: number; lng: number }) {
+  const waiting = await db.booking.findMany({
+    where: { tripId, status: "CONFIRMED", boardedAt: null, noShow: false, nearNotifiedAt: null, pickupStop: { lat: { not: null }, lng: { not: null } } },
+    include: { pickupStop: true, trip: { include: { vehicle: true, driver: { include: { user: true } } } } },
+  });
+  for (const b of waiting) {
+    const stop = b.pickupStop!;
+    const d = km(at, { lat: stop.lat!, lng: stop.lng! });
+    if (d > NEAR_KM) continue;
+    // Claim it first so two location updates can't both send.
+    const { count } = await db.booking.updateMany({ where: { id: b.id, nearNotifiedAt: null }, data: { nearNotifiedAt: new Date() } });
+    if (!count) continue;
+    const mins = Math.max(2, Math.round((d / 30) * 60));
+    const reg = b.trip?.vehicle.regNumber ?? "";
+    const driver = b.trip?.driver?.user;
+    await notify(
+      b.passengerPhone,
+      "DRIVER_NEARBY",
+      [b.code, String(mins), stop.name, reg, driver?.phone ?? ""],
+      `Booking ${b.code}: your vehicle ${reg} is about ${mins} min from ${stop.name}. Please be ready at the pickup point.${driver ? ` Driver: ${driver.phone}` : ""}`,
+    );
+  }
 }
 
 // ---------- Accept / reject ----------

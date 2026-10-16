@@ -12,6 +12,7 @@ import { notify } from "@/lib/notify";
 import { saveSetting, type CancellationSlab } from "@/lib/settings";
 import { BLOCK_REASONS } from "@/lib/format";
 import { parseSeatLayout } from "@/lib/seats";
+import { publicFileUrl, saveImage } from "@/lib/uploads";
 
 async function requireAdmin() {
   const user = await getCurrentUser();
@@ -153,7 +154,24 @@ export async function saveStop(formData: FormData) {
   const id = str(formData, "id");
   const lat = str(formData, "lat") ? num(formData, "lat") : null;
   const lng = str(formData, "lng") ? num(formData, "lng") : null;
-  const data = { city: str(formData, "city"), name: str(formData, "name"), address: str(formData, "address"), lat, lng, sortOrder: num(formData, "sortOrder"), active: id ? bool(formData, "active") : true };
+  const photo = formData.get("photo");
+  const photoUrl =
+    photo instanceof File && photo.size > 0
+      ? publicFileUrl(await attempt("/admin/stops", () => saveImage(photo, "public", "Pickup photo")))
+      : bool(formData, "removePhoto")
+        ? null
+        : undefined;
+  const data = {
+    city: str(formData, "city"),
+    name: str(formData, "name"),
+    address: str(formData, "address"),
+    landmark: str(formData, "landmark"),
+    ...(photoUrl !== undefined ? { photoUrl } : {}),
+    lat,
+    lng,
+    sortOrder: num(formData, "sortOrder"),
+    active: id ? bool(formData, "active") : true,
+  };
   if (!data.city || !data.name) fail("/admin/stops", "City and point name are required.");
   try {
     if (id) await db.stop.update({ where: { id }, data });
@@ -389,6 +407,10 @@ export async function saveSettings(formData: FormData) {
   if (!slabs.some((s) => s.minHoursBefore === 0)) slabs.push({ minHoursBefore: 0, refundPercent: 0 });
   await saveSetting("cancellationSlabs", slabs.sort((a, b) => b.minHoursBefore - a.minHoursBefore));
   await saveSetting("allowCash", bool(formData, "allowCash"));
+  await saveSetting("travelPolicy", String(formData.get("travelPolicy") ?? "").replace(/\r\n/g, "\n").trim());
+  await saveSetting("returnDiscountPercent", Math.min(50, Math.max(0, num(formData, "returnDiscountPercent"))));
+  await saveSetting("freeChangeHours", Math.min(72, Math.max(0, num(formData, "freeChangeHours"))));
+  await saveSetting("advancePerSeat", Math.max(0, Math.round(num(formData, "advancePerSeat"))));
   revalidatePath("/admin/settings");
   redirect("/admin/settings?saved=1");
 }

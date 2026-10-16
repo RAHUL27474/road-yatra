@@ -74,6 +74,23 @@ export default async function StopsPage({ searchParams }: { searchParams: Promis
                         <input type="checkbox" name="active" defaultChecked={s.active} className="accent-brand" /> Active
                       </label>
                       <button className="btn-ghost py-1">Save</button>
+                      {/* What passengers see on their ticket to find the spot */}
+                      <div className="flex flex-wrap items-center gap-2 sm:col-span-7">
+                        {s.photoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={s.photoUrl} alt="" className="h-10 w-14 rounded object-cover" />
+                        ) : null}
+                        <input name="landmark" defaultValue={s.landmark} className="input min-w-64 flex-1 py-1 text-xs" placeholder="Landmark for passengers, e.g. Opposite SBI ATM, near the tea stall" />
+                        <label className="text-xs text-slate-500">
+                          {s.photoUrl ? "Change photo" : "Add photo of the spot"}{" "}
+                          <input name="photo" type="file" accept="image/*" className="text-xs" />
+                        </label>
+                        {s.photoUrl ? (
+                          <label className="flex items-center gap-1 text-xs text-slate-500">
+                            <input type="checkbox" name="removePhoto" className="accent-brand" /> remove photo
+                          </label>
+                        ) : null}
+                      </div>
                     </form>
                   </td>
                 </tr>

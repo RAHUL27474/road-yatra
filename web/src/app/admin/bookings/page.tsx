@@ -125,7 +125,7 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
                     <input type="hidden" name="back" value={back} />
                     <input name="note" placeholder="Note" defaultValue={row.adminNote ?? ""} className="input w-48 py-1" />
                     <button name="action" value="note" className="btn-ghost py-1">Save note</button>
-                    {b.paymentStatus === "UNPAID" && b.status === "CONFIRMED" && <button name="action" value="cash" className="btn-ghost py-1">Mark paid</button>}
+                    {(b.paymentStatus === "UNPAID" || b.paymentStatus === "PARTIAL") && b.status === "CONFIRMED" && <button name="action" value="cash" className="btn-ghost py-1">Mark paid</button>}
                     {b.status === "CONFIRMED" && <button name="action" value="complete" className="btn-ghost py-1">Mark completed</button>}
                     {b.paymentStatus === "REFUND_PENDING" && <button name="action" value="refunded" className="btn-primary py-1">Mark refunded</button>}
                   </form>

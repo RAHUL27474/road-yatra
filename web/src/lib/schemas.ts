@@ -13,7 +13,7 @@ export const rentalSchema = z.object({
 const common = {
   passengerName: z.string().trim().min(2, "Enter passenger name"),
   passengerPhone: phoneSchema,
-  payment: z.enum(["ONLINE", "CASH"]).default("ONLINE"),
+  payment: z.enum(["ONLINE", "CASH", "ADVANCE"]).default("ONLINE"),
 };
 
 export const seatBookingSchema = z.object({
@@ -22,6 +22,18 @@ export const seatBookingSchema = z.object({
   seatNos: z.array(z.number().int().positive()).min(1, "Select at least one seat").max(10, "Max 10 seats per booking"),
   pickupStopId: z.string().optional(),
   dropStopId: z.string().optional(),
+  /** A different traveller per seat: their own ticket on WhatsApp, and the women's seat rule. */
+  seatPassengers: z
+    .array(
+      z.object({
+        seatNo: z.number().int().positive(),
+        name: z.string().trim().max(80).optional(),
+        phone: z.union([z.literal(""), phoneSchema]).optional(),
+        female: z.boolean().optional(),
+      }),
+    )
+    .max(10)
+    .optional(),
   ...common,
 });
 
