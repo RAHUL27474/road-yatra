@@ -10,6 +10,7 @@ import { useQuote, useRentalRequest } from '../rental';
 import { openPayment } from '../store';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../theme';
 import { BottomBar, Button, ErrorBanner, hapticSelect, Header, Input, IonName, Notice, Row, Screen, Skeleton, StepIndicator } from '../ui';
+import { SeatTraveller, SeatTravellers, saveTravellers } from '../travellers';
 
 type Amounts = { baseAmount: number; taxAmount: number; totalAmount: number; toll?: number; parking?: number };
 type FormValues = {
@@ -65,10 +66,13 @@ function Placeholder({ error, rental, onRetry }: { error?: string | null; rental
 }
 
 function SeatPassenger() {
-  const { tripId, seats } = useLocalSearchParams<{ tripId: string; seats: string }>();
+  const { tripId, seats, womenOnly: womenOnlyParam } = useLocalSearchParams<{ tripId: string; seats: string; womenOnly?: string }>();
   const seatNos = seats.split(',').map(Number);
+  const womenOnly = (womenOnlyParam ?? '').split(',').filter(Boolean).map(Number);
   const [trip, setTrip] = useState<TripDetail | null>(null);
   const [gstRate, setGstRate] = useState(0.05);
+  const [config, setConfig] = useState<Config | null>(null);
+  const [travellers, setTravellers] = useState<SeatTraveller[]>(() => seatNos.map((seatNo) => ({ seatNo, name: '', phone: '', female: womenOnly.includes(seatNo) })));
   const [error, setError] = useState<string | null>(null);
   const [pickupStopId, setPickupStopId] = useState<string | null>(null);
   const [dropStopId, setDropStopId] = useState<string | null>(null);
@@ -83,7 +87,10 @@ function SeatPassenger() {
       })
       .catch((e) => setError(errorMessage(e)));
     getConfig()
-      .then((c) => setGstRate(c.gstRate))
+      .then((c) => {
+        setGstRate(c.gstRate);
+        setConfig(c);
+      })
       .catch(() => {});
   };
   useEffect(load, [tripId]);
@@ -98,6 +105,8 @@ function SeatPassenger() {
       steps={SEAT_STEPS}
       amounts={{ baseAmount, taxAmount, totalAmount: baseAmount + taxAmount }}
       fareLabel={`Fare (${seatNos.length} × ${inr(trip.fare)})`}
+      advance={config?.advancePerSeat ? Math.min(baseAmount + taxAmount, config.advancePerSeat * seatNos.length) : 0}
+      travellers={<SeatTravellers seats={seatNos} womenOnly={womenOnly} value={travellers} onChange={setTravellers} />}
       summary={
         <>
           <Journey
@@ -129,6 +138,14 @@ function SeatPassenger() {
               <Text style={[type('xs', 'regular', colors.textMuted), { flex: 1 }]}>{trip.boardingPoint}</Text>
             </View>
           ) : null}
+          {config?.returnDiscountPercent ? (
+            <View style={st.note}>
+              <Ionicons name="pricetag-outline" size={16} color={colors.success} />
+              <Text style={[type('xs', 'medium', colors.success), { flex: 1 }]}>
+                Return trip? {config.returnDiscountPercent}% off is applied automatically when you already have the onward journey booked.
+              </Text>
+            </View>
+          ) : null}
         </>
       }
       extraFields={
@@ -152,6 +169,13 @@ function SeatPassenger() {
         passengerName: v.passengerName,
         passengerPhone: v.passengerPhone,
         payment: v.payment,
+        seatPassengers: travellers
+          .filter((t) => t.name.trim() || t.phone.trim() || t.female)
+          .map((t) => {
+            saveTravellers(travellers);
+            const phone = t.phone.replace(/\D/g, '').slice(-10);
+            return { seatNo: t.seatNo, name: t.name.trim() || undefined, phone: /^[6-9]\d{9}$/.test(phone) ? phone : undefined, female: t.female };
+          }),
       })}
     />
   );
@@ -346,6 +370,8 @@ function PassengerForm({
   maxPassengers,
   askDropAddress,
   extraFields,
+  travellers,
+  advance = 0,
   body,
 }: {
   steps: string[];
@@ -355,6 +381,10 @@ function PassengerForm({
   maxPassengers?: number; // set for rentals
   askDropAddress?: boolean;
   extraFields?: ReactNode;
+  /** Shared seats: a traveller per seat. */
+  travellers?: ReactNode;
+  /** Online advance for the whole booking (rest is cash); 0 = not offered. */
+  advance?: number;
   body: (v: FormValues) => object;
 }) {
   const { user } = useAuth();
@@ -380,7 +410,8 @@ function PassengerForm({
   // server re-checks the choice anyway. Defaulting to online left people stuck on "online payment not available".
   const allowCash = config ? !!config.allowCash : true;
   const allowOnline = config ? config.onlinePayments !== false : false;
-  const mode: PaymentChoice = !allowOnline ? 'CASH' : allowCash ? payment : 'ONLINE';
+  const allowAdvance = allowOnline && advance > 0;
+  const mode: PaymentChoice = payment === 'ADVANCE' && allowAdvance ? 'ADVANCE' : !allowOnline ? 'CASH' : allowCash ? (payment === 'ADVANCE' ? 'ONLINE' : payment) : 'ONLINE';
 
   const pay = async (fallbackName = '', fallbackPhone = '') => {
     setError(null);
@@ -433,7 +464,7 @@ function PassengerForm({
 
   const toll = amounts.toll ?? 0;
   const parking = amounts.parking ?? 0;
-  const cta = mode === 'CASH' ? 'Confirm booking' : `Pay ${inr(amounts.totalAmount)}`;
+  const cta = mode === 'CASH' ? 'Confirm booking' : mode === 'ADVANCE' ? `Pay ${inr(advance)} advance` : `Pay ${inr(amounts.totalAmount)}`;
   const cancelNote = cancellationNote(config, isRental);
   const toggleFare = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -506,6 +537,12 @@ function PassengerForm({
             ) : null}
           </Section>
 
+          {travellers ? (
+            <Section icon="people-outline" title="Who is travelling">
+              {travellers}
+            </Section>
+          ) : null}
+
           <Section icon="wallet-outline" title="Payment method">
             <View style={{ gap: spacing.sm }}>
               {allowOnline ? (
@@ -516,6 +553,15 @@ function PassengerForm({
                 subtitle="UPI, debit / credit card or net banking. Confirmed instantly after payment."
                 onPress={() => setPayment('ONLINE')}
               />
+              ) : null}
+              {allowAdvance ? (
+                <PayOption
+                  on={mode === 'ADVANCE'}
+                  icon="shield-checkmark-outline"
+                  title={`Pay ${inr(advance)} advance, rest in cash`}
+                  subtitle={`Seat confirmed after the advance. Pay the remaining ${inr(amounts.totalAmount - advance)} to the driver when you board.`}
+                  onPress={() => setPayment('ADVANCE')}
+                />
               ) : null}
               {allowCash ? (
                 <PayOption

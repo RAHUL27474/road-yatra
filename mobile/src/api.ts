@@ -13,7 +13,8 @@ export type Vehicle = {
   amenities: string[];
   imageUrl: string | null;
 };
-export type Stop = { id: string; city: string; name: string; address: string; lat: number | null; lng: number | null };
+/** landmark + photoUrl help the passenger find the pickup spot. */
+export type Stop = { id: string; city: string; name: string; address: string; landmark?: string; photoUrl?: string | null; lat: number | null; lng: number | null };
 export type User = { id: string; name: string; email: string | null; phone: string; role: 'CUSTOMER' | 'DRIVER' | 'ADMIN' };
 export type Config = {
   brandName: string;
@@ -28,6 +29,15 @@ export type Config = {
   gstRate: number;
   holdMinutes: number;
   cancellationSlabs: { minHoursBefore: number; refundPercent: number }[];
+  /** Luggage / children / pets rules, one per line. */
+  travelPolicy?: string;
+  returnDiscountPercent?: number;
+  /** Free date / pickup change up to this many hours before departure (0 = off). */
+  freeChangeHours?: number;
+  /** Online advance per seat (Razorpay); 0 = not offered. */
+  advancePerSeat?: number;
+  /** Office WhatsApp number for "Book on WhatsApp". */
+  whatsapp?: string;
 };
 export type TripSummary = {
   id: string;
@@ -44,6 +54,10 @@ export type TripSummary = {
   vehicle: Vehicle;
 };
 export type TripDetail = Omit<TripSummary, 'durationMins' | 'seatsLeft'> & {
+  /** Seats booked by women, and free seats next to them that only a woman may book. */
+  femaleSeats?: number[];
+  womenOnlySeats?: number[];
+  womenBooked?: number;
   takenSeats: number[];
   pickupStops: Stop[];
   dropStops: Stop[];
@@ -67,10 +81,10 @@ export type QuoteResponse = {
   plan: { km: number; days: number; startAt: string; endAt: string; estimatedKm: number };
   results: Quote[];
 };
-export type PaymentChoice = 'ONLINE' | 'CASH';
+export type PaymentChoice = 'ONLINE' | 'CASH' | 'ADVANCE';
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED' | 'COMPLETED';
 export type TripStatus = 'SCHEDULED' | 'STARTED' | 'COMPLETED' | 'CANCELLED';
-export type PaymentStatus = 'UNPAID' | 'PAID' | 'REFUND_PENDING' | 'REFUNDED';
+export type PaymentStatus = 'UNPAID' | 'PAID' | 'PARTIAL' | 'REFUND_PENDING' | 'REFUNDED';
 export type Booking = {
   id: string;
   code: string;
@@ -79,7 +93,7 @@ export type Booking = {
   source: 'ONLINE' | 'OFFLINE';
   tripStatus: TripStatus;
   paymentStatus: PaymentStatus;
-  paymentMode: 'RAZORPAY' | 'DEMO' | 'CASH' | null;
+  paymentMode: 'RAZORPAY' | 'DEMO' | 'CASH' | 'ADVANCE' | null;
   passengerName: string;
   passengerPhone: string;
   passengers: number;
@@ -88,6 +102,21 @@ export type Booking = {
   extraCharges: number;
   totalAmount: number;
   seatNos: number[];
+  /** A traveller per seat, when the booker gave them (female = women's seat). */
+  seatPassengers?: { seatNo: number; name: string | null; phone: string | null; female: boolean }[];
+  discountPercent?: number;
+  /** Paid online so far (an advance), and what is still to be paid in cash to the driver. */
+  amountPaid?: number;
+  cashDue?: number;
+  changeCount?: number;
+  canChangeDate?: boolean;
+  canChangePickup?: boolean;
+  changeDeadline?: string | null;
+  /** Departure time passed and the trip hasn't started yet. */
+  runningLate?: boolean;
+  /** Vehicle distance / minutes from the pickup point while the trip is under way. */
+  vehicleKm?: number | null;
+  etaMinutes?: number | null;
   pickupStop: Stop | null;
   dropStop: Stop | null;
   rentalType: RentalType | null;

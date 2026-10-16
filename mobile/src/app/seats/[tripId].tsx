@@ -1,11 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { ReactNode, useCallback, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { api, errorMessage, TripDetail } from '../../api';
+import { api, Booking, Config, errorMessage, getConfig, TripDetail } from '../../api';
 import { fmtDateShort, fmtDuration, fmtTime, inr, VEHICLE_TYPE } from '../../format';
 import { seatRows } from '../../seats';
 import { VehicleArt } from '../../illustrations';
@@ -16,19 +16,31 @@ const MAX_SEATS = 10;
 const AISLE = 22;
 const GAP = 8;
 
-type SeatState = 'free' | 'sel' | 'taken';
+/** women: free seat next to a woman (women only); takenF: booked by a woman. */
+type SeatState = 'free' | 'sel' | 'taken' | 'women' | 'takenF';
+const PINK = '#DB2777';
 const SEAT_COLORS: Record<SeatState, { fill: string; stroke: string; back: string; fg: string }> = {
   free: { fill: colors.white, stroke: '#7FA3D6', back: '#EAF1FB', fg: colors.text },
   sel: { fill: colors.brand, stroke: colors.brandDark, back: '#3A5BB8', fg: colors.white },
   taken: { fill: '#E5E9EF', stroke: '#CFD6DF', back: '#D9DEE6', fg: colors.textSubtle },
+  women: { fill: '#FDF2F8', stroke: '#F472B6', back: '#FCE7F3', fg: PINK },
+  takenF: { fill: '#FCE7F3', stroke: '#F9A8D4', back: '#FBCFE8', fg: PINK },
 };
 
 export default function SeatSelection() {
-  const { tripId } = useLocalSearchParams<{ tripId: string }>();
+  // changeFor: moving an existing booking to this trip (free date change) — exactly `need` seats.
+  const { tripId, changeFor, need } = useLocalSearchParams<{ tripId: string; changeFor?: string; need?: string }>();
+  const needSeats = changeFor ? Math.max(1, Number(need) || 1) : 0;
   const { width } = useWindowDimensions();
   const [trip, setTrip] = useState<TripDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
+  const [config, setConfig] = useState<Config | null>(null);
+  const [moving, setMoving] = useState(false);
+
+  useEffect(() => {
+    getConfig().then(setConfig).catch(() => {});
+  }, []);
 
   const load = useCallback(() => {
     setError(null);
@@ -77,6 +89,11 @@ export default function SeatSelection() {
   const rows = frontSeat ? all.slice(1) : all;
   const perRow = Math.max(1, ...rows.map((r) => r.length));
   const taken = new Set(trip.takenSeats);
+  const femaleSeats = new Set(trip.femaleSeats ?? []);
+  const womenOnly = new Set(trip.womenOnlySeats ?? []);
+  const stateOf = (n: number): SeatState =>
+    taken.has(n) ? (femaleSeats.has(n) ? 'takenF' : 'taken') : selected.includes(n) ? 'sel' : womenOnly.has(n) ? 'women' : 'free';
+  const policy = (config?.travelPolicy ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
   const hasAisle = aisleAfter > 0 && aisleAfter < perRow;
   // Fit the seat map inside the screen: screen padding, card padding and the vehicle body padding.
   const room = width - spacing.lg * 2 - spacing.lg * 2 - spacing.xl * 2 - 4 - (hasAisle ? AISLE : 0);
@@ -87,19 +104,39 @@ export default function SeatSelection() {
     hapticSelect();
     setSelected((sel) => {
       if (sel.includes(n)) return sel.filter((x) => x !== n);
+      if (needSeats && sel.length >= needSeats) {
+        Alert.alert('Seats', `Your booking has ${needSeats} seat${needSeats > 1 ? 's' : ''}. Tap a chosen seat to remove it first.`);
+        return sel;
+      }
       if (sel.length >= MAX_SEATS) {
         Alert.alert('Limit reached', `You can book up to ${MAX_SEATS} seats at a time.`);
         return sel;
       }
+      if (womenOnly.has(n)) Alert.alert('Women only', `Seat ${n} is next to a woman passenger, so it can only be booked for a woman. You will mark the traveller on the next step.`);
       return [...sel, n].sort((a, b) => a - b);
     });
   };
 
   const total = trip.fare * selected.length;
 
+  // Free date change: move the booking to this trip with the chosen seats.
+  const moveHere = async () => {
+    setMoving(true);
+    try {
+      await api<{ booking: Booking }>(`/api/bookings/${changeFor}/change`, { body: { tripId: trip.id, seatNos: selected } });
+      Alert.alert('Booking changed', `Your booking now is on ${fmtDateShort(trip.departAt)} at ${fmtTime(trip.departAt)}, seat ${selected.join(', ')}. Your QR ticket stays the same.`);
+      router.navigate({ pathname: '/booking/[id]', params: { id: changeFor! } });
+    } catch (e) {
+      Alert.alert('Could not change', errorMessage(e));
+      load();
+    } finally {
+      setMoving(false);
+    }
+  };
+
   return (
     <Screen>
-      <Header title="Select seats" subtitle={`${trip.fromCity} → ${trip.toCity} · ${fmtDateShort(trip.departAt)}`} />
+      <Header title={changeFor ? `Choose ${needSeats} new seat${needSeats > 1 ? 's' : ''}` : 'Select seats'} subtitle={`${trip.fromCity} → ${trip.toCity} · ${fmtDateShort(trip.departAt)}`} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl }}>
         <View style={st.card}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -147,7 +184,16 @@ export default function SeatSelection() {
             <Legend kind="free" label="Available" />
             <Legend kind="sel" label="Selected" />
             <Legend kind="taken" label="Booked" />
+            <Legend kind="women" label="Women only" />
           </View>
+          {trip.womenBooked ? (
+            <View style={st.womenNote}>
+              <Ionicons name="woman" size={16} color={PINK} />
+              <Text style={[type('xs', 'semibold', PINK), { flex: 1 }]}>
+                {trip.womenBooked} wom{trip.womenBooked > 1 ? 'en' : 'an'} already travelling. Seats next to them are for women only.
+              </Text>
+            </View>
+          ) : null}
 
           <View style={st.body}>
             {/* side mirrors */}
@@ -160,7 +206,7 @@ export default function SeatSelection() {
             </View>
             <View style={st.front}>
               {frontSeat ? (
-                <SeatTile n={frontSeat} size={seat} state={taken.has(frontSeat) ? 'taken' : selected.includes(frontSeat) ? 'sel' : 'free'} onPress={() => toggle(frontSeat)} />
+                <SeatTile n={frontSeat} size={seat} state={stateOf(frontSeat)} onPress={() => toggle(frontSeat)} />
               ) : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <MaterialCommunityIcons name="car-door" size={18} color={colors.textSubtle} />
@@ -176,11 +222,9 @@ export default function SeatSelection() {
               {rows.map((row, r) => (
                 <View key={r} style={{ flexDirection: 'row', justifyContent: 'center', gap: GAP }}>
                   {row.map((n, i) => {
-                    const isTaken = taken.has(n);
-                    const isSel = selected.includes(n);
                     return (
                       <View key={n} style={{ flexDirection: 'row' }}>
-                        <SeatTile n={n} size={seat} state={isTaken ? 'taken' : isSel ? 'sel' : 'free'} onPress={() => toggle(n)} />
+                        <SeatTile n={n} size={seat} state={stateOf(n)} onPress={() => toggle(n)} />
                         {hasAisle && i + 1 === aisleAfter && i < row.length - 1 ? <View style={{ width: AISLE }} /> : null}
                       </View>
                     );
@@ -198,14 +242,54 @@ export default function SeatSelection() {
           {trip.boardingPoint ? <InfoLine icon="information-circle-outline" color={colors.textMuted} label="Note" text={trip.boardingPoint} /> : null}
           <Text style={type('xs', 'regular', colors.textMuted)}>You choose your exact pickup and drop point on the next step.</Text>
         </View>
+
+        {policy.length ? (
+          <View style={[st.card, { gap: spacing.sm }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <MaterialCommunityIcons name="bag-suitcase-outline" size={18} color={colors.brand} />
+              <Text style={type('sm', 'bold')}>Luggage, children & pets</Text>
+            </View>
+            {policy.map((p) => (
+              <View key={p} style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <Text style={type('sm', 'bold', colors.textMuted)}>•</Text>
+                <Text style={[type('sm', 'regular'), { flex: 1 }]}>{p}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
 
-      <SeatBar count={selected.length} seatNos={selected} total={total} onContinue={() => router.push({ pathname: '/passenger', params: { kind: 'SEAT', tripId: trip.id, seats: selected.join(',') } })} />
+      <SeatBar
+        count={selected.length}
+        seatNos={selected}
+        total={total}
+        moving={changeFor ? { need: needSeats, busy: moving } : undefined}
+        onContinue={() =>
+          changeFor
+            ? moveHere()
+            : router.push({
+                pathname: '/passenger',
+                params: { kind: 'SEAT', tripId: trip.id, seats: selected.join(','), womenOnly: selected.filter((n) => womenOnly.has(n)).join(',') },
+              })
+        }
+      />
     </Screen>
   );
 }
 
-function SeatBar({ count, seatNos, total, onContinue }: { count: number; seatNos: number[]; total: number; onContinue: () => void }) {
+function SeatBar({
+  count,
+  seatNos,
+  total,
+  moving,
+  onContinue,
+}: {
+  count: number;
+  seatNos: number[];
+  total: number;
+  moving?: { need: number; busy: boolean };
+  onContinue: () => void;
+}) {
   return (
     <View style={st.bar}>
       <BottomSafe>
@@ -228,7 +312,14 @@ function SeatBar({ count, seatNos, total, onContinue }: { count: number; seatNos
               </>
             )}
           </View>
-          <Button title="Continue" disabled={!count} onPress={onContinue} fullWidth={false} style={{ minWidth: 150 }} />
+          <Button
+            title={moving ? 'Move booking' : 'Continue'}
+            disabled={moving ? count !== moving.need : !count}
+            loading={moving?.busy}
+            onPress={onContinue}
+            fullWidth={false}
+            style={{ minWidth: 150 }}
+          />
         </View>
       </BottomSafe>
     </View>
@@ -270,17 +361,17 @@ function SeatTile({ n, size, state, onPress }: { n: number; size: number; state:
   const h = Math.round(size * 1.1);
   return (
     <Pressable
-      disabled={state === 'taken'}
+      disabled={state === 'taken' || state === 'takenF'}
       onPress={onPress}
       hitSlop={3}
       accessibilityRole="checkbox"
-      accessibilityLabel={`Seat ${n}${state === 'taken' ? ', booked' : ''}`}
-      accessibilityState={{ checked: state === 'sel', disabled: state === 'taken' }}
+      accessibilityLabel={`Seat ${n}${state === 'taken' || state === 'takenF' ? ', booked' : state === 'women' ? ', women only' : ''}`}
+      accessibilityState={{ checked: state === 'sel', disabled: state === 'taken' || state === 'takenF' }}
       style={({ pressed }) => [{ width: size, height: h, alignItems: 'center', justifyContent: 'center', paddingBottom: h * 0.12 }, pressed && { transform: [{ scale: 0.92 }] }]}
     >
       <SeatShape w={size} h={h} state={state} />
-      {state === 'taken' ? (
-        <Ionicons name="person" size={16} color={SEAT_COLORS.taken.fg} />
+      {state === 'taken' || state === 'takenF' ? (
+        <Ionicons name={state === 'takenF' ? 'woman' : 'person'} size={16} color={SEAT_COLORS[state].fg} />
       ) : (
         <Text style={[type('sm', 'bold', SEAT_COLORS[state].fg), tabular]}>{n}</Text>
       )}
@@ -356,6 +447,7 @@ const st = StyleSheet.create({
     borderStyle: 'dashed',
   },
   rear: { alignSelf: 'center', width: '60%', height: 4, borderRadius: 2, backgroundColor: '#DFE6EF', marginTop: spacing.lg },
+  womenNote: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FDF2F8', borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6, marginBottom: spacing.md, alignSelf: 'stretch' },
   bar: {
     backgroundColor: colors.card,
     borderTopWidth: 1,

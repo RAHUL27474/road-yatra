@@ -42,7 +42,9 @@ function useDayPrices(from: string, to: string, days: { ymd: string }[]) {
 }
 
 export default function Results() {
-  const { from, to, date } = useLocalSearchParams<{ from: string; to: string; date: string }>();
+  // changeFor / need / exclude: choosing a new trip for an existing booking (free date change).
+  const { from, to, date, changeFor, need, exclude } = useLocalSearchParams<{ from: string; to: string; date: string; changeFor?: string; need?: string; exclude?: string }>();
+  const change = changeFor ? { changeFor, need: Number(need) || 1, exclude: exclude ?? '' } : null;
   const days = useMemo(() => nextDays(30), []);
   const [trips, setTrips] = useState<TripSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export default function Results() {
       const list = (await api<{ trips: TripSummary[] }>(`/api/trips/search?${q}`)).trips;
       priceCache.set(priceKey(from, to, date), lowestFare(list));
       setError(null);
-      setTrips(list);
+      setTrips(change ? list.filter((t) => t.id !== change.exclude && t.seatsLeft >= change.need) : list);
     } catch (e) {
       setError(errorMessage(e));
       setTrips((t) => t ?? []);
@@ -94,7 +96,7 @@ export default function Results() {
   return (
     <Screen>
       <Header
-        title={`${from} → ${to}`}
+        title={change ? `Change date · ${from} → ${to}` : `${from} → ${to}`}
         subtitle={`${fmtYmdShort(date)} · ${count}`}
         right={
           <Pressable onPress={modify} hitSlop={6} style={({ pressed }) => [st.modify, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Modify search">
@@ -153,7 +155,7 @@ export default function Results() {
               />
             )
           }
-          renderItem={({ item }) => <TripCard trip={item} />}
+          renderItem={({ item }) => <TripCard trip={item} change={change} />}
         />
       )}
     </Screen>
@@ -234,14 +236,16 @@ function DateStrip({
   );
 }
 
-function TripCard({ trip }: { trip: TripSummary }) {
+function TripCard({ trip, change }: { trip: TripSummary; change?: { changeFor: string; need: number } | null }) {
   const soldOut = trip.seatsLeft <= 0;
   const few = !soldOut && trip.seatsLeft <= 3;
   const plusDays = dayDiff(trip.departAt, trip.arriveAt);
   return (
     <Pressable
       disabled={soldOut}
-      onPress={() => router.push({ pathname: '/seats/[tripId]', params: { tripId: trip.id } })}
+      onPress={() =>
+        router.push({ pathname: '/seats/[tripId]', params: change ? { tripId: trip.id, changeFor: change.changeFor, need: String(change.need) } : { tripId: trip.id } })
+      }
       android_ripple={{ color: colors.brandRipple }}
       accessibilityRole="button"
       accessibilityLabel={`${fmtTime(trip.departAt)} to ${fmtTime(trip.arriveAt)}, ${trip.vehicle.name}, ${inr(trip.fare)} per seat${soldOut ? ', sold out' : ''}`}

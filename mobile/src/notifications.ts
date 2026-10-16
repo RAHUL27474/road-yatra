@@ -57,15 +57,24 @@ const route = (b: Booking) => {
 };
 const startOf = (b: Booking) => b.trip?.departAt ?? b.startAt;
 
-type Snap = { status: string; tripStatus: string; driver: string | null };
-const snap = (b: Booking): Snap => ({ status: b.status, tripStatus: b.tripStatus, driver: b.driver?.name ?? null });
+type Snap = { status: string; tripStatus: string; driver: string | null; late?: boolean; near?: boolean };
+const NEAR_MIN = 10;
+const snap = (b: Booking): Snap => ({
+  status: b.status,
+  tripStatus: b.tripStatus,
+  driver: b.driver?.name ?? null,
+  late: !!b.runningLate,
+  near: b.etaMinutes != null && b.etaMinutes <= NEAR_MIN,
+});
 
 function changeMessage(b: Booking, before: Snap): { title: string; body: string } | null {
   const now = snap(b);
   if (before.status === 'PENDING' && now.status === 'CONFIRMED') return { title: 'Booking confirmed', body: `${route(b)} · PNR ${b.code}. Your e-ticket is ready.` };
   if (before.status !== 'CANCELLED' && now.status === 'CANCELLED') return { title: 'Booking cancelled', body: `${route(b)} · PNR ${b.code}${b.refundAmount ? ` · refund ₹${b.refundAmount}` : ''}.` };
   if (now.status !== 'CONFIRMED') return null;
+  if (!before.near && now.near) return { title: `Vehicle ${b.etaMinutes} min away`, body: `Please be ready at ${b.pickupStop?.name ?? 'your pickup point'}${b.vehicleNumber ? ` · ${b.vehicleNumber}` : ''}.` };
   if (before.tripStatus !== 'STARTED' && now.tripStatus === 'STARTED') return { title: 'Your trip has started', body: `${route(b)} is on the way. Open the ticket to track the vehicle.` };
+  if (!before.late && now.late) return { title: 'Running a little late', body: `${route(b)} hasn't left yet. The driver will call you, or contact the office from your ticket.` };
   if (!before.driver && now.driver)
     return { title: 'Driver assigned', body: `${now.driver}${b.vehicleNumber ? ` · ${b.vehicleNumber}` : ''} for ${route(b)} at ${startOf(b) ? fmtTime(startOf(b)!) : ''}.` };
   return null;

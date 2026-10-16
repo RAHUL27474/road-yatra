@@ -13,6 +13,7 @@ import { DateTimeField } from '../../DateTimeField';
 import { cityRegion, fmtDuration, fmtYmdShort, inr, nextDays, relativeDay, ymdIST } from '../../format';
 import { VehicleArt } from '../../illustrations';
 import { rentalCache } from '../../store';
+import { PilgrimageSection, WhatsAppBookCard } from '../../pilgrimage';
 import { colors, radius, shadow, shadowSoft, spacing, tabular, type } from '../../theme';
 import { Button, Card, Chip, ErrorBanner, hapticSelect, hapticTap, IonName, Notice, OptionSheet, Skeleton } from '../../ui';
 
@@ -256,6 +257,9 @@ export default function Home() {
               <VehicleArt type="ERTIGA" width={124} style={{ marginRight: -spacing.sm, marginTop: spacing.xl }} />
             </LinearGradient>
           </Pressable>
+
+          <WhatsAppBookCard phone={config?.whatsapp} />
+          <PilgrimageSection phone={config?.whatsapp} />
 
           <View style={st.trustRow}>
             <TrustItem icon="shield-checkmark-outline" label="Verified drivers" />

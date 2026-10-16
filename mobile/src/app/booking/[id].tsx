@@ -4,7 +4,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { api, ApiError, Booking, Config, errorMessage, getConfig } from '../../api';
+import { api, ApiError, Booking, Config, errorMessage, getConfig, TripDetail } from '../../api';
 import { useAuth } from '../../auth';
 import { cacheBooking, cachedBooking } from '../../cache';
 import { checkBookingUpdates, syncTripReminders } from '../../notifications';
@@ -12,11 +12,13 @@ import { supportPhone } from '../../brand';
 import { fmtDate, fmtDateTime, fmtDuration, fmtTime, inr, RENTAL_TYPE, VEHICLE_TYPE } from '../../format';
 import { VehicleArt } from '../../illustrations';
 import { openPage, openPayment, reachableUrl } from '../../store';
+import { API_URL } from '../../api';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
 import { Button, EmptyState, ErrorBanner, hapticTap, Header, Input, IonName, isOnTrip, Notice, Row, Screen, Skeleton, statusInfo, Tone } from '../../ui';
 
-const PAYMENT_LABEL = { UNPAID: 'Unpaid', PAID: 'Paid', REFUND_PENDING: 'Refund pending', REFUNDED: 'Refunded' };
-const MODE_LABEL = { RAZORPAY: 'Online', DEMO: 'Online (demo)', CASH: 'Cash to driver' };
+const PAYMENT_LABEL = { UNPAID: 'Unpaid', PAID: 'Paid', PARTIAL: 'Advance paid', REFUND_PENDING: 'Refund pending', REFUNDED: 'Refunded' };
+const MODE_LABEL = { RAZORPAY: 'Online', DEMO: 'Online (demo)', CASH: 'Cash to driver', ADVANCE: 'Advance online + cash' };
+const PINK = '#DB2777';
 
 /** Status banner gradients for the ticket. */
 const BANNER: Record<Tone, readonly [string, string]> = {
@@ -125,8 +127,9 @@ export default function BookingDetail() {
 
   const b = booking;
   const onTrip = isOnTrip(b);
-  const isCash = b.paymentMode === 'CASH';
-  const cashDue = isCash && b.paymentStatus === 'UNPAID' && b.status === 'CONFIRMED';
+  // Cash still to give the driver: everything for a cash booking, the balance after an online advance.
+  const cashLeft = b.status === 'CONFIRMED' ? (b.cashDue ?? (b.paymentMode === 'CASH' && b.paymentStatus === 'UNPAID' ? b.totalAmount : 0)) : 0;
+  const cashDue = cashLeft > 0;
   const trackUrl = b.trackUrl ? reachableUrl(b.trackUrl) : null;
   const status = statusInfo(b.status, b.tripStatus);
 
@@ -223,6 +226,23 @@ export default function BookingDetail() {
 
         {b.canRate || b.rating ? <RateTrip booking={b} onRated={setBooking} /> : null}
 
+        {b.runningLate ? (
+          <Notice tone="warning" icon="time-outline">
+            The vehicle is running a little late. The driver will call you — or tap Support to ask the office.
+          </Notice>
+        ) : null}
+        {b.etaMinutes != null ? (
+          <View style={[st.card, st.eta]}>
+            <Ionicons name="car-sport" size={22} color={colors.white} />
+            <View style={{ flex: 1 }}>
+              <Text style={type('md', 'bold', colors.white)}>Vehicle is about {b.etaMinutes} min away</Text>
+              <Text style={type('xs', 'medium', 'rgba(255,255,255,0.85)')}>
+                {b.vehicleKm} km from {b.pickupStop?.name ?? 'your pickup point'} · please be ready
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {b.status === 'CONFIRMED' && fresh ? (
           <View style={st.fresh}>
             <View style={st.freshIcon}>
@@ -231,7 +251,7 @@ export default function BookingDetail() {
             <View style={{ flex: 1 }}>
               <Text style={type('md', 'bold', colors.success)}>Booking confirmed</Text>
               <Text style={type('sm', 'regular', colors.text)}>
-                {cashDue ? `Please pay ${inr(b.totalAmount)} in cash to the driver. ` : ''}Have a great journey.
+                {cashDue ? `Please pay ${inr(cashLeft)} in cash to the driver. ` : ''}Have a great journey.
               </Text>
             </View>
           </View>
@@ -360,7 +380,7 @@ export default function BookingDetail() {
             <GridCell
               label="Amount"
               value={inr(b.totalAmount)}
-              sub={cashDue ? 'Cash to driver' : PAYMENT_LABEL[b.paymentStatus]}
+              sub={cashDue ? `${inr(cashLeft)} cash to driver` : PAYMENT_LABEL[b.paymentStatus]}
               subColor={cashDue ? colors.warning : b.paymentStatus === 'PAID' || b.paymentStatus === 'REFUNDED' ? colors.success : colors.textMuted}
               align="right"
             />
@@ -443,6 +463,10 @@ export default function BookingDetail() {
           </View>
         ) : null}
 
+        {b.pickupStop && b.status === 'CONFIRMED' && b.tripStatus !== 'COMPLETED' ? <PickupCard booking={b} /> : null}
+
+        <ManageBooking booking={b} onChanged={setBooking} />
+
         <View style={st.card}>
           <Text style={[type('md', 'bold'), { marginBottom: spacing.sm }]}>Journey details</Text>
           {b.kind === 'SEAT' && b.trip ? (
@@ -464,6 +488,9 @@ export default function BookingDetail() {
             </>
           )}
           <Row label="Mobile" value={`+91 ${b.passengerPhone}`} />
+          {(b.seatPassengers ?? []).filter((p) => p.name || p.female).map((p) => (
+            <Row key={p.seatNo} label={`Seat ${p.seatNo}`} value={`${p.name || 'Traveller'}${p.female ? ' (woman)' : ''}${p.phone ? ` · +91 ${p.phone}` : ''}`} />
+          ))}
           {b.kind === 'SEAT' && b.trip?.boardingPoint ? (
             <Notice tone="info" style={{ marginTop: spacing.sm }}>
               {b.trip.boardingPoint}
@@ -485,11 +512,13 @@ export default function BookingDetail() {
             valueColor={b.paymentStatus === 'PAID' || b.paymentStatus === 'REFUNDED' ? colors.success : b.paymentStatus === 'UNPAID' ? colors.warning : colors.text}
           />
           {b.paymentMode ? <Row label="Mode" value={MODE_LABEL[b.paymentMode]} /> : null}
+          {b.amountPaid && b.paymentStatus === 'PARTIAL' ? <Row label="Advance paid" value={inr(b.amountPaid)} /> : null}
+          {b.discountPercent ? <Row label="Return-trip discount" value={`${b.discountPercent}% off the fare`} valueColor={colors.success} /> : null}
           {b.invoiceNo ? <Row label="Invoice no." value={b.invoiceNo} /> : null}
           <Row label="Booked on" value={fmtDateTime(b.createdAt)} />
           {cashDue ? (
             <Notice tone="warning" icon="cash-outline" style={{ marginTop: spacing.sm }}>
-              {`Pay ${inr(b.totalAmount)} in cash to the driver`}
+              {`Pay ${inr(cashLeft)} in cash to the driver`}
             </Notice>
           ) : null}
         </View>
@@ -537,6 +566,166 @@ const initials = (name: string) =>
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join('') || '?';
+
+/** Where to stand: photo of the spot, landmark, address, and directions. */
+function PickupCard({ booking: b }: { booking: Booking }) {
+  const s = b.pickupStop!;
+  return (
+    <View style={[st.card, { gap: spacing.sm }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Ionicons name="radio-button-on" size={18} color={colors.brand} />
+        <Text style={[type('md', 'bold'), { flex: 1 }]} numberOfLines={1}>
+          Pickup: {s.name}
+        </Text>
+      </View>
+      {s.photoUrl ? <Image source={{ uri: reachableUrl(s.photoUrl.startsWith('http') ? s.photoUrl : `${API_URL}${s.photoUrl}`) }} style={st.stopPhoto} resizeMode="cover" accessibilityLabel={`Photo of ${s.name}`} /> : null}
+      {s.landmark ? (
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          <Ionicons name="flag-outline" size={16} color={colors.accent} />
+          <Text style={[type('sm', 'semibold'), { flex: 1 }]}>{s.landmark}</Text>
+        </View>
+      ) : null}
+      {s.address ? <Text style={type('xs', 'regular', colors.textMuted)}>{s.address}</Text> : null}
+      <Button title="Get directions" icon="navigate-outline" variant="outline" size="md" onPress={() => directions(b)} />
+    </View>
+  );
+}
+
+/** Change date (once) / pickup, cancel some seats, book the return journey. */
+function ManageBooking({ booking: b, onChanged }: { booking: Booking; onChanged: (b: Booking) => void }) {
+  const [panel, setPanel] = useState<'pickup' | 'seats' | null>(null);
+  const [stops, setStops] = useState<TripDetail['pickupStops'] | null>(null);
+  const [picked, setPicked] = useState<number[]>([]);
+  const [busy, setBusy] = useState(false);
+  const trip = b.trip;
+  const multiSeat = b.kind === 'SEAT' && b.seatNos.length > 1 && b.canCancel;
+  const canReturn = b.kind === 'SEAT' && !!trip && (b.status === 'CONFIRMED' || b.status === 'COMPLETED');
+  if (!b.canChangeDate && !b.canChangePickup && !multiSeat && !canReturn) return null;
+
+  const openPickup = async () => {
+    setPanel('pickup');
+    if (!stops && trip) api<{ trip: TripDetail }>(`/api/trips/${trip.id}`).then((r) => setStops(r.trip.pickupStops), (e) => Alert.alert('Pickup points', errorMessage(e)));
+  };
+  const run = async (body: object, done: string) => {
+    setBusy(true);
+    try {
+      const path = 'seatNos' in body && !('tripId' in body) ? 'cancel' : 'change';
+      onChanged((await api<{ booking: Booking }>(`/api/bookings/${b.id}/${path}`, { body })).booking);
+      setPanel(null);
+      Alert.alert('Done', done);
+    } catch (e) {
+      Alert.alert('Could not update', errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const arriveYmd = trip ? new Date(trip.arriveAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
+  const departYmd = trip ? new Date(trip.departAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
+
+  return (
+    <View style={[st.card, { paddingVertical: spacing.sm }]}>
+      <Text style={[type('md', 'bold'), { marginVertical: spacing.sm }]}>Manage booking</Text>
+      {b.canChangeDate && trip ? (
+        <ManageRow
+          icon="calendar-outline"
+          title="Change date (free, once)"
+          sub={b.changeDeadline ? `Until ${fmtDateTime(b.changeDeadline)}` : undefined}
+          onPress={() => router.push({ pathname: '/results', params: { from: trip.fromCity, to: trip.toCity, date: departYmd, changeFor: b.id, need: String(b.seatNos.length), exclude: trip.id } })}
+        />
+      ) : null}
+      {b.canChangePickup ? <ManageRow icon="location-outline" title="Change pickup point" sub={b.pickupStop?.name} onPress={openPickup} /> : null}
+      {panel === 'pickup' ? (
+        <View style={st.panel}>
+          {!stops ? <Skeleton height={44} /> : null}
+          {(stops ?? []).map((s) => (
+            <Pressable
+              key={s.id}
+              disabled={busy || s.id === b.pickupStop?.id}
+              onPress={() => run({ pickupStopId: s.id }, `Pickup changed to ${s.name}.`)}
+              style={({ pressed }) => [st.panelRow, s.id === b.pickupStop?.id && { backgroundColor: colors.brandLight }, pressed && { opacity: 0.7 }]}
+            >
+              <Ionicons name={s.id === b.pickupStop?.id ? 'radio-button-on' : 'radio-button-off'} size={18} color={colors.brand} />
+              <View style={{ flex: 1 }}>
+                <Text style={type('sm', 'semibold')}>{s.name}</Text>
+                {s.landmark || s.address ? <Text style={type('xs', 'regular', colors.textMuted)}>{s.landmark || s.address}</Text> : null}
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      {multiSeat ? (
+        <ManageRow
+          icon="person-remove-outline"
+          title="Cancel some seats"
+          sub="One traveller's plan changed? Keep the rest."
+          onPress={() => {
+            setPicked([]);
+            setPanel(panel === 'seats' ? null : 'seats');
+          }}
+        />
+      ) : null}
+      {panel === 'seats' ? (
+        <View style={st.panel}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            {b.seatNos.map((n) => {
+              const on = picked.includes(n);
+              const who = b.seatPassengers?.find((p) => p.seatNo === n)?.name;
+              return (
+                <Pressable key={n} onPress={() => setPicked((p) => (on ? p.filter((x) => x !== n) : [...p, n]))} style={[st.seatChip, on && st.seatChipOn]}>
+                  <Text style={type('sm', 'bold', on ? colors.white : colors.text)}>
+                    Seat {n}
+                    {who ? ` · ${who}` : ''}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {b.paymentStatus === 'PAID' && b.cancellation ? (
+            <Text style={[type('xs', 'regular', colors.textMuted), { marginTop: spacing.sm }]}>{b.cancellation.refundPercent}% of those seats' fare is refunded.</Text>
+          ) : null}
+          <Button
+            title={picked.length ? `Cancel seat ${picked.sort((x, y) => x - y).join(', ')}` : 'Choose seats to cancel'}
+            variant="dangerOutline"
+            size="md"
+            disabled={!picked.length || picked.length >= b.seatNos.length}
+            loading={busy}
+            onPress={() =>
+              Alert.alert('Cancel these seats?', `Seat ${picked.join(', ')} will be cancelled. The other seats stay booked.`, [
+                { text: 'Keep', style: 'cancel' },
+                { text: 'Cancel seats', style: 'destructive', onPress: () => run({ seatNos: picked }, `Seat ${picked.join(', ')} cancelled.`) },
+              ])
+            }
+            style={{ marginTop: spacing.md }}
+          />
+          {picked.length >= b.seatNos.length ? <Text style={type('xs', 'regular', colors.textMuted)}>To cancel every seat, use “Cancel booking” below.</Text> : null}
+        </View>
+      ) : null}
+      {canReturn && trip ? (
+        <ManageRow
+          icon="swap-horizontal-outline"
+          title={`Book return: ${trip.toCity} → ${trip.fromCity}`}
+          sub="Same seats picker, return-trip discount applied automatically"
+          onPress={() => router.push({ pathname: '/results', params: { from: trip.toCity, to: trip.fromCity, date: arriveYmd } })}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function ManageRow({ icon, title, sub, onPress }: { icon: IonName; title: string; sub?: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [st.manageRow, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+      <View style={st.actionIcon}>
+        <Ionicons name={icon} size={18} color={colors.brand} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={type('sm', 'semibold')}>{title}</Text>
+        {sub ? <Text style={type('xs', 'regular', colors.textMuted)}>{sub}</Text> : null}
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
+    </Pressable>
+  );
+}
 
 /** Stars after a completed trip (once). Shows the given rating afterwards. */
 function RateTrip({ booking: b, onRated }: { booking: Booking; onRated: (b: Booking) => void }) {
@@ -726,4 +915,11 @@ const st = StyleSheet.create({
   actionIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' },
   dash: { height: 0, borderTopWidth: 1, borderColor: colors.border, borderStyle: 'dashed', marginVertical: spacing.sm },
   line: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
+  eta: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.success },
+  stopPhoto: { width: '100%', height: 160, borderRadius: 12, backgroundColor: colors.background },
+  manageRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  panel: { paddingVertical: spacing.sm, gap: spacing.xs },
+  panelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: 10 },
+  seatChip: { borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  seatChipOn: { backgroundColor: colors.danger, borderColor: colors.danger },
 });
