@@ -1,220 +1,313 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
-import { Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ApiError, getConfig } from '../api';
+import { ApiError, errorMessage, getConfig } from '../api';
 import { useAuth } from '../auth';
 import { BRAND, Devotional, Emblem } from '../brand';
-import { colors, fonts, gradient, radius, shadow, space } from '../theme';
-import { Button, Card, Field, haptic, Ionicons, MaterialCommunityIcons, Notice, OtpInput, showError, T, TextLink } from '../ui';
+import { colors, fonts, radius, shadow, space } from '../theme';
+import { Button, callPhone, Field, haptic, Ionicons, Loading, Notice, OtpInput, T, TextLink } from '../ui';
 
-type Mode = 'phone' | 'otp' | 'name' | 'password';
-/** login: existing drivers. apply: new drivers verifying their number to start an application. */
-type Intent = 'login' | 'apply';
+/** login: existing drivers. join: new drivers creating an account, then applying. */
+type Tab = 'login' | 'join';
+/** form: number/details, code: enter the OTP, name: new account's name after a verified OTP. */
+type Step = 'form' | 'code' | 'name';
+type Channel = 'PHONE' | 'EMAIL';
+
+const digitsOf = (s: string) => s.replace(/\D/g, '').slice(-10);
+const validPhone = (p: string) => /^[6-9]\d{9}$/.test(p);
 
 export default function Login() {
-  const { requestOtp, verifyOtp, loginPassword } = useAuth();
+  const { requestOtp, verifyOtp, loginPassword, registerPassword } = useAuth();
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<Mode>('phone');
-  const [intent, setIntent] = useState<Intent>('login');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPw, setShowPw] = useState(false);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  // New drivers verify their mobile number by SMS, or their email when the server can send email OTPs.
-  const [emailOtp, setEmailOtp] = useState(false);
-  const [verifyBy, setVerifyBy] = useState<'PHONE' | 'EMAIL'>('PHONE');
-  const [email, setEmail] = useState('');
-  const otpEmail = intent === 'apply' && verifyBy === 'EMAIL' ? email.trim().toLowerCase() : undefined;
-  const digits = phone.replace(/\D/g, '').slice(-10);
-  const sentTo = otpEmail ?? `+91 ${digits}`;
 
+  // What the server can send, from /api/config. null while loading.
+  const [channels, setChannels] = useState<Channel[] | null>(null);
+  const [supportPhone, setSupportPhone] = useState<string>(BRAND.phone);
   useEffect(() => {
     getConfig()
-      .then((c) => setEmailOtp(!!c.emailOtp))
-      .catch(() => {});
+      .then((c) => {
+        setChannels([...(c.otpLogin ? (['PHONE'] as const) : []), ...(c.emailOtp ? (['EMAIL'] as const) : [])]);
+        if (c.supportPhone) setSupportPhone(c.supportPhone);
+      })
+      .catch(() => setChannels([]));
   }, []);
 
+  const [tab, setTab] = useState<Tab>('login');
+  const [step, setStep] = useState<Step>('form');
+  const [usePassword, setUsePassword] = useState(false);
+  const [channel, setChannel] = useState<Channel>('PHONE');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [devOtp, setDevOtp] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  if (!channels) return <Loading />;
+
+  const phoneOtp = channels.includes('PHONE');
+  // Log in: OTP when SMS works, else password. Join: OTP verification when any channel works, else a password account.
+  const loginByPassword = usePassword || !phoneOtp;
+  const joinByPassword = channels.length === 0;
+  const joinChannel: Channel = channels.includes(channel) ? channel : channels[0] ?? 'PHONE';
+  const otpEmail = tab === 'join' && joinChannel === 'EMAIL' ? email.trim().toLowerCase() : undefined;
+  const p = digitsOf(phone);
+  const sentTo = otpEmail ?? `+91 ${p}`;
+
   const run = async (fn: () => Promise<void>) => {
+    setError(null);
     setBusy(true);
     try {
       await fn();
     } catch (e) {
-      showError(e, 'Login failed');
+      haptic.error();
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
   };
 
+  const switchTab = (next: Tab) => {
+    if (next === tab) return;
+    haptic.tap();
+    setTab(next);
+    setStep('form');
+    setOtp('');
+    setError(null);
+  };
+
   const sendOtp = () =>
     run(async () => {
-      if (digits.length !== 10) throw new Error('Enter your 10-digit mobile number.');
+      if (!validPhone(p)) throw new Error('Enter your 10-digit mobile number.');
       if (otpEmail !== undefined && !/^\S+@\S+\.\S+$/.test(otpEmail)) throw new Error('Enter a valid email address.');
       try {
-        const r = await requestOtp(digits, otpEmail);
+        const r = await requestOtp(p, otpEmail);
         setDevOtp(r.devOtp ?? null);
         setOtp('');
-        setMode('otp');
+        setStep('code');
       } catch (e) {
-        // OTP login not set up on the server: switch to password silently (email OTP errors are shown as they are).
-        if (e instanceof ApiError && e.status === 503 && !otpEmail) {
-          setNote(e.message);
-          setMode('password');
-        } else throw e;
+        // The server stopped sending OTPs since the config was loaded: fall back to passwords.
+        if (e instanceof ApiError && e.status === 503) {
+          setChannels((c) => (c ?? []).filter((x) => x !== (otpEmail ? 'EMAIL' : 'PHONE')));
+          if (tab === 'login') setUsePassword(true);
+        }
+        throw e;
       }
     });
 
   const submitOtp = (code = otp) =>
     run(async () => {
-      if (!/^\d{6}$/.test(code)) throw new Error('Enter the 6-digit OTP.');
-      const r = await verifyOtp(digits, code, undefined, otpEmail);
-      // A new number: the OTP is still valid, so ask for the name and resubmit it.
-      if (r.needsName) {
-        setMode('name');
-        return;
-      }
-      haptic.success();
+      if (!/^\d{6}$/.test(code)) throw new Error('Enter the 6-digit code.');
+      const r = await verifyOtp(p, code, undefined, otpEmail);
+      // A new account: the code is still unused, so ask for the name and send both.
+      if (r.needsName) setStep('name');
+      else haptic.success();
     });
 
   const submitName = () =>
     run(async () => {
-      if (name.trim().length < 2) throw new Error('Enter your full name.');
+      if (name.trim().length < 2) throw new Error('Enter your full name as on your driving licence.');
       try {
-        const r = await verifyOtp(digits, otp, name, otpEmail);
-        if (r.needsName) throw new Error('Enter your full name.');
+        await verifyOtp(p, otp, name, otpEmail);
       } catch (e) {
-        // The OTP is only checked now (with the name): a wrong or expired code goes back to the OTP step.
+        // A wrong or expired code goes back a step so a new one can be entered or requested.
         if (e instanceof ApiError && /otp/i.test(e.message)) {
           setOtp('');
-          setMode(/expired|request a new/i.test(e.message) ? 'phone' : 'otp');
+          setStep(/expired|request a new/i.test(e.message) ? 'form' : 'code');
         }
         throw e;
       }
       haptic.success();
     });
 
-  const switchIntent = (next: Intent) => {
-    haptic.tap();
-    setIntent(next);
-    setNote(null);
-    setOtp('');
-    setVerifyBy('PHONE');
-    setMode('phone');
-  };
-
-  const submitPassword = () =>
+  const submitPasswordLogin = () =>
     run(async () => {
       if (!phone.trim() || !password) throw new Error('Enter your mobile number and password.');
       await loginPassword(phone, password);
       haptic.success();
     });
 
-  const heroHeight = Math.min(340, Dimensions.get('window').height * 0.42);
+  const submitPasswordJoin = () =>
+    run(async () => {
+      if (name.trim().length < 2) throw new Error('Enter your full name as on your driving licence.');
+      if (!validPhone(p)) throw new Error('Enter your 10-digit mobile number.');
+      if (password.length < 6) throw new Error('Choose a password of at least 6 characters.');
+      await registerPassword({ name: name.trim(), phone: p, password });
+      haptic.success();
+    });
+
+  // ---- copy for the current step
+  const heading =
+    step === 'code' ? 'Enter verification code' : step === 'name' ? 'One last step' : tab === 'login' ? 'Welcome back' : 'Drive with us';
+  const subheading =
+    step === 'code'
+      ? `We sent a 6-digit code to ${sentTo}.`
+      : step === 'name'
+        ? `${sentTo} is verified. Add your name to create your account.`
+        : tab === 'login'
+          ? loginByPassword
+            ? 'Log in with your registered mobile number and password.'
+            : 'Log in with your registered mobile number.'
+          : joinByPassword
+            ? 'Create your account, then complete a short application. Our office reviews it within a day.'
+            : 'Verify your number to start. The application takes about 5 minutes.';
+
+  const phoneField = (onSubmit?: () => void) => (
+    <Field
+      label="Mobile number"
+      prefix="+91"
+      value={phone}
+      onChangeText={setPhone}
+      keyboardType="phone-pad"
+      autoComplete="tel"
+      textContentType="telephoneNumber"
+      maxLength={13}
+      placeholder="98765 43210"
+      returnKeyType={onSubmit ? 'go' : 'next'}
+      onSubmitEditing={onSubmit}
+    />
+  );
+
+  const passwordField = (label: string, onSubmit: () => void, isNew = false) => (
+    <Field
+      label={label}
+      icon="lock-closed-outline"
+      value={password}
+      onChangeText={setPassword}
+      secureTextEntry={!showPw}
+      autoComplete={isNew ? 'new-password' : 'password'}
+      placeholder={isNew ? 'At least 6 characters' : undefined}
+      returnKeyType="go"
+      onSubmitEditing={onSubmit}
+      right={
+        <Pressable onPress={() => setShowPw((v) => !v)} hitSlop={12} accessibilityLabel={showPw ? 'Hide password' : 'Show password'}>
+          <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={22} color={colors.textMuted} />
+        </Pressable>
+      }
+    />
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <LinearGradient colors={gradient.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[st.hero, { height: heroHeight + insets.top }]}>
-        <View style={st.ring1} />
-        <View style={st.ring2} />
-      </LinearGradient>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={{ paddingHorizontal: space.xl, paddingTop: insets.top + space.xxxl, paddingBottom: insets.bottom + space.xxl, flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={{ alignItems: 'center', marginBottom: space.xxl }}>
-            <Devotional size={14} style={{ marginBottom: space.sm }} />
-            <View style={st.logo}>
-              <Emblem size={84} />
-              <View style={st.steering}>
-                <MaterialCommunityIcons name="steering" size={18} color={colors.brand} />
-              </View>
-            </View>
-            <T v="display" color={colors.onBrand} center numberOfLines={1} adjustsFontSizeToFit>
+      <View style={[st.header, { paddingTop: insets.top + space.lg }]}>
+        <Devotional size={12} style={{ marginBottom: space.md, textAlign: 'left' }} />
+        <View style={st.brandRow}>
+          <Emblem size={52} />
+          <View style={{ flex: 1 }}>
+            <T v="title" color={colors.onBrand} numberOfLines={1}>
               {BRAND.wordmark}
             </T>
-            <T v="overline" color={colors.gold} center style={{ letterSpacing: 2, marginTop: 2 }}>
-              {`${BRAND.wordmarkSub} · Driver`}
+            <T v="caption" color={colors.onBrandMuted} numberOfLines={1}>
+              {BRAND.wordmarkSub} · Driver Partner
             </T>
-            <View style={st.routeChip}>
-              <Ionicons name="location" size={14} color={colors.onBrand} />
-              <T v="bodyStrong" color={colors.onBrand}>
-                Delhi · Haridwar · Hill stations
-              </T>
-            </View>
           </View>
+        </View>
+      </View>
 
-          <Card style={[{ padding: space.xl }, shadow.raised]}>
-            {intent === 'apply' && mode !== 'name' ? (
-              <View style={st.applyChip}>
-                <MaterialCommunityIcons name="card-account-details-outline" size={16} color={colors.accent} />
-                <T v="caption" color="#C2410C" style={{ fontFamily: fonts.bold }}>
-                  New driver application
-                </T>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={{ marginTop: -space.xxxl }}
+          contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xxl, flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[st.card, shadow.raised]}>
+            {step === 'form' ? (
+              <View style={st.tabs} accessibilityRole="tablist">
+                {(
+                  [
+                    ['login', 'Log in'],
+                    ['join', 'Join as driver'],
+                  ] as const
+                ).map(([k, label]) => {
+                  const on = tab === k;
+                  return (
+                    <Pressable key={k} onPress={() => switchTab(k)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={[st.tab, on && st.tabOn]}>
+                      <T v="label" color={on ? colors.text : colors.textMuted} style={{ fontFamily: on ? fonts.bold : fonts.semibold }}>
+                        {label}
+                      </T>
+                    </Pressable>
+                  );
+                })}
               </View>
-            ) : null}
-            <T v="title">{mode === 'otp' ? 'Enter OTP' : mode === 'name' ? `Welcome to ${BRAND.short}` : intent === 'apply' ? 'Apply to drive' : 'Log in'}</T>
-            <T v="body" color={colors.textMuted} style={{ marginTop: 4, marginBottom: space.xl }}>
-              {mode === 'otp'
-                ? `We sent a 6-digit code to ${sentTo}`
-                : mode === 'name'
-                  ? `${sentTo} is verified. Tell us your name to create your account.`
-                  : mode === 'password'
-                    ? 'Use your mobile number and password'
-                    : intent === 'apply'
-                      ? `Verify your ${verifyBy === 'EMAIL' ? 'email' : 'mobile number'} to start. The application takes about 5 minutes.`
-                      : 'Use your registered mobile number'}
+            ) : (
+              <Pressable
+                onPress={() => {
+                  setStep(step === 'name' ? 'code' : 'form');
+                  setError(null);
+                }}
+                hitSlop={8}
+                style={st.back}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+              >
+                <Ionicons name="arrow-back" size={20} color={colors.text} />
+                <T v="label">Back</T>
+              </Pressable>
+            )}
+
+            <T v="title">{heading}</T>
+            <T v="body" color={colors.textMuted} style={{ marginTop: space.xs, marginBottom: space.xl }}>
+              {subheading}
             </T>
 
-            {note ? <Notice tone="warning" text={note} style={{ marginBottom: space.lg }} /> : null}
+            {/* ---- Log in */}
+            {tab === 'login' && step === 'form' && loginByPassword ? (
+              <>
+                {phoneField()}
+                {passwordField('Password', submitPasswordLogin)}
+              </>
+            ) : null}
+            {tab === 'login' && step === 'form' && !loginByPassword ? phoneField(sendOtp) : null}
 
-            {mode === 'phone' || mode === 'password' ? (
-              <Field
-                label="Mobile number"
-                prefix="+91"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                autoComplete="tel"
-                maxLength={13}
-                placeholder="98765 43210"
-                onSubmitEditing={mode === 'phone' ? sendOtp : undefined}
-                style={{ fontSize: 22, fontFamily: fonts.bold, letterSpacing: 1 }}
-              />
+            {/* ---- Join: password account (no OTP on the server yet) */}
+            {tab === 'join' && step === 'form' && joinByPassword ? (
+              <>
+                <Field
+                  label="Full name (as on your driving licence)"
+                  icon="person-outline"
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  textContentType="name"
+                  maxLength={80}
+                  placeholder="e.g. Ramesh Kumar"
+                  returnKeyType="next"
+                />
+                {phoneField()}
+                {passwordField('Create a password', submitPasswordJoin, true)}
+              </>
             ) : null}
 
-            {mode === 'phone' && intent === 'apply' && emailOtp ? (
+            {/* ---- Join: verify by OTP */}
+            {tab === 'join' && step === 'form' && !joinByPassword ? (
               <>
-                <T v="label" color={colors.textMuted} style={{ marginBottom: space.sm }}>
-                  Send the OTP to my
-                </T>
-                <View style={st.seg} accessibilityRole="tablist">
-                  {(['PHONE', 'EMAIL'] as const).map((k) => {
-                    const on = verifyBy === k;
-                    return (
-                      <Pressable
-                        key={k}
-                        onPress={() => {
-                          if (!on) haptic.tap();
-                          setVerifyBy(k);
-                        }}
-                        accessibilityRole="tab"
-                        accessibilityState={{ selected: on }}
-                        style={[st.segBtn, on && st.segOn]}
-                      >
-                        <Ionicons name={k === 'PHONE' ? 'call-outline' : 'mail-outline'} size={18} color={on ? colors.brand : colors.textMuted} />
-                        <T v="bodyStrong" color={on ? colors.brand : colors.textMuted}>
-                          {k === 'PHONE' ? 'Mobile (SMS)' : 'Email'}
-                        </T>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {verifyBy === 'EMAIL' ? (
+                {channels.length > 1 ? (
+                  <View style={st.choice} accessibilityRole="radiogroup">
+                    {channels.map((c) => {
+                      const on = joinChannel === c;
+                      return (
+                        <Pressable
+                          key={c}
+                          onPress={() => setChannel(c)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: on }}
+                          style={[st.choiceBtn, on && st.choiceOn]}
+                        >
+                          <Ionicons name={c === 'PHONE' ? 'chatbubble-ellipses-outline' : 'mail-outline'} size={18} color={on ? colors.brand : colors.textMuted} />
+                          <T v="label" color={on ? colors.brand : colors.textMuted}>
+                            {c === 'PHONE' ? 'Code by SMS' : 'Code by email'}
+                          </T>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+                {phoneField(joinChannel === 'PHONE' ? sendOtp : undefined)}
+                {joinChannel === 'EMAIL' ? (
                   <Field
                     label="Email"
                     icon="mail-outline"
@@ -225,142 +318,94 @@ export default function Login() {
                     autoCorrect={false}
                     autoComplete="email"
                     placeholder="you@example.com"
+                    returnKeyType="go"
                     onSubmitEditing={sendOtp}
                   />
                 ) : null}
               </>
             ) : null}
 
-            {mode === 'phone' && <Button title="Send OTP" icon="arrow-forward" onPress={sendOtp} loading={busy} />}
-
-            {mode === 'otp' && (
+            {/* ---- OTP code */}
+            {step === 'code' ? (
               <>
                 {devOtp ? (
-                  <Pressable
-                    onPress={() => {
-                      setOtp(devOtp);
-                      haptic.tap();
-                    }}
-                    style={({ pressed }) => [st.devHint, pressed && { opacity: 0.7 }]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Fill test OTP"
-                  >
-                    <Ionicons name="flask-outline" size={20} color="#92400E" />
-                    <View style={{ flex: 1 }}>
-                      <T v="caption" color="#92400E">
-                        Test mode OTP
-                      </T>
-                      <T style={{ fontFamily: fonts.mono, fontWeight: '700', fontSize: 20, letterSpacing: 4, color: '#78350F' }}>{devOtp}</T>
-                    </View>
-                    <T v="label" color="#92400E" style={{ fontFamily: fonts.bold }}>
-                      Tap to fill
+                  <Pressable onPress={() => setOtp(devOtp)} style={st.devHint} accessibilityRole="button" accessibilityLabel="Fill test code">
+                    <Ionicons name="flask-outline" size={18} color={colors.warning} />
+                    <T v="caption" color={colors.warning} style={{ flex: 1 }}>
+                      Test mode code: <T v="caption" style={{ fontFamily: fonts.bold, color: colors.text }}>{devOtp}</T>
+                    </T>
+                    <T v="caption" color={colors.brand} style={{ fontFamily: fonts.bold }}>
+                      Fill
                     </T>
                   </Pressable>
                 ) : null}
                 <OtpInput value={otp} onChange={setOtp} length={6} autoFocus onComplete={(v) => submitOtp(v)} />
-                <Button title={intent === 'apply' ? 'Verify number' : 'Verify & log in'} icon="checkmark-circle" onPress={() => submitOtp()} loading={busy} style={{ marginTop: space.xl }} />
-                <TextLink
-                  title="Change number / resend OTP"
-                  icon="refresh"
-                  onPress={() => {
-                    setMode('phone');
-                  }}
-                />
-              </>
-            )}
-
-            {mode === 'name' && (
-              <>
-                <Field
-                  label="Full name (as on your driving licence)"
-                  icon="person-outline"
-                  value={name}
-                  onChangeText={setName}
-                  autoCapitalize="words"
-                  autoComplete="name"
-                  textContentType="name"
-                  autoFocus
-                  maxLength={80}
-                  placeholder="e.g. Ramesh Kumar"
-                  returnKeyType="done"
-                  onSubmitEditing={submitName}
-                />
-                <Button title="Continue" icon="arrow-forward" onPress={submitName} loading={busy} />
-                <TextLink title="Use a different number" icon="refresh" onPress={() => setMode('phone')} />
-              </>
-            )}
-
-            {mode === 'password' && (
-              <>
-                <Field
-                  label="Password"
-                  icon="lock-closed-outline"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPw}
-                  autoComplete="password"
-                  onSubmitEditing={submitPassword}
-                  right={
-                    <Pressable onPress={() => setShowPw((v) => !v)} hitSlop={12} accessibilityLabel={showPw ? 'Hide password' : 'Show password'}>
-                      <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={22} color={colors.textMuted} />
-                    </Pressable>
-                  }
-                />
-                <Button title="Log in" icon="log-in-outline" onPress={submitPassword} loading={busy} />
-              </>
-            )}
-
-            {intent === 'login' && mode !== 'name' ? (
-              <>
-                <View style={st.or}>
-                  <View style={st.orLine} />
-                  <T v="caption" color={colors.textMuted}>
-                    or
-                  </T>
-                  <View style={st.orLine} />
-                </View>
-                <TextLink
-                  title={mode === 'password' ? 'Use OTP instead' : 'Use password'}
-                  icon={mode === 'password' ? 'chatbubble-ellipses-outline' : 'key-outline'}
-                  onPress={() => {
-                    setNote(null);
-                    setMode(mode === 'password' ? 'phone' : 'password');
-                  }}
-                />
+                <View style={{ height: space.lg }} />
               </>
             ) : null}
-          </Card>
 
-          {mode === 'name' ? null : intent === 'login' ? (
-            <Pressable
-              onPress={() => switchIntent('apply')}
-              accessibilityRole="button"
-              accessibilityLabel={`New driver? Apply to drive with ${BRAND.short}`}
-              style={({ pressed }) => [st.applyCard, pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }]}
-            >
-              <View style={st.applyIcon}>
-                <MaterialCommunityIcons name="card-account-details-star-outline" size={26} color={colors.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <T v="bodyStrong">New driver?</T>
-                <T v="label" color={colors.textMuted} style={{ fontFamily: fonts.medium, marginTop: 2 }}>
-                  Apply to drive with {BRAND.short}
-                </T>
-              </View>
-              <Ionicons name="chevron-forward" size={22} color={colors.accent} />
-            </Pressable>
-          ) : (
-            <View style={{ marginTop: space.md }}>
-              <TextLink title={`Already a ${BRAND.short} driver? Log in`} icon="log-in-outline" onPress={() => switchIntent('login')} />
-            </View>
-          )}
+            {/* ---- Name for a new account */}
+            {step === 'name' ? (
+              <Field
+                label="Full name (as on your driving licence)"
+                icon="person-outline"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                autoFocus
+                maxLength={80}
+                placeholder="e.g. Ramesh Kumar"
+                returnKeyType="done"
+                onSubmitEditing={submitName}
+              />
+            ) : null}
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: space.lg }}>
-            <Ionicons name="shield-checkmark-outline" size={16} color={colors.textMuted} />
-            <T v="caption" color={colors.textMuted}>
-              Your number is verified by OTP and never shared
-            </T>
+            {error ? <Notice text={error} tone="danger" style={{ marginBottom: space.lg }} /> : null}
+
+            {step === 'form' ? (
+              tab === 'login' ? (
+                loginByPassword ? (
+                  <Button title="Log in" onPress={submitPasswordLogin} loading={busy} />
+                ) : (
+                  <Button title="Send code" onPress={sendOtp} loading={busy} />
+                )
+              ) : joinByPassword ? (
+                <Button title="Create account" onPress={submitPasswordJoin} loading={busy} />
+              ) : (
+                <Button title="Send code" onPress={sendOtp} loading={busy} />
+              )
+            ) : step === 'code' ? (
+              <>
+                <Button title={tab === 'join' ? 'Verify' : 'Verify & log in'} onPress={() => submitOtp()} loading={busy} />
+                <TextLink title="Didn't get it? Send again" onPress={() => setStep('form')} />
+              </>
+            ) : (
+              <Button title="Create account" onPress={submitName} loading={busy} />
+            )}
+
+            {tab === 'login' && step === 'form' && phoneOtp ? (
+              <TextLink
+                title={loginByPassword ? 'Log in with a code instead' : 'Log in with password instead'}
+                onPress={() => {
+                  setUsePassword(!loginByPassword);
+                  setError(null);
+                }}
+              />
+            ) : null}
           </View>
+
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={() => callPhone(supportPhone)} style={st.help} accessibilityRole="button" accessibilityLabel={`Call the office on ${supportPhone}`}>
+            <Ionicons name="call-outline" size={18} color={colors.brand} />
+            <T v="label" color={colors.textMuted}>
+              Need help? <T v="label" color={colors.brand}>Call the office</T>
+            </T>
+          </Pressable>
+          <T v="caption" color={colors.textMuted} center style={{ marginTop: space.xs }}>
+            Your details are only used to verify you as a {BRAND.short} driver.
+          </T>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -368,72 +413,34 @@ export default function Login() {
 }
 
 const st = StyleSheet.create({
-  hero: { position: 'absolute', top: 0, left: 0, right: 0, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden' },
-  ring1: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 40, borderColor: 'rgba(255,255,255,0.06)', top: -80, right: -90 },
-  ring2: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -60, left: -50 },
-  logo: { width: 84, height: 84, borderRadius: 42, marginBottom: space.md, ...shadow.raised },
-  steering: {
-    position: 'absolute',
-    right: -4,
-    bottom: -4,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.white,
-    borderWidth: 2,
-    borderColor: colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  routeChip: {
+  header: { backgroundColor: colors.brand, paddingHorizontal: space.xl, paddingBottom: space.xxxl + space.xl },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  card: { backgroundColor: colors.card, borderRadius: radius.card + 2, padding: space.xl },
+  tabs: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: radius.input + 4, padding: 4, marginBottom: space.xl },
+  tab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.input + 1 },
+  tabOn: { backgroundColor: colors.card, ...shadow.card },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 40, marginBottom: space.md },
+  choice: { flexDirection: 'row', gap: space.sm, marginBottom: space.lg },
+  choiceBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    marginTop: space.sm,
-    paddingHorizontal: space.md,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    minHeight: 48,
+    borderRadius: radius.input + 2,
+    borderWidth: 1.5,
+    borderColor: colors.border,
   },
+  choiceOn: { borderColor: colors.brand, backgroundColor: colors.brandLight },
   devHint: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space.sm,
     backgroundColor: colors.warningLight,
-    borderWidth: 1,
-    borderColor: '#FCD34D',
-    borderStyle: 'dashed',
     borderRadius: radius.input + 2,
     padding: space.md,
     marginBottom: space.lg,
   },
-  applyChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accentLight,
-    marginBottom: space.sm,
-  },
-  applyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    marginTop: space.lg,
-    padding: space.lg,
-    borderRadius: radius.card,
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: '#FFCC80',
-    ...shadow.card,
-  },
-  applyIcon: { width: 48, height: 48, borderRadius: 14, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' },
-  seg: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: radius.input + 4, backgroundColor: colors.background, marginBottom: space.lg },
-  segBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.input },
-  segOn: { backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.brand },
-  or: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.lg },
-  orLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  help: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, minHeight: 48, marginTop: space.xl },
 });

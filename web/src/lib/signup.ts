@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "./db";
 import { HttpError } from "./http";
-import type { OtpChannel } from "./otp";
+import { otpAvailable, type OtpChannel } from "./otp";
 import { phoneSchema } from "./schemas";
 
 /** An optional email: "" counts as not given. */
@@ -17,6 +17,12 @@ export const registerSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   channel: otpChannel,
 });
+
+/**
+ * Sign-up needs an OTP once SMS or email OTPs can be sent. Until a provider is set up (and outside test mode),
+ * people sign up with just a password, so new customers and drivers are never locked out.
+ */
+export const signupOtpRequired = () => otpAvailable("PHONE") || otpAvailable("EMAIL");
 
 /** Where a sign-up OTP goes: the mobile number, or the email for EMAIL. */
 export function signupTarget(channel: OtpChannel, phone: string, email?: string) {

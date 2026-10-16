@@ -30,6 +30,8 @@ type AuthState = {
   /** Verifies the OTP. Resolves `{ needsName: true }` for a new number: ask for the name and call again with it. */
   verifyOtp: (phone: string, otp: string, name?: string, email?: string) => Promise<{ needsName: boolean }>;
   loginPassword: (login: string, password: string) => Promise<void>;
+  /** Creates an account with a password (used while the server has no SMS/email OTP set up) and logs in. */
+  registerPassword: (input: { name: string; phone: string; password: string }) => Promise<void>;
   /** Reloads the account and driver application, which re-runs the status routing. */
   refreshAccess: () => Promise<Access | null>;
   logout: () => Promise<void>;
@@ -156,6 +158,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       loginPassword: async (login, password) => {
         await accept(await api<{ token: string; user: User }>('/api/auth/login', { body: { login: login.trim(), password } }));
+      },
+      registerPassword: async (input) => {
+        await accept(await api<{ token: string; user: User }>('/api/auth/register', { body: input }));
       },
       refreshAccess,
       logout: async () => {

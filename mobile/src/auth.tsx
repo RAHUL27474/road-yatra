@@ -14,8 +14,8 @@ type AuthState = {
   login: (login: string, password: string) => Promise<void>;
   /** Sign-up step 1: checks the details and sends the OTP. Returns where it went (and the OTP in test mode). */
   requestRegisterOtp: (input: RegisterInput) => Promise<{ sentTo: string; devOtp?: string }>;
-  /** Sign-up step 2: verifies the OTP, creates the account and logs in. */
-  register: (input: RegisterInput & { otp: string }) => Promise<void>;
+  /** Sign-up step 2: verifies the OTP, creates the account and logs in. No OTP while the server has no SMS/email set up. */
+  register: (input: RegisterInput & { otp?: string }) => Promise<void>;
   /** Sends a 6-digit OTP. Throws ApiError(503) when OTP login is not set up on the server. */
   requestOtp: (phone: string) => Promise<OtpRequestResult>;
   /** Logs in with the OTP. Returns `needsName` for a new number sent without a name (resend with the name). */

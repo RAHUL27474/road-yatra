@@ -58,7 +58,11 @@ export default function AuthForm({ mode, otpEnabled, emailOtpEnabled }: { mode: 
         done();
       } else {
         const body = { name: form.name, email: form.email, phone: form.phone, password: form.password, channel };
-        if (otpStep === "phone") {
+        // No SMS/email OTP set up yet: the account is created straight away.
+        if (channels.length === 0) {
+          await apiFetch("/api/auth/register", { body });
+          done();
+        } else if (otpStep === "phone") {
           const r = await apiFetch<{ sentTo: string; devOtp?: string }>("/api/auth/register/otp", { body });
           setSentTo(r.sentTo);
           setDevOtp(r.devOtp);
@@ -194,9 +198,6 @@ export default function AuthForm({ mode, otpEnabled, emailOtpEnabled }: { mode: 
                   </div>
                 </div>
               )}
-              {channels.length === 0 && (
-                <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Sign-up verification is not set up yet. Please call us to book, or try again later.</p>
-              )}
             </>
           )
         ) : (
@@ -214,7 +215,7 @@ export default function AuthForm({ mode, otpEnabled, emailOtpEnabled }: { mode: 
         )}
 
         {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <button className="btn-primary btn-lg w-full" disabled={busy || (mode === "register" && channels.length === 0)}>
+        <button className="btn-primary btn-lg w-full" disabled={busy}>
           {busy
             ? "Please wait…"
             : method === "otp"
@@ -223,9 +224,11 @@ export default function AuthForm({ mode, otpEnabled, emailOtpEnabled }: { mode: 
                 : "Verify & continue"
               : mode === "login"
                 ? "Login"
-                : otpStep === "phone"
-                  ? "Send OTP"
-                  : "Verify & create account"}
+                : channels.length === 0
+                  ? "Create account"
+                  : otpStep === "phone"
+                    ? "Send OTP"
+                    : "Verify & create account"}
         </button>
         {method === "password" && (
           <p className="text-center text-sm text-slate-500">

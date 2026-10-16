@@ -13,7 +13,7 @@ using the `token` returned by any login call (valid 30 days).
 | POST | `/api/auth/otp/verify` | `{ phone, otp (6 digits), name?, email?, channel? }` | `{ token, user }`, or `{ needsName: true }` for a new number without `name` (OTP not used up yet; resend with `name`) |
 | POST | `/api/auth/login` | `{ login (email or phone), password }` | `{ token, user }` |
 | POST | `/api/auth/register/otp` | `{ name, phone, email?, password, channel: "PHONE" \| "EMAIL" }` | `{ sent, channel, sentTo, devOtp? }` — sign-up step 1: checks the details (409 if already registered) and sends the OTP to the mobile or the email |
-| POST | `/api/auth/register` | `{ name, phone, email?, password, channel, otp }` | `{ token, user }` — sign-up step 2: the OTP from step 1 |
+| POST | `/api/auth/register` | `{ name, phone, email?, password, channel, otp }` | `{ token, user }` — sign-up step 2: the OTP from step 1. While `/api/config` has `otpLogin` and `emailOtp` both false (no SMS/email set up), sign up here directly without `otp` |
 | POST | `/api/auth/logout` | – | `{ ok }` |
 | GET | `/api/auth/me` | – | `{ user }` (401 if not logged in) |
 

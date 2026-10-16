@@ -49,6 +49,13 @@ export default function Register() {
     setError(null);
     setBusy(true);
     try {
+      // No SMS/email OTP set up on the server yet: create the account straight away.
+      if (channels?.length === 0) {
+        await register(input);
+        if (router.canGoBack()) router.back();
+        else router.replace('/');
+        return;
+      }
       const r = await requestRegisterOtp(input);
       setSent({ input, to: r.sentTo });
       setDevOtp(r.devOtp ?? null);
@@ -144,13 +151,12 @@ export default function Register() {
           />
         </>
       ) : null}
-      {channels.length === 0 ? (
-        <Notice tone="warning" style={{ marginBottom: spacing.md }}>
-          Sign-up verification is not set up yet. Please try again later.
-        </Notice>
-      ) : null}
       <Notice style={{ marginBottom: spacing.md }}>{error}</Notice>
-      <Button title="Send OTP" icon="chatbubble-ellipses-outline" onPress={sendOtp} loading={busy} disabled={channels.length === 0} />
+      {channels.length === 0 ? (
+        <Button title="Create account" icon="person-add-outline" onPress={sendOtp} loading={busy} />
+      ) : (
+        <Button title="Send OTP" icon="chatbubble-ellipses-outline" onPress={sendOtp} loading={busy} />
+      )}
     </AuthShell>
   );
 }
