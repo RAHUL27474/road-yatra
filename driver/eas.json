@@ -8,12 +8,12 @@
       "distribution": "internal",
       "node": "24.19.0",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://jai-shree-shyam-travels.vercel.app" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://jaishreeshyamtravels.com" }
     },
     "production": {
       "node": "24.19.0",
       "android": { "buildType": "app-bundle" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://jai-shree-shyam-travels.vercel.app" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://jaishreeshyamtravels.com" }
     }
   }
 }
