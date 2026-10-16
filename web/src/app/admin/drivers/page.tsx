@@ -14,6 +14,7 @@ export default async function DriversPage() {
     include: { user: true, _count: { select: { trips: { where: { status: "COMPLETED" } }, bookings: { where: { status: "COMPLETED" } } } } },
     orderBy: { createdAt: "asc" },
   });
+  const loadedAt = new Date().toISOString(); // "Received" marks only the cash shown on this page
   const cash = await db.booking.groupBy({
     by: ["cashCollectedBy"],
     where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, paymentStatus: "PAID" },
@@ -133,6 +134,7 @@ export default async function DriversPage() {
                   {cashHeld.get(d.id) ? (
                     <form action={markCashReceived} className="flex items-center gap-2">
                       <input type="hidden" name="driverId" value={d.id} />
+                      <input type="hidden" name="upTo" value={loadedAt} />
                       <span className="font-semibold">{inr(cashHeld.get(d.id)!.amount)}</span>
                       <button className="rounded border border-green-600 px-2 py-0.5 text-xs font-semibold text-green-700 hover:bg-green-50" title={`${cashHeld.get(d.id)!.count} booking(s)`}>
                         Received

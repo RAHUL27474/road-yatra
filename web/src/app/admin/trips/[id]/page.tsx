@@ -84,7 +84,7 @@ export default async function TripManifest({ params, searchParams }: { params: P
           {trip.driverId && !trip.driverResponse && trip.status === "SCHEDULED" && <p className="text-sm font-semibold text-amber-700">Waiting for the driver to accept in the app.</p>}
           {!trip.driverId && trip.driverNote && <p className="text-sm font-semibold text-red-600">{trip.driverNote}</p>}
           <p className="text-xs text-slate-500">
-            The driver gets the duty in the app (and by SMS/WhatsApp once a provider is set up). Passengers get the driver&apos;s name, number and a
+            The driver gets the duty in the app (and on WhatsApp once it is set up). Passengers get the driver&apos;s name, number and a
             live-tracking link.
           </p>
         </form>

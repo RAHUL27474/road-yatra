@@ -5,6 +5,7 @@ import { Armchair, CalendarDays, CarFront, ChevronRight, Luggage } from "lucide-
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { bookingInclude, expireStaleHolds, serializeBooking } from "@/lib/booking";
+import { visibleBookingsWhere } from "@/lib/my-bookings";
 import { fmtDateTime, inr } from "@/lib/format";
 import { cityPhoto, EMPTY_ROAD_IMAGE } from "@/lib/media";
 import { bookingTitle, STATUS_STYLE } from "@/components/BookingSummary";
@@ -16,7 +17,7 @@ export default async function MyBookings() {
   if (!user) redirect("/login?next=/my-bookings");
   await expireStaleHolds();
   const rows = await db.booking.findMany({
-    where: { userId: user.id, status: { not: "EXPIRED" } },
+    where: { ...(await visibleBookingsWhere(user.id)), status: { not: "EXPIRED" } },
     include: bookingInclude,
     orderBy: { createdAt: "desc" },
   });

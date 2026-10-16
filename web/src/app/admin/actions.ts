@@ -399,7 +399,9 @@ export async function saveSettings(formData: FormData) {
 export async function markCashReceived(formData: FormData) {
   await requireAdmin();
   const driverId = str(formData, "driverId");
-  await db.booking.updateMany({ where: { cashCollectedBy: driverId, cashHandedOverAt: null }, data: { cashHandedOverAt: new Date() } });
+  // Only the cash the office saw on the page: anything the driver collected after it loaded is still with them.
+  const upTo = new Date(str(formData, "upTo") || Date.now());
+  await db.booking.updateMany({ where: { cashCollectedBy: driverId, cashHandedOverAt: null, paidAt: { lte: upTo } }, data: { cashHandedOverAt: new Date() } });
   revalidatePath("/admin/drivers");
   revalidatePath("/admin");
 }

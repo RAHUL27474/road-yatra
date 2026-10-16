@@ -1,4 +1,4 @@
-// Emergency button: alerts the office (SMS + admin dashboard) and the driver's emergency contact with the
+// Emergency button: alerts the office (WhatsApp + admin dashboard) and the driver's emergency contact with the
 // current location, and offers to call 112. Without network it falls back to an SMS from the phone itself.
 import * as Location from 'expo-location';
 import { useState } from 'react';
@@ -36,7 +36,7 @@ async function sendSos() {
     ]);
   } catch (e) {
     if (!(e instanceof ApiError) || e.status !== 0) throw e;
-    // No internet: SMS the office from the phone (needs only mobile signal).
+    // No internet: SMS the office from the phone itself (needs only mobile signal) — the one SMS left in the system.
     const office = ((await getConfig().catch(() => null))?.supportPhone || BRAND.phone).replace(/[^\d+]/g, '');
     const map = pos ? ` Location: https://maps.google.com/?q=${pos.latitude},${pos.longitude}` : '';
     Linking.openURL(`sms:${office}?body=${encodeURIComponent(`SOS from JSS Travels driver. Need help urgently.${map}`)}`).catch(() => Linking.openURL('tel:112'));

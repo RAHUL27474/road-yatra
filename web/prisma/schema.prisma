@@ -19,6 +19,9 @@ model User {
   passwordHash String? // optional: customers and drivers log in with an SMS OTP
   role         String    @default("CUSTOMER") // CUSTOMER | DRIVER | ADMIN
   tokenVersion Int       @default(0) // bumped on app logout so old login tokens stop working
+  // Proved ownership of the mobile number with an OTP that was really delivered (not test mode).
+  // Bookings the office makes for a number only show on an account with this set.
+  phoneVerified Boolean  @default(false)
   createdAt    DateTime  @default(now())
   bookings     Booking[]
   driver       Driver?
@@ -32,6 +35,7 @@ model OtpCode {
   expiresAt DateTime
   attempts  Int      @default(0)
   used      Boolean  @default(false)
+  delivered Boolean  @default(false) // sent by a real provider (false = test mode, shown on screen)
   createdAt DateTime @default(now())
 
   @@index([phone, createdAt])

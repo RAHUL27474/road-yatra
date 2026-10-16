@@ -1,14 +1,16 @@
 import { db } from "./db";
 
 /**
- * SMS and WhatsApp sending.
+ * WhatsApp (and optional SMS) sending.
  *
- * Indian SMS must use DLT-approved templates, and WhatsApp business messages must use
- * Meta-approved templates. Each event below maps to a template you create with your provider:
+ * Messages go by WhatsApp only, unless NOTIFY_CHANNELS says otherwise (e.g. "WHATSAPP,SMS").
+ * WhatsApp business messages must use Meta-approved templates; Indian SMS must use DLT-approved ones.
+ * Each event below maps to a template you create with your provider:
  *
- *   SMS (MSG91 Flow API):    MSG91_AUTH_KEY, MSG91_TEMPLATE_<EVENT>  (variables var1, var2, ...)
  *   WhatsApp (Meta Cloud):   WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TEMPLATE_<EVENT>
- *                            (body parameters {{1}}, {{2}}, ... in the same order)
+ *                            (body parameters {{1}}, {{2}}, ... in the same order as `vars`)
+ *                            OTP must be an "Authentication" template (code in {{1}} + copy-code button).
+ *   SMS (MSG91 Flow API):    MSG91_AUTH_KEY, MSG91_TEMPLATE_<EVENT>  (variables var1, var2, ...)
  *
  * With no provider configured, messages are only written to the Notification table
  * (visible in Admin → Messages), so nothing breaks during development.
@@ -26,6 +28,24 @@ export type NotifyEvent =
   | "DUTY_ASSIGNED" // to the driver: a trip or full-cab booking was given to them
   | "DUTY_REJECTED" // to the office: a driver turned a duty down
   | "SOS"; // to the office and the driver's emergency contact
+
+/**
+ * Every WhatsApp template the system uses, with its body variables in order. Create each one in
+ * Meta Business Manager → WhatsApp Manager → Message templates, then put its name in WHATSAPP_TEMPLATE_<EVENT>.
+ * Shown on Admin → WhatsApp log so the office can see which ones are still missing.
+ */
+export const WHATSAPP_TEMPLATES: { event: NotifyEvent; to: string; category: string; vars: string[] }[] = [
+  { event: "OTP", to: "Customer / driver", category: "Authentication", vars: ["code"] },
+  { event: "BOOKING_CONFIRMED", to: "Customer", category: "Utility", vars: ["booking code", "route", "date & time", "boarding OTP"] },
+  { event: "DRIVER_ASSIGNED", to: "Customer", category: "Utility", vars: ["booking code", "driver name", "driver phone", "vehicle number", "tracking link"] },
+  { event: "BOOKING_CANCELLED", to: "Customer", category: "Utility", vars: ["booking code", "refund amount"] },
+  { event: "REFUND_DONE", to: "Customer", category: "Utility", vars: ["booking code", "refund amount"] },
+  { event: "DUTY_ASSIGNED", to: "Driver", category: "Utility", vars: ["route", "date & time", "vehicle number"] },
+  { event: "DRIVER_APPROVED", to: "Driver", category: "Utility", vars: ["driver name"] },
+  { event: "DRIVER_REJECTED", to: "Driver", category: "Utility", vars: ["driver name", "reason"] },
+  { event: "DUTY_REJECTED", to: "Office", category: "Utility", vars: ["message (driver, trip and reason)"] },
+  { event: "SOS", to: "Office + emergency contact", category: "Utility", vars: ["message (driver, vehicle, map link)"] },
+];
 
 const indian = (phone: string) => (phone.length === 10 ? `91${phone}` : phone.replace(/^\+/, ""));
 
@@ -52,34 +72,50 @@ async function sendSms(to: string, event: NotifyEvent, vars: string[], body: str
   }
 }
 
-async function sendWhatsApp(to: string, event: NotifyEvent, vars: string[], body: string) {
-  const token = process.env.WHATSAPP_TOKEN;
-  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const template = process.env[`WHATSAPP_TEMPLATE_${event}`];
-  if (!token || !phoneId || !template) return log("WHATSAPP", to, event, body, "LOGGED");
+/** WhatsApp Cloud API is set up for this event (token, phone number id and an approved template name). */
+export const whatsappConfigured = (event: NotifyEvent) =>
+  !!process.env.WHATSAPP_TOKEN && !!process.env.WHATSAPP_PHONE_NUMBER_ID && !!process.env[`WHATSAPP_TEMPLATE_${event}`];
+
+/** Sends a WhatsApp template message. Resolves true only if Meta accepted it. */
+export async function sendWhatsApp(to: string, event: NotifyEvent, vars: string[], body: string): Promise<boolean> {
+  if (!whatsappConfigured(event)) {
+    await log("WHATSAPP", to, event, body, "LOGGED");
+    return false;
+  }
+  const components: unknown[] = [{ type: "body", parameters: vars.map((text) => ({ type: "text", text })) }];
+  // Authentication templates (OTP) also need the code for their "copy code" button.
+  if (event === "OTP") components.push({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: vars[0] }] });
   try {
-    const res = await fetch(`https://graph.facebook.com/v20.0/${phoneId}/messages`, {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         messaging_product: "whatsapp",
         to: indian(to),
         type: "template",
-        template: {
-          name: template,
-          language: { code: process.env.WHATSAPP_LANGUAGE || "en" },
-          components: [{ type: "body", parameters: vars.map((text) => ({ type: "text", text })) }],
-        },
+        template: { name: process.env[`WHATSAPP_TEMPLATE_${event}`], language: { code: process.env.WHATSAPP_LANGUAGE || "en" }, components },
       }),
     });
-    await log("WHATSAPP", to, event, body, res.ok ? "SENT" : "FAILED", res.ok ? undefined : await res.text());
+    // Never store the OTP itself in the message log.
+    const logged = event === "OTP" ? "Verification code sent" : body;
+    await log("WHATSAPP", to, event, logged, res.ok ? "SENT" : "FAILED", res.ok ? undefined : await res.text());
+    return res.ok;
   } catch (e) {
-    await log("WHATSAPP", to, event, body, "FAILED", String(e));
+    await log("WHATSAPP", to, event, event === "OTP" ? "Verification code" : body, "FAILED", String(e));
+    return false;
   }
 }
 
-/** Sends one event by SMS and WhatsApp. Never throws: a failed message must not break a booking. */
-export async function notify(to: string, event: NotifyEvent, vars: string[], body: string, channels: ("SMS" | "WHATSAPP")[] = ["SMS", "WHATSAPP"]) {
+type Channel = "SMS" | "WHATSAPP";
+/** NOTIFY_CHANNELS="WHATSAPP" (default) or e.g. "WHATSAPP,SMS". */
+const defaultChannels = (): Channel[] => {
+  const list = (process.env.NOTIFY_CHANNELS || "WHATSAPP").toUpperCase().split(",").map((c) => c.trim());
+  const valid = list.filter((c): c is Channel => c === "SMS" || c === "WHATSAPP");
+  return valid.length ? valid : ["WHATSAPP"];
+};
+
+/** Sends one event on the configured channels (WhatsApp by default). Never throws: a failed message must not break a booking. */
+export async function notify(to: string, event: NotifyEvent, vars: string[], body: string, channels: Channel[] = defaultChannels()) {
   try {
     await Promise.all(channels.map((c) => (c === "SMS" ? sendSms(to, event, vars, body) : sendWhatsApp(to, event, vars, body))));
   } catch (e) {

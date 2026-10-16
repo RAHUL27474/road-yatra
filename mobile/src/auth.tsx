@@ -28,6 +28,8 @@ type AuthState = {
   logout: () => Promise<void>;
 };
 
+const USER_KEY = 'ry_user';
+
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -37,8 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const save = useCallback(async (token: string | null, u: User | null) => {
     setAuthToken(token);
     if (token) await storage.setItem(TOKEN_KEY, token);
-    else {
+    if (u) await storage.setItem(USER_KEY, JSON.stringify(u)).catch(() => {});
+    if (!token) {
       await storage.deleteItem(TOKEN_KEY);
+      await storage.deleteItem(USER_KEY).catch(() => {});
       // Logged out: no tickets, reminders or background checks of this account stay on the phone.
       await Promise.all([stopBookingChecks(), clearBookingCache(), cancelAllReminders()]);
     }
@@ -58,10 +62,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAuthToken(token);
           const { user: u } = await api<{ user: User }>('/api/auth/me');
           setUser(u);
+          await storage.setItem(USER_KEY, JSON.stringify(u)).catch(() => {});
         }
       } catch (e) {
         // Expired or invalid token: forget it. Network errors keep the token for next launch.
         if (e instanceof ApiError && e.status === 401) await save(null, null);
+        // Opened with no signal (e.g. at the pickup point): stay logged in as the last known account so the
+        // tickets saved on the phone still open.
+        else if (e instanceof ApiError && e.status === 0) {
+          const cached = await storage.getItem(USER_KEY).then((v) => (v ? (JSON.parse(v) as User) : null)).catch(() => null);
+          if (cached) setUser(cached);
+        }
       } finally {
         setReady(true);
       }
@@ -93,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateProfile: async (input) => {
         const r = await api<{ user: User }>('/api/auth/me', { method: 'PATCH', body: input });
         setUser(r.user);
+        await storage.setItem(USER_KEY, JSON.stringify(r.user)).catch(() => {});
       },
       deleteAccount: async () => {
         await api('/api/auth/me', { method: 'DELETE' });

@@ -123,7 +123,7 @@ export default function ApplicationStatus() {
             ) : (
               <>
                 <Progress />
-                <Notice tone="brand" icon="chatbubble-ellipses-outline" text="We'll SMS you once the office approves your application." style={{ marginTop: space.lg }} />
+                <Notice tone="brand" icon="chatbubble-ellipses-outline" text="We'll message you on WhatsApp once the office approves your application." style={{ marginTop: space.lg }} />
               </>
             )}
 

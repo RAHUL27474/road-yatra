@@ -138,7 +138,7 @@ export default function AuthForm({ mode, otpEnabled, emailOtpEnabled }: { mode: 
                   Change
                 </button>
               </p>
-              {devOtp && <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-800">Test mode (no SMS provider set up): your OTP is {devOtp}</p>}
+              {devOtp && <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-800">Test mode (WhatsApp not set up yet): your OTP is {devOtp}</p>}
               <div>
                 <label className="label">6-digit OTP</label>
                 <input className="input text-center text-xl tracking-[0.5em]" required autoFocus inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={form.otp} onChange={set("otp")} />
@@ -162,7 +162,7 @@ export default function AuthForm({ mode, otpEnabled, emailOtpEnabled }: { mode: 
               </p>
               {devOtp && (
                 <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-800">
-                  Test mode (no {channel === "EMAIL" ? "email" : "SMS"} provider set up): your OTP is {devOtp}
+                  Test mode ({channel === "EMAIL" ? "email" : "WhatsApp"} not set up yet): your OTP is {devOtp}
                 </p>
               )}
               <div>

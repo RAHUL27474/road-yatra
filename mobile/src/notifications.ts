@@ -4,7 +4,7 @@
 //   (checked while the app is open and every ~15 min in the background by background.ts).
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { router } from 'expo-router';
+import { router, useRootNavigationState } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import type { Booking } from './api';
@@ -99,7 +99,15 @@ export async function checkBookingUpdates(bookings: Booking[], silent = false) {
  * Keeps exactly one set of departure reminders per upcoming confirmed booking (and none for cancelled ones).
  * Pass the full list from /api/bookings; with `partial` (one ticket) only those bookings are touched.
  */
-export async function syncTripReminders(bookings: Booking[], partial = false) {
+let reminderLock: Promise<void> = Promise.resolve();
+export function syncTripReminders(bookings: Booking[], partial = false): Promise<void> {
+  // One at a time: the list screen, a ticket and the background task can all call this together.
+  const run = reminderLock.then(() => syncTripRemindersNow(bookings, partial));
+  reminderLock = run.catch(() => {});
+  return run;
+}
+
+async function syncTripRemindersNow(bookings: Booking[], partial: boolean) {
   const given = new Set(bookings.map((b) => b.id));
   const scheduled = await readJson<Record<string, { at: string; ids: string[] }>>(SCHEDULED, {});
   const wanted = new Map<string, Booking>();
@@ -148,8 +156,11 @@ export async function cancelAllReminders() {
 
 /** Opens the ticket when the passenger taps one of our notifications. */
 export function useNotificationRouting(enabled: boolean) {
+  // Wait for the navigator: a tap that cold-starts the app arrives before the screens are mounted.
+  const navReady = !!useRootNavigationState()?.key;
+  const active = enabled && navReady;
   useEffect(() => {
-    if (!enabled) return;
+    if (!active) return;
     const open = (data: Record<string, unknown> | undefined) => {
       if (typeof data?.bookingId === 'string') router.push({ pathname: '/booking/[id]', params: { id: data.bookingId } });
     };
@@ -160,5 +171,5 @@ export function useNotificationRouting(enabled: boolean) {
     }
     const sub = Notifications.addNotificationResponseReceivedListener((r) => open(r.notification.request.content.data));
     return () => sub.remove();
-  }, [enabled]);
+  }, [active]);
 }

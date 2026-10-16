@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getRequestUser } from "@/lib/auth";
 import { handle, HttpError, ok } from "@/lib/http";
+import { canSeeBooking } from "@/lib/my-bookings";
 import { bookingForApi, bookingInclude, expireStaleHolds } from "@/lib/booking";
 
 export const GET = handle(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
@@ -9,6 +10,6 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
   if (!user) throw new HttpError(401, "Please log in.");
   await expireStaleHolds();
   const booking = await db.booking.findFirst({ where: { OR: [{ id }, { code: id }] }, include: bookingInclude });
-  if (!booking || (booking.userId !== user.id && user.role !== "ADMIN")) throw new HttpError(404, "Booking not found.");
+  if (!booking || !(await canSeeBooking(user, booking))) throw new HttpError(404, "Booking not found.");
   return ok({ booking: await bookingForApi(booking) });
 });

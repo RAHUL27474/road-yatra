@@ -37,7 +37,7 @@ export default async function DriverForm({ params, searchParams }: { params: Pro
     : [];
   const title = !d ? "Add driver" : d.status === "PENDING" ? `Driver application: ${d.user.name}` : `Edit ${d.user.name}`;
   const success =
-    reviewed === "approve" ? "Approved. The driver can now log in to the driver app." : reviewed === "reject" ? "Application rejected. The driver has been informed by SMS." : undefined;
+    reviewed === "approve" ? "Approved. The driver can now log in to the driver app." : reviewed === "reject" ? "Application rejected. The driver has been informed on WhatsApp." : undefined;
 
   return (
     <div className="space-y-4">

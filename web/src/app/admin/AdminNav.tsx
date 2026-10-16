@@ -27,7 +27,7 @@ const NAV: [string, LucideIcon, string][] = [
   ["/admin/routes", Route, "Routes & fares"],
   ["/admin/stops", MapPin, "Pickup points"],
   ["/admin/reports", ChartColumn, "Reports"],
-  ["/admin/messages", MessageSquare, "SMS / WhatsApp log"],
+  ["/admin/messages", MessageSquare, "WhatsApp log"],
   ["/admin/settings", Settings, "Settings"],
 ];
 

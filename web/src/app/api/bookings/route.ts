@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { getRequestUser } from "@/lib/auth";
 import { handle, HttpError, ok } from "@/lib/http";
 import { createBookingSchema } from "@/lib/schemas";
+import { visibleBookingsWhere } from "@/lib/my-bookings";
 import { bookingForApi, bookingInclude, createRentalBooking, createSeatBooking, expireStaleHolds, payLink } from "@/lib/booking";
 
 // GET /api/bookings -> the logged-in user's bookings
@@ -10,7 +11,7 @@ export const GET = handle(async (req: Request) => {
   if (!user) throw new HttpError(401, "Please log in.");
   await expireStaleHolds();
   const bookings = await db.booking.findMany({
-    where: { userId: user.id, status: { not: "EXPIRED" } },
+    where: { ...(await visibleBookingsWhere(user.id)), status: { not: "EXPIRED" } },
     include: bookingInclude,
     orderBy: { createdAt: "desc" },
   });

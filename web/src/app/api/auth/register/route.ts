@@ -11,12 +11,14 @@ import { sessionResponse } from "@/lib/session";
 export const POST = handle(async (req: Request) => {
   const data = registerSchema.extend({ otp: otpCode.optional() }).parse(await req.json());
   await assertNewAccount(data.phone, data.email);
+  let phoneVerified = false;
   if (signupOtpRequired()) {
     if (!data.otp) throw new HttpError(400, "Please verify your mobile number or email with an OTP. Update the app if you don't see this step.");
-    await verifyOtp(signupTarget(data.channel, data.phone, data.email), data.otp);
+    const { delivered } = await verifyOtp(signupTarget(data.channel, data.phone, data.email), data.otp);
+    phoneVerified = data.channel === "PHONE" && delivered;
   }
   const user = await db.user.create({
-    data: { name: data.name, email: data.email, phone: data.phone, passwordHash: await hashPassword(data.password) },
+    data: { name: data.name, email: data.email, phone: data.phone, passwordHash: await hashPassword(data.password), phoneVerified },
   });
   return sessionResponse(user, 201);
 });

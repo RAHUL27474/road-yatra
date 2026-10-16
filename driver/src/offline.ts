@@ -1,7 +1,7 @@
 // Boarding, no-show and cash actions keep working with no signal (the Khatima–Delhi highway has dead zones):
 // a request that can't reach the server is saved on the phone and sent again when the network is back.
 // The server still checks everything (OTP, ownership) when the action arrives.
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import { ApiError, post } from './api';
 import { KEYS, load, save } from './storage';
 
@@ -51,7 +51,14 @@ export async function postOrQueue<T>(path: string, body: unknown, effect: Queued
   }
 }
 
-/** Sends waiting actions in order. Stops at the first network failure; drops (and reports) ones the server rejects. */
+/**
+ * Worth trying again later rather than dropping: no network, not logged in yet (e.g. the background task ran
+ * before the token was set), rate limited, or a server/hosting hiccup. Anything else is a real refusal
+ * (wrong OTP, already boarded, not your trip...).
+ */
+const retryLater = (e: unknown) => e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 408 || e.status === 429 || e.status >= 500);
+
+/** Sends waiting actions in order. Stops at the first temporary failure; drops (and reports) ones the server refuses. */
 export function flushQueue(): Promise<void> {
   flushing ??= (async () => {
     await ensureLoaded();
@@ -61,13 +68,14 @@ export function flushQueue(): Promise<void> {
       try {
         await post(a.path, a.body);
       } catch (e) {
-        if (e instanceof ApiError && e.status === 0) break; // still offline
+        if (retryLater(e)) break; // keep it for the next try
         rejected.push(`${a.label}: ${e instanceof Error ? e.message : 'failed'}`);
       }
       queue.shift();
       emit();
     }
-    if (rejected.length) Alert.alert('Some offline actions were not accepted', rejected.join('\n\n'));
+    // Only tell the driver when they can see it (not from the background task).
+    if (rejected.length && AppState.currentState === 'active') Alert.alert('Some offline actions were not accepted', rejected.join('\n\n'));
   })().finally(() => {
     flushing = null;
   });

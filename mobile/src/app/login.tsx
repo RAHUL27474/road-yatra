@@ -113,7 +113,7 @@ function OtpLogin({ onUsePassword, footer }: { onUsePassword: (why?: string) => 
   return (
     <AuthShell
       title={sentTo ? 'Enter OTP' : 'Log in with mobile number'}
-      subtitle={sentTo ? `We sent a 6-digit OTP to +91 ${sentTo}.` : "We'll send you a one-time password (OTP) by SMS."}
+      subtitle={sentTo ? `We sent a 6-digit OTP to +91 ${sentTo}.` : "We'll send you a one-time password (OTP) on WhatsApp."}
       footer={footer}
     >
       {!sentTo ? (

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { fmtDateTime } from "@/lib/format";
+import { WHATSAPP_TEMPLATES } from "@/lib/notify";
 
 const STATUS: Record<string, string> = {
   SENT: "bg-green-100 text-green-700",
@@ -9,22 +10,47 @@ const STATUS: Record<string, string> = {
 
 export default async function MessagesPage() {
   const messages = await db.notification.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
-  const configured = { sms: !!process.env.MSG91_AUTH_KEY, whatsapp: !!process.env.WHATSAPP_TOKEN };
+  const connected = !!process.env.WHATSAPP_TOKEN && !!process.env.WHATSAPP_PHONE_NUMBER_ID;
 
   return (
     <div className="space-y-4">
-      <h1 className="page-title">SMS / WhatsApp log</h1>
-      <div className="card p-4 text-sm">
+      <h1 className="page-title">WhatsApp log</h1>
+      <div className="card space-y-3 p-4 text-sm">
         <p>
-          SMS (MSG91): {configured.sms ? <b className="text-green-700">connected</b> : <b className="text-amber-700">not set up</b>} · WhatsApp:{" "}
-          {configured.whatsapp ? <b className="text-green-700">connected</b> : <b className="text-amber-700">not set up</b>}
+          WhatsApp Cloud API: {connected ? <b className="text-green-700">connected</b> : <b className="text-amber-700">not set up</b>}
+          {!connected && (
+            <span className="text-slate-500">
+              {" "}
+              — until it is, messages are only recorded below (status LOGGED) and not delivered. Set WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID
+              in the hosting settings.
+            </span>
+          )}
         </p>
-        {(!configured.sms || !configured.whatsapp) && (
-          <p className="mt-1 text-slate-500">
-            Until a provider is connected, messages are only recorded here (status LOGGED) and not delivered. Add the keys and template IDs in
-            the server&apos;s .env file.
-          </p>
-        )}
+        <details open={!connected}>
+          <summary className="cursor-pointer font-semibold text-brand">Message templates ({WHATSAPP_TEMPLATES.filter((t) => process.env[`WHATSAPP_TEMPLATE_${t.event}`]).length}/{WHATSAPP_TEMPLATES.length} set up)</summary>
+          <table className="table mt-2 text-xs">
+            <thead>
+              <tr>
+                <th>Setting name</th>
+                <th>Sent to</th>
+                <th>Meta category</th>
+                <th>Variables {"{{1}}, {{2}}…"}</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {WHATSAPP_TEMPLATES.map((t) => (
+                <tr key={t.event}>
+                  <td className="font-mono">WHATSAPP_TEMPLATE_{t.event}</td>
+                  <td>{t.to}</td>
+                  <td>{t.category}</td>
+                  <td>{t.vars.map((v, i) => `{{${i + 1}}} ${v}`).join(", ")}</td>
+                  <td>{process.env[`WHATSAPP_TEMPLATE_${t.event}`] ? <b className="text-green-700">set</b> : <b className="text-amber-700">missing</b>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
       </div>
       <div className="card overflow-x-auto">
         <table className="table">

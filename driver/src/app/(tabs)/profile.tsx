@@ -11,7 +11,7 @@ import { Avatar, Badge, Button, callPhone, Card, confirm, Divider, Header, Ionic
 
 export default function Profile() {
   const { user, logout } = useAuth();
-  const { driver, duties, sharing } = useDuties();
+  const { driver, duties, sharing, pending } = useDuties();
   // Vehicles on the driver's open duties, once each.
   const vehicles = [...new Map((duties ?? []).filter((d) => d.status !== 'COMPLETED' && d.vehicle?.docs).map((d) => [d.vehicle!.id, d.vehicle!])).values()];
   const [support, setSupport] = useState<string | null>(BRAND.phone);
@@ -145,7 +145,18 @@ export default function Profile() {
           icon="log-out-outline"
           variant="outlineDanger"
           onPress={() =>
-            confirm('Log out?', sharing ? 'Location sharing for your current trip will stop.' : 'You will need to log in again.', 'Log out', () => logout().catch(showError), true)
+            confirm(
+              'Log out?',
+              [
+                pending.length ? `${pending.length} action${pending.length > 1 ? 's' : ''} saved offline (boarding / cash) have not reached the office yet. They will be sent now if there is internet — otherwise they are lost.` : '',
+                sharing ? 'Location sharing for your current trip will stop.' : 'You will need to log in again.',
+              ]
+                .filter(Boolean)
+                .join('\n\n'),
+              'Log out',
+              () => logout().catch(showError),
+              true,
+            )
           }
           style={{ marginTop: space.xxl }}
         />

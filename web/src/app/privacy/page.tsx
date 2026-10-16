@@ -24,7 +24,7 @@ export default async function PrivacyPage() {
       "How we use it",
       [
         "To confirm bookings, assign drivers and vehicles, run the trip and issue GST invoices.",
-        "To send booking, driver and trip updates by SMS, WhatsApp, email or app notification.",
+        "To send booking, driver and trip updates by WhatsApp, email or app notification.",
         "To show passengers the live position of their vehicle and the driver's name and number for their trip.",
         "For safety: an SOS from the driver app sends the driver's location to our office and their emergency contact.",
       ],

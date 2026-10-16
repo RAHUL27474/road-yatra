@@ -19,7 +19,7 @@ export default async function NewPhoneBooking({ searchParams }: { searchParams: 
       <p className="text-sm text-slate-500">
         For shared seats, open the trip in <Link href="/admin/trips" className="font-semibold text-brand">Trips &amp; schedule</Link> and use
         &quot;Phone / walk-in booking&quot;. The fare is calculated automatically from the vehicle&apos;s rates. The booking is confirmed straight
-        away, and the customer gets an SMS/WhatsApp confirmation.
+        away, and the customer gets a WhatsApp confirmation.
       </p>
       <Flash error={error} />
 

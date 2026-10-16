@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, Application, normalizeLogin, setAccessLostHandler, setAuthToken, TOKEN_KEY, User } from './api';
 import { stopDutyChecks } from './background';
-import { clearQueue } from './offline';
+import { clearQueue, flushQueue } from './offline';
 import { stopLocationSharing } from './location';
 import { KEYS, remove } from './storage';
 
@@ -64,6 +64,9 @@ async function loadSession(user: User): Promise<Session> {
   }
 }
 
+const USER_KEY = 'ry_driver_user';
+const rememberUser = (u: User) => SecureStore.setItemAsync(USER_KEY, JSON.stringify(u)).catch(() => {});
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -72,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clear = useCallback(async () => {
     setAuthToken(null);
     await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
+    await SecureStore.deleteItemAsync(USER_KEY).catch(() => {});
     setSession(null);
   }, []);
 
@@ -87,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const s = await loadSession(r.user);
         await SecureStore.setItemAsync(TOKEN_KEY, r.token);
+        await rememberUser(r.user);
         // One state update decides the route, so no screen flashes in between.
         setSession(s);
       } catch (e) {
@@ -105,11 +110,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAuthToken(token);
           const { user } = await api<{ user: User }>('/api/auth/me');
           if (user.role === 'ADMIN') await clear();
-          else setSession(await loadSession(user));
+          else {
+            await rememberUser(user);
+            setSession(await loadSession(user));
+          }
         }
       } catch (e) {
         // Expired or invalid token: forget it. Network errors keep the token for next launch.
         if (e instanceof ApiError && e.status === 401) await clear();
+        // Opened with no signal: carry on as the last known account, so a driver still reaches the
+        // duties saved on the phone (offline boarding and cash work from there).
+        else if (e instanceof ApiError && e.status === 0) {
+          const cached = await SecureStore.getItemAsync(USER_KEY).then((v) => (v ? (JSON.parse(v) as User) : null)).catch(() => null);
+          if (cached && cached.role !== 'ADMIN') setSession({ user: cached, application: null, access: cached.role === 'DRIVER' ? 'driver' : 'unknown' });
+        }
       } finally {
         setReady(true);
       }
@@ -169,6 +183,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       refreshAccess,
       logout: async () => {
+        // Send anything saved offline first, while this driver is still logged in.
+        await flushQueue().catch(() => {});
         await stopLocationSharing();
         await stopDutyChecks();
         await api('/api/auth/logout', { method: 'POST' }).catch(() => {});

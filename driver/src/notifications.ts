@@ -3,7 +3,7 @@
 //   and every ~15 min in the background by background.ts).
 // - A once-a-day reminder when the licence or the vehicle's papers expire within 15 days.
 import * as Notifications from 'expo-notifications';
-import { router } from 'expo-router';
+import { router, useRootNavigationState } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import type { DriverInfo, Duty } from './api';
@@ -51,13 +51,22 @@ const dutyKey = (d: Duty) => `${d.kind}:${d.id}`;
  * The first run on a phone only records what is there, so installing the app doesn't fire a burst of alerts.
  */
 export async function takeNewDuties(duties: Duty[]): Promise<Duty[]> {
-  const known = await load<string[] | null>(KEYS.knownDuties, null);
-  const open = duties.filter((d) => d.status === 'SCHEDULED');
-  const keys = duties.map(dutyKey);
-  await save(KEYS.knownDuties, [...new Set([...(known ?? []), ...keys])].slice(-300));
+  // duty key → its start time. Older app versions stored a plain list of keys.
+  const raw = await load<Record<string, string> | string[] | null>(KEYS.knownDuties, null);
+  const known: Record<string, string> | null = Array.isArray(raw) ? Object.fromEntries(raw.map((k) => [k, ''])) : raw;
+  const now = Date.now();
+  const next: Record<string, string> = {};
+  // A duty that left the list while still inside the server's window (yesterday → 7 days ahead) was taken
+  // away or turned down: forget it, so it alerts again if the office gives it back.
+  for (const [k, at] of Object.entries(known ?? {})) {
+    const t = at ? new Date(at).getTime() : 0;
+    const inWindow = t >= now - 24 * 3600_000 && t <= now + 7 * 24 * 3600_000;
+    if (!inWindow) next[k] = at;
+  }
+  for (const d of duties) next[dutyKey(d)] = d.startAt ?? '';
+  await save(KEYS.knownDuties, Object.fromEntries(Object.entries(next).slice(-300)));
   if (!known) return [];
-  const seen = new Set(known);
-  return open.filter((d) => !seen.has(dutyKey(d)));
+  return duties.filter((d) => d.status === 'SCHEDULED' && !(dutyKey(d) in known));
 }
 
 export async function notifyNewDuties(duties: Duty[]) {
@@ -116,8 +125,11 @@ export async function remindExpiringDocs(driver: DriverInfo | null, duties: Duty
 
 /** Opens the duty (or the profile) when the driver taps one of our notifications. */
 export function useNotificationRouting(enabled: boolean) {
+  // Wait for the navigator: a tap that cold-starts the app arrives before the screens are mounted.
+  const navReady = !!useRootNavigationState()?.key;
+  const active = enabled && navReady;
   useEffect(() => {
-    if (!enabled) return;
+    if (!active) return;
     const open = (data: Record<string, unknown> | undefined) => {
       if (data?.kind === 'TRIP' && typeof data.id === 'string') router.push({ pathname: '/trip/[id]', params: { id: data.id } });
       else if (data?.kind === 'RENTAL' && typeof data.id === 'string') router.push({ pathname: '/rental/[id]', params: { id: data.id } });
@@ -131,5 +143,5 @@ export function useNotificationRouting(enabled: boolean) {
     }
     const sub = Notifications.addNotificationResponseReceivedListener((r) => open(r.notification.request.content.data));
     return () => sub.remove();
-  }, [enabled]);
+  }, [active]);
 }

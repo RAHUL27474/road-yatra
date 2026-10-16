@@ -22,7 +22,9 @@ export const POST = handle(async (req: Request) => {
   let user = channel === "PHONE" ? await db.user.findUnique({ where: { phone } }) : null;
   // New customers must give their name; ask before using up the OTP.
   if (!user && !name) return ok({ needsName: true });
-  await verifyOtp(signupTarget(channel, phone, email), otp);
-  user ??= await db.user.create({ data: { phone, name: name!, email: channel === "EMAIL" ? email : undefined } });
+  const { delivered } = await verifyOtp(signupTarget(channel, phone, email), otp);
+  const phoneVerified = channel === "PHONE" && delivered;
+  user ??= await db.user.create({ data: { phone, name: name!, email: channel === "EMAIL" ? email : undefined, phoneVerified } });
+  if (phoneVerified && !user.phoneVerified) user = await db.user.update({ where: { id: user.id }, data: { phoneVerified: true } });
   return sessionResponse(user);
 });

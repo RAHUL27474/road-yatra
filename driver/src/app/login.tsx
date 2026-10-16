@@ -299,7 +299,7 @@ export default function Login() {
                         >
                           <Ionicons name={c === 'PHONE' ? 'chatbubble-ellipses-outline' : 'mail-outline'} size={18} color={on ? colors.brand : colors.textMuted} />
                           <T v="label" color={on ? colors.brand : colors.textMuted}>
-                            {c === 'PHONE' ? 'Code by SMS' : 'Code by email'}
+                            {c === 'PHONE' ? 'Code on WhatsApp' : 'Code by email'}
                           </T>
                         </Pressable>
                       );

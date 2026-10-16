@@ -4,7 +4,7 @@
 import * as BackgroundTask from 'expo-background-task';
 import * as SecureStore from 'expo-secure-store';
 import * as TaskManager from 'expo-task-manager';
-import { api, DutiesResponse, TOKEN_KEY } from './api';
+import { api, DutiesResponse, setAuthToken, TOKEN_KEY } from './api';
 import { notifyNewDuties, remindExpiringDocs, takeNewDuties } from './notifications';
 import { flushQueue } from './offline';
 import { KEYS, save } from './storage';
@@ -16,6 +16,9 @@ if (!TaskManager.isTaskDefined(DUTY_CHECK_TASK)) {
     try {
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
       if (!token) return BackgroundTask.BackgroundTaskResult.Success;
+      // The OS may start the app only to run this task: no React tree, so set the token for every request
+      // (including the offline-queue flush below).
+      setAuthToken(token);
       const data = await api<DutiesResponse>('/api/driver/duties', { token });
       await save(KEYS.duties, data);
       await notifyNewDuties(await takeNewDuties(data.duties));

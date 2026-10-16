@@ -30,12 +30,19 @@ export const DELETE = handle(async (req: Request) => {
   const user = await getRequestUser(req);
   if (!user) throw new HttpError(401, "Not logged in.");
   if (user.role !== "CUSTOMER") throw new HttpError(400, "Staff accounts can't be deleted from the app. Please contact the office.");
+  // A driver application holds licence and Aadhaar photos: the office deletes those, so it isn't done silently here.
+  if (await db.driver.findUnique({ where: { userId: user.id }, select: { id: true } }))
+    throw new HttpError(400, "This account has a driver application. Please contact the office to delete it with your documents.");
   const upcoming = await db.booking.count({ where: { userId: user.id, status: { in: ["PENDING", "CONFIRMED"] } } });
   if (upcoming) throw new HttpError(400, "You have an upcoming booking. Cancel it (or wait until the trip is over) before deleting your account.");
-  await db.user.update({
-    where: { id: user.id },
-    data: { name: "Deleted user", email: null, phone: `deleted-${user.id}`, passwordHash: null },
-  });
+  await db.$transaction([
+    db.user.update({
+      where: { id: user.id },
+      data: { name: "Deleted user", email: null, phone: `deleted-${user.id}`, passwordHash: null, phoneVerified: false },
+    }),
+    // Past bookings stay for the GST records (amounts, dates, invoice numbers) but no longer name the person.
+    db.booking.updateMany({ where: { userId: user.id }, data: { passengerName: "Deleted user", passengerPhone: "", ratingComment: null } }),
+  ]);
   await revokeTokens(user.id);
   return ok({ ok: true });
 });
