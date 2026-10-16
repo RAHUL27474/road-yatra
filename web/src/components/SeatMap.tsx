@@ -9,6 +9,9 @@ type Props = {
   aisleAfter: number;
   /** Seats per row, front to back, e.g. "1,3,2". */
   seatLayout?: string;
+  /** Seats booked by women (pink), and free seats next to them that only a woman may book. */
+  femaleSeats?: number[];
+  womenOnly?: number[];
   taken: number[];
   selected: number[];
   onToggle: (seat: number) => void;
@@ -36,6 +39,9 @@ export function SeatLegend() {
       <span className="flex items-center gap-1.5">
         <i className="inline-block h-4 w-4 rounded-md border-2 border-slate-300 bg-slate-200" /> Booked
       </span>
+      <span className="flex items-center gap-1.5">
+        <i className="inline-block h-4 w-4 rounded-md border-2 border-pink-400 bg-pink-50" /> Women only
+      </span>
     </div>
   );
 }
@@ -44,7 +50,7 @@ export function SeatLegend() {
  * Top-down car layout: driver at the front right, then seats 1..n in rows, with an optional aisle gap.
  * A single front seat (Ertiga, Dzire) sits next to the driver.
  */
-export default function SeatMap({ seats, seatsPerRow, aisleAfter, seatLayout, taken, selected, onToggle }: Props) {
+export default function SeatMap({ seats, seatsPerRow, aisleAfter, seatLayout, femaleSeats = [], womenOnly = [], taken, selected, onToggle }: Props) {
   const all = seatRows(seats, seatsPerRow, seatLayout);
   const frontSeat = all.length > 1 && all[0].length === 1 ? all[0][0] : null;
   const rows = frontSeat ? all.slice(1) : all;
@@ -52,19 +58,25 @@ export default function SeatMap({ seats, seatsPerRow, aisleAfter, seatLayout, ta
   const seatButton = (seat: number) => {
     const isTaken = taken.includes(seat);
     const isSelected = selected.includes(seat);
+    const isWomenOnly = !isTaken && !isSelected && womenOnly.includes(seat);
+    const byWoman = isTaken && femaleSeats.includes(seat);
     return (
       <button
         type="button"
         disabled={isTaken}
         onClick={() => onToggle(seat)}
         aria-pressed={isSelected}
-        aria-label={`Seat ${seat}${seat === frontSeat ? " (front, next to driver)" : ""}${isTaken ? " (booked)" : isSelected ? " (selected)" : ""}`}
+        aria-label={`Seat ${seat}${seat === frontSeat ? " (front, next to driver)" : ""}${isTaken ? " (booked)" : isSelected ? " (selected)" : isWomenOnly ? " (women only)" : ""}`}
         className={`relative grid h-14 w-12 place-items-center rounded-t-xl rounded-b-lg border-2 pt-1 text-sm font-bold transition ${
-          isTaken
-            ? "cursor-not-allowed border-slate-300 bg-slate-200 text-slate-400"
-            : isSelected
-              ? "border-brand bg-brand text-white shadow-md shadow-brand/30"
-              : "border-green-500 bg-white text-green-700 hover:-translate-y-0.5 hover:bg-green-50"
+          byWoman
+            ? "cursor-not-allowed border-pink-300 bg-pink-100 text-pink-400"
+            : isTaken
+              ? "cursor-not-allowed border-slate-300 bg-slate-200 text-slate-400"
+              : isSelected
+                ? "border-brand bg-brand text-white shadow-md shadow-brand/30"
+                : isWomenOnly
+                  ? "border-pink-400 bg-pink-50 text-pink-700 hover:-translate-y-0.5"
+                  : "border-green-500 bg-white text-green-700 hover:-translate-y-0.5 hover:bg-green-50"
         }`}
       >
         {/* headrest */}

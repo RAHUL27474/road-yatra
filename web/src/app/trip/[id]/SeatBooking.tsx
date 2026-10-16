@@ -8,7 +8,7 @@ import PaymentChoice, { type Payment } from "@/components/PaymentChoice";
 import { apiFetch, payPath } from "@/lib/client";
 import { inr } from "@/lib/format";
 
-type Stop = { id: string; name: string; address: string };
+type Stop = { id: string; name: string; address: string; landmark?: string };
 type Props = {
   trip: {
     id: string;
@@ -17,7 +17,12 @@ type Props = {
     toCity: string;
     takenSeats: number[];
     vehicle: { seats: number; seatsPerRow: number; aisleAfter: number; seatLayout?: string };
+    /** Seats booked by women, and free seats next to them that only a woman may book. */
+    femaleSeats?: number[];
+    womenOnlySeats?: number[];
   };
+  /** Luggage / children / pets rules, one per line. */
+  travelPolicy?: string;
   pickupStops: Stop[];
   dropStops: Stop[];
   allowCash: boolean;
@@ -27,7 +32,7 @@ type Props = {
   summary?: { departLabel: string; vehicleName: string };
 };
 
-export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, allowOnline, user, summary }: Props) {
+export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, allowOnline, user, summary, travelPolicy }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<number[]>([]);
   const [name, setName] = useState(user?.name ?? "");
@@ -37,6 +42,9 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, a
   const [payment, setPayment] = useState<Payment>(allowOnline ? "ONLINE" : "CASH");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [women, setWomen] = useState<number[]>([]);
+  const womenOnly = trip.womenOnlySeats ?? [];
+  const policy = (travelPolicy ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
 
   const base = selected.length * trip.fare;
   const tax = Math.round(base * 0.05);
@@ -44,6 +52,8 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, a
 
   function toggle(seat: number) {
     setSelected((s) => (s.includes(seat) ? s.filter((x) => x !== seat) : s.length >= 10 ? s : [...s, seat].sort((a, b) => a - b)));
+    // A women-only seat is always booked for a woman.
+    if (womenOnly.includes(seat)) setWomen((w) => (w.includes(seat) ? w : [...w, seat]));
   }
 
   async function book(e: React.FormEvent) {
@@ -62,6 +72,7 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, a
           pickupStopId: pickup || undefined,
           dropStopId: drop || undefined,
           payment,
+          seatPassengers: selected.filter((n) => women.includes(n)).map((seatNo) => ({ seatNo, female: true })),
         },
       });
       router.push(res.payUrl ? payPath(res.payUrl) : `/booking/${res.booking.code}`);
@@ -96,6 +107,7 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, a
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-ink">{s.name}</span>
+                  {s.landmark && <span className="block text-xs font-medium text-amber-700">{s.landmark}</span>}
                   {s.address && <span className="block text-xs text-slate-500">{s.address}</span>}
                 </span>
               </label>
@@ -121,7 +133,7 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, a
             <SeatLegend />
           </div>
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:justify-center sm:gap-10">
-            <SeatMap {...trip.vehicle} taken={trip.takenSeats} selected={selected} onToggle={toggle} />
+            <SeatMap {...trip.vehicle} taken={trip.takenSeats} selected={selected} onToggle={toggle} femaleSeats={trip.femaleSeats} womenOnly={womenOnly} />
             <div className="w-full max-w-xs space-y-3 text-sm sm:pt-4">
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs font-semibold text-slate-500 uppercase">Selected seats</p>
@@ -131,6 +143,41 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, a
               <p className="flex gap-2 text-xs text-slate-500">
                 <Info className="h-4 w-4 shrink-0 text-brand" aria-hidden /> Tap a green seat to select it. Tap again to remove it.
               </p>
+              {trip.femaleSeats?.length ? (
+                <p className="rounded-lg bg-pink-50 p-2 text-xs font-medium text-pink-700">
+                  {trip.femaleSeats.length} wom{trip.femaleSeats.length > 1 ? "en" : "an"} already travelling. Pink seats next to them are for women only.
+                </p>
+              ) : null}
+              {selected.length > 0 && (
+                <div className="rounded-xl border border-pink-100 p-3">
+                  <p className="mb-2 text-xs font-semibold text-slate-600">Which seats are for a woman?</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selected.map((n) => (
+                      <label key={n} className="flex items-center gap-1 text-xs">
+                        <input
+                          type="checkbox"
+                          className="accent-pink-600"
+                          checked={women.includes(n)}
+                          disabled={womenOnly.includes(n)}
+                          onChange={(e) => setWomen((w) => (e.target.checked ? [...w, n] : w.filter((x) => x !== n)))}
+                        />
+                        Seat {n}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">The seat next to a woman is then kept for women.</p>
+                </div>
+              )}
+              {policy.length > 0 && (
+                <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                  <p className="mb-1 font-semibold text-slate-700">Luggage, children &amp; pets</p>
+                  <ul className="list-disc space-y-0.5 pl-4">
+                    {policy.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </section>

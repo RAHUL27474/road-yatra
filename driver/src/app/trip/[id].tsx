@@ -293,6 +293,16 @@ export default function TripScreen() {
                       <T v="h2" numberOfLines={1}>
                         {p.name}
                       </T>
+                      {/* A traveller per seat, when the booker named them; pink = woman. */}
+                      {(p.seatPassengers ?? []).filter((s) => s.name || s.female).map((s) => (
+                        <View key={s.seatNo} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name={s.female ? 'woman' : 'person-outline'} size={15} color={s.female ? '#DB2777' : colors.textMuted} />
+                          <T v="label" color={s.female ? '#BE185D' : colors.textMuted} numberOfLines={1} style={{ flex: 1, fontFamily: fonts.medium }}>
+                            Seat {s.seatNo}: {s.name || 'Woman'}
+                            {s.phone ? ` · ${s.phone}` : ''}
+                          </T>
+                        </View>
+                      ))}
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
                         <T v="label" color={colors.textMuted} numberOfLines={1} style={{ flex: 1, fontFamily: fonts.medium }}>

@@ -10,13 +10,15 @@ export type DutyStatus = 'SCHEDULED' | 'STARTED' | 'COMPLETED';
 export type DutyResponse = 'ACCEPTED' | 'REJECTED' | null;
 export type VehicleDocs = { insurance: string | null; permit: string | null; fitness: string | null; puc: string | null };
 export type DutyVehicle = { id: string; name: string; regNumber: string; seats: number; docs?: VehicleDocs };
-export type PaymentStatus = 'UNPAID' | 'PAID' | 'REFUND_PENDING' | 'REFUNDED';
+export type PaymentStatus = 'UNPAID' | 'PAID' | 'PARTIAL' | 'REFUND_PENDING' | 'REFUNDED';
 export type Passenger = {
   bookingId: string;
   code: string;
   name: string;
   phone: string;
   seatNos: number[];
+  /** Traveller per seat when the booker gave one (female = women's seat). */
+  seatPassengers?: { seatNo: number; name: string | null; phone: string | null; female: boolean }[];
   pickupStop: Stop | null;
   dropStop: Stop | null;
   paymentStatus: PaymentStatus;

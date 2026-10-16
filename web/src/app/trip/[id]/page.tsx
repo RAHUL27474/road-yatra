@@ -65,7 +65,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
 
       <div className="container-x py-6">
         <SeatBooking
-          trip={{ id: trip.id, fare: trip.fare, vehicle: trip.vehicle, takenSeats: trip.takenSeats, fromCity: trip.fromCity, toCity: trip.toCity }}
+          trip={{ id: trip.id, fare: trip.fare, vehicle: trip.vehicle, takenSeats: trip.takenSeats, fromCity: trip.fromCity, toCity: trip.toCity, femaleSeats: trip.femaleSeats, womenOnlySeats: trip.womenOnlySeats }}
+          travelPolicy={settings.travelPolicy}
           pickupStops={stops.filter((s) => s.city === trip.fromCity).map(publicStop)}
           dropStops={stops.filter((s) => s.city === trip.toCity).map(publicStop)}
           allowCash={settings.allowCash}
