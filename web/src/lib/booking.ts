@@ -537,6 +537,9 @@ export function serializeBooking(b: FullBooking, slabs?: CancellationSlab[]) {
     cancellationCharge: b.cancellationCharge,
     invoiceNo: b.invoiceNo,
     trackable,
+    rating: b.rating,
+    // A passenger who travelled can rate the trip once, within two weeks.
+    canRate: b.status === "COMPLETED" && !b.noShow && b.rating == null && !!b.completedAt && Date.now() - b.completedAt.getTime() < 14 * 24 * 3600_000,
     holdExpiresAt: b.status === "PENDING" ? new Date(b.createdAt.getTime() + HOLD_MINUTES * 60_000) : null,
     createdAt: b.createdAt,
   };

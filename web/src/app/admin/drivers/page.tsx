@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { fmtDate, fmtDateTime } from "@/lib/format";
+import { fmtDate, fmtDateTime, inr } from "@/lib/format";
+import { markCashReceived } from "../actions";
 
 const STATUS: Record<string, string> = {
   APPROVED: "bg-green-100 text-green-700",
@@ -13,6 +14,24 @@ export default async function DriversPage() {
     include: { user: true, _count: { select: { trips: { where: { status: "COMPLETED" } }, bookings: { where: { status: "COMPLETED" } } } } },
     orderBy: { createdAt: "asc" },
   });
+  const cash = await db.booking.groupBy({
+    by: ["cashCollectedBy"],
+    where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, paymentStatus: "PAID" },
+    _sum: { totalAmount: true },
+    _count: true,
+  });
+  const cashHeld = new Map(cash.map((c) => [c.cashCollectedBy!, { amount: c._sum.totalAmount ?? 0, count: c._count }]));
+  // Passenger ratings: a seat booking's driver is the trip's driver, a full cab's is on the booking.
+  const rated = await db.booking.findMany({ where: { rating: { not: null } }, select: { rating: true, driverId: true, trip: { select: { driverId: true } } } });
+  const ratings = new Map<string, { sum: number; n: number }>();
+  for (const r of rated) {
+    const id = r.trip?.driverId ?? r.driverId;
+    if (!id) continue;
+    const x = ratings.get(id) ?? { sum: 0, n: 0 };
+    x.sum += r.rating!;
+    x.n++;
+    ratings.set(id, x);
+  }
   const pending = drivers.filter((d) => d.status === "PENDING").sort((a, b) => (a.appliedAt?.getTime() ?? 0) - (b.appliedAt?.getTime() ?? 0));
   const others = drivers.filter((d) => d.status !== "PENDING");
   const soon = Date.now() + 30 * 24 * 3600_000;
@@ -24,7 +43,7 @@ export default async function DriversPage() {
         <Link href="/admin/drivers/new" className="btn-primary">+ Add driver</Link>
       </div>
       <p className="text-sm text-slate-500">
-        Drivers can apply themselves in the Road Yatra Driver app (mobile OTP + licence and photo upload). Their application appears below for
+        Drivers can apply themselves in the JSS Travels Driver app (mobile OTP + licence and photo upload). Their application appears below for
         you to approve. You can also add a driver directly with &quot;+ Add driver&quot;.
       </p>
 
@@ -81,6 +100,7 @@ export default async function DriversPage() {
               <th>Mobile</th>
               <th>Licence</th>
               <th>Trips done</th>
+              <th>Cash with driver</th>
               <th>Status</th>
               <th />
             </tr>
@@ -88,12 +108,19 @@ export default async function DriversPage() {
           <tbody>
             {others.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-6 text-center text-slate-400">No drivers yet.</td>
+                <td colSpan={7} className="py-6 text-center text-slate-400">No drivers yet.</td>
               </tr>
             )}
             {others.map((d) => (
               <tr key={d.id}>
-                <td className="font-semibold">{d.user.name}</td>
+                <td className="font-semibold">
+                  {d.user.name}
+                  {ratings.get(d.id) && (
+                    <p className="text-xs font-normal text-amber-700">
+                      ★ {(ratings.get(d.id)!.sum / ratings.get(d.id)!.n).toFixed(1)} · {ratings.get(d.id)!.n} rating{ratings.get(d.id)!.n > 1 ? "s" : ""}
+                    </p>
+                  )}
+                </td>
                 <td>{d.user.phone}</td>
                 <td>
                   <span className="font-mono">{d.licenceNo}</span>
@@ -102,6 +129,19 @@ export default async function DriversPage() {
                   )}
                 </td>
                 <td>{d._count.trips + d._count.bookings}</td>
+                <td>
+                  {cashHeld.get(d.id) ? (
+                    <form action={markCashReceived} className="flex items-center gap-2">
+                      <input type="hidden" name="driverId" value={d.id} />
+                      <span className="font-semibold">{inr(cashHeld.get(d.id)!.amount)}</span>
+                      <button className="rounded border border-green-600 px-2 py-0.5 text-xs font-semibold text-green-700 hover:bg-green-50" title={`${cashHeld.get(d.id)!.count} booking(s)`}>
+                        Received
+                      </button>
+                    </form>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
+                </td>
                 <td>
                   <span className={`badge ${STATUS[d.status] ?? ""}`}>{d.status === "APPROVED" ? (d.active ? "ACTIVE" : "INACTIVE") : d.status}</span>
                 </td>

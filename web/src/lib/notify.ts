@@ -14,7 +14,18 @@ import { db } from "./db";
  * (visible in Admin → Messages), so nothing breaks during development.
  */
 
-export type NotifyEvent = "OTP" | "BOOKING_CONFIRMED" | "DRIVER_ASSIGNED" | "TRIP_REMINDER" | "BOOKING_CANCELLED" | "REFUND_DONE" | "DRIVER_APPROVED" | "DRIVER_REJECTED";
+export type NotifyEvent =
+  | "OTP"
+  | "BOOKING_CONFIRMED"
+  | "DRIVER_ASSIGNED"
+  | "TRIP_REMINDER"
+  | "BOOKING_CANCELLED"
+  | "REFUND_DONE"
+  | "DRIVER_APPROVED"
+  | "DRIVER_REJECTED"
+  | "DUTY_ASSIGNED" // to the driver: a trip or full-cab booking was given to them
+  | "DUTY_REJECTED" // to the office: a driver turned a duty down
+  | "SOS"; // to the office and the driver's emergency contact
 
 const indian = (phone: string) => (phone.length === 10 ? `91${phone}` : phone.replace(/^\+/, ""));
 
@@ -74,6 +85,12 @@ export async function notify(to: string, event: NotifyEvent, vars: string[], bod
   } catch (e) {
     console.error("notify failed", e);
   }
+}
+
+/** The office mobile number for staff alerts (driver rejected a duty, SOS). */
+export function officePhone() {
+  const digits = (process.env.ADMIN_PHONE || process.env.NEXT_PUBLIC_SUPPORT_PHONE || "").replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : null;
 }
 
 export const smsConfigured = () => !!process.env.MSG91_AUTH_KEY && !!process.env.MSG91_TEMPLATE_OTP;

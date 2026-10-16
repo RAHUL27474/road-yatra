@@ -142,6 +142,9 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
                         ))}
                       </select>
                       <button className="btn-ghost py-1">Assign</button>
+                      {row.driverId && row.driverResponse === "ACCEPTED" && <span className="text-xs font-semibold text-green-700">accepted</span>}
+                      {row.driverId && !row.driverResponse && <span className="text-xs font-semibold text-amber-700">not accepted yet</span>}
+                      {!row.driverId && row.driverNote && <span className="text-xs font-semibold text-red-600">{row.driverNote}</span>}
                     </form>
                   )}
 

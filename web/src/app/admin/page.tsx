@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { expireStaleHolds, bookingInclude, serializeBooking } from "@/lib/booking";
 import { fmtDate, fmtTime, inr } from "@/lib/format";
 import { bookingTitle, STATUS_STYLE } from "@/components/BookingSummary";
+import { AutoRefresh } from "@/components/AutoRefresh";
+import { resolveSos } from "./actions";
 
 const DOC_WARN_DAYS = 30;
 
@@ -32,7 +34,11 @@ export default async function AdminDashboard() {
     db.driver.findMany({ where: { active: true, status: "APPROVED" }, include: { user: true } }),
   ]);
 
-  const pendingDrivers = await db.driver.count({ where: { status: "PENDING" } });
+  const [pendingDrivers, sos, driverCash] = await Promise.all([
+    db.driver.count({ where: { status: "PENDING" } }),
+    db.sosAlert.findMany({ where: { resolvedAt: null }, include: { driver: { include: { user: true } } }, orderBy: { createdAt: "desc" } }),
+    db.booking.aggregate({ where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, paymentStatus: "PAID" }, _sum: { totalAmount: true }, _count: true }),
+  ]);
 
   // Documents expiring within 30 days (or already expired)
   const alerts: { what: string; date: Date }[] = [];
@@ -54,12 +60,39 @@ export default async function AdminDashboard() {
     ["Bookings today", String(count("SEAT") + count("RENTAL")), `${count("SEAT")} shared · ${count("RENTAL")} full cab`],
     ["Seat occupancy today", seatsToday ? `${Math.round((soldToday / seatsToday) * 100)}%` : "—", `${soldToday}/${seatsToday} seats`],
     ["Cash to collect", inr(cashDue._sum.totalAmount ?? 0), `${cashDue._count} booking(s)`],
+    ["Cash with drivers", inr(driverCash._sum.totalAmount ?? 0), `${driverCash._count} booking(s) not handed over`],
     ["Refunds pending", String(refundsPending), refundsPending ? "needs action" : "all clear"],
   ];
 
   return (
     <div className="space-y-6">
       <h1 className="page-title">Dashboard</h1>
+      <AutoRefresh />
+
+      {sos.map((a) => (
+        <div key={a.id} className="card flex flex-wrap items-center justify-between gap-3 border-l-4 border-red-600 bg-red-50 p-4">
+          <div>
+            <p className="font-extrabold text-red-700">SOS · {a.driver.user.name} pressed the emergency button</p>
+            <p className="text-sm text-red-800">
+              {fmtTime(a.createdAt)} · {fmtDate(a.createdAt)} · <a href={`tel:${a.driver.user.phone}`} className="font-semibold underline">{a.driver.user.phone}</a>
+              {a.vehicleReg ? ` · ${a.vehicleReg}` : ""}
+              {a.lat != null && a.lng != null && (
+                <>
+                  {" · "}
+                  <a href={`https://maps.google.com/?q=${a.lat},${a.lng}`} target="_blank" rel="noreferrer" className="font-semibold underline">
+                    Open location
+                  </a>
+                </>
+              )}
+            </p>
+          </div>
+          <form action={resolveSos}>
+            <input type="hidden" name="id" value={a.id} />
+            <button className="btn-primary bg-red-600 hover:bg-red-700">Mark resolved</button>
+          </form>
+        </div>
+      ))}
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {stats.map(([label, value, sub]) => (
           <div key={label} className="card p-4">
@@ -105,7 +138,10 @@ export default async function AdminDashboard() {
                     </Link>
                     <p className="text-xs text-slate-500">
                       {t.vehicle.regNumber} · {t.driver ? t.driver.user.name : <span className="font-semibold text-red-600">No driver</span>}
+                      {t.driver && t.driverResponse === "ACCEPTED" && <span className="text-green-700"> · accepted</span>}
+                      {t.driver && !t.driverResponse && t.status === "SCHEDULED" && <span className="text-amber-700"> · not accepted yet</span>}
                     </p>
+                    {!t.driver && t.driverNote && <p className="text-xs font-semibold text-red-600">{t.driverNote}</p>}
                   </div>
                   <div className="text-right">
                     <p>{t._count.seats}/{t.vehicle.seats} seats</p>
@@ -127,6 +163,7 @@ export default async function AdminDashboard() {
                   <p className="font-medium">
                     {fmtTime(b.startAt!)} · {b.vehicle?.regNumber} · {b.driver ? b.driver.user.name : <span className="font-semibold text-red-600">No driver</span>}
                   </p>
+                  {!b.driver && b.driverNote && <p className="text-xs font-semibold text-red-600">{b.driverNote}</p>}
                   <p className="text-slate-500">
                     {b.passengerName} · {b.passengerPhone} · {b.pickupAddress}
                   </p>

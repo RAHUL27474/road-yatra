@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
 import { assignInvoiceNo, cancelBooking, createRentalBooking, createSeatBooking, findOrCreateCustomer, notifyDriverAssigned, type RentalType } from "@/lib/booking";
+import { notifyDriverDuty } from "@/lib/driver";
 import { HttpError } from "@/lib/http";
 import { notify } from "@/lib/notify";
 import { saveSetting, type CancellationSlab } from "@/lib/settings";
@@ -208,10 +209,13 @@ export async function assignTripDriver(formData: FormData) {
     });
     if (clash) fail(`/admin/trips/${id}`, "This driver already has another trip at that time.");
   }
-  await db.trip.update({ where: { id }, data: { driverId } });
-  if (driverId && driverId !== trip.driverId) {
+  const changed = driverId !== trip.driverId;
+  // A new driver has to accept afresh; clearing the driver keeps the last rejection note for the office.
+  await db.trip.update({ where: { id }, data: { driverId, ...(changed && driverId ? { driverResponse: null, driverRespondedAt: null, driverNote: null } : {}) } });
+  if (driverId && changed) {
     const bookings = await db.booking.findMany({ where: { tripId: id, status: "CONFIRMED" }, select: { id: true } });
     await notifyDriverAssigned(bookings.map((b) => b.id));
+    await notifyDriverDuty("TRIP", id);
   }
   revalidatePath(`/admin/trips/${id}`);
   revalidatePath("/admin/trips");
@@ -342,8 +346,12 @@ export async function updateBooking(formData: FormData) {
         (await db.trip.findFirst({ where: { driverId, status: { in: ["SCHEDULED", "STARTED"] }, departAt: { lt: b.endAt }, arriveAt: { gt: b.startAt } } }));
       if (clash) fail(back, "This driver is already on duty at that time.");
     }
-    await db.booking.update({ where: { id }, data: { driverId } });
-    if (driverId && driverId !== b.driverId) await notifyDriverAssigned([id]);
+    const changed = driverId !== b.driverId;
+    await db.booking.update({ where: { id }, data: { driverId, ...(changed && driverId ? { driverResponse: null, driverRespondedAt: null, driverNote: null } : {}) } });
+    if (driverId && changed) {
+      await notifyDriverAssigned([id]);
+      await notifyDriverDuty("RENTAL", id);
+    }
   } else if (action === "note") {
     await db.booking.update({ where: { id }, data: { adminNote: note ?? null } });
   }
@@ -379,6 +387,23 @@ export async function saveSettings(formData: FormData) {
   redirect("/admin/settings?saved=1");
 }
 
+// ---------- Driver cash & SOS ----------
+
+/** The driver handed all the cash they collected to the office. */
+export async function markCashReceived(formData: FormData) {
+  await requireAdmin();
+  const driverId = str(formData, "driverId");
+  await db.booking.updateMany({ where: { cashCollectedBy: driverId, cashHandedOverAt: null }, data: { cashHandedOverAt: new Date() } });
+  revalidatePath("/admin/drivers");
+  revalidatePath("/admin");
+}
+
+export async function resolveSos(formData: FormData) {
+  await requireAdmin();
+  await db.sosAlert.update({ where: { id: str(formData, "id") }, data: { resolvedAt: new Date() } });
+  revalidatePath("/admin");
+}
+
 // ---------- Driver applications ----------
 
 export async function reviewDriverApplication(formData: FormData) {
@@ -395,12 +420,12 @@ export async function reviewDriverApplication(formData: FormData) {
       db.driver.update({ where: { id }, data: { status: "APPROVED", active: true, reviewedAt: new Date(), rejectReason: null } }),
       db.user.update({ where: { id: d.userId }, data: { role: "DRIVER" } }),
     ]);
-    await notify(d.user.phone, "DRIVER_APPROVED", [d.user.name], `Congratulations ${d.user.name}, your Road Yatra driver application is approved. Log in to the Road Yatra Driver app to see your duties.`);
+    await notify(d.user.phone, "DRIVER_APPROVED", [d.user.name], `Congratulations ${d.user.name}, your JSS Travels driver application is approved. Log in to the JSS Travels Driver app to see your duties.`);
   } else if (decision === "reject") {
     const reason = str(formData, "reason");
     if (reason.length < 3) fail(back, "Please give a reason so the driver knows what to fix.");
     await db.driver.update({ where: { id }, data: { status: "REJECTED", active: false, reviewedAt: new Date(), rejectReason: reason } });
-    await notify(d.user.phone, "DRIVER_REJECTED", [d.user.name, reason], `Your Road Yatra driver application was not approved: ${reason}. You can correct it and apply again in the driver app.`);
+    await notify(d.user.phone, "DRIVER_REJECTED", [d.user.name, reason], `Your JSS Travels driver application was not approved: ${reason}. You can correct it and apply again in the driver app.`);
   }
   revalidatePath("/admin/drivers");
   revalidatePath(back);

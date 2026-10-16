@@ -18,6 +18,7 @@ model User {
   phone        String    @unique
   passwordHash String? // optional: customers and drivers log in with an SMS OTP
   role         String    @default("CUSTOMER") // CUSTOMER | DRIVER | ADMIN
+  tokenVersion Int       @default(0) // bumped on app logout so old login tokens stop working
   createdAt    DateTime  @default(now())
   bookings     Booking[]
   driver       Driver?
@@ -58,9 +59,10 @@ model Driver {
   rejectReason     String?
   createdAt        DateTime  @default(now())
 
-  user     User      @relation(fields: [userId], references: [id])
-  trips    Trip[]
-  bookings Booking[]
+  user      User       @relation(fields: [userId], references: [id])
+  trips     Trip[]
+  bookings  Booking[]
+  sosAlerts SosAlert[]
 }
 
 model Vehicle {
@@ -142,6 +144,10 @@ model Trip {
   status     String   @default("SCHEDULED") // SCHEDULED | STARTED | COMPLETED | CANCELLED
   startedAt   DateTime?
   completedAt DateTime?
+  // The assigned driver's answer in the app. Cleared whenever the office changes the driver.
+  driverResponse    String? // ACCEPTED | REJECTED
+  driverRespondedAt DateTime?
+  driverNote        String? // e.g. "Ramesh rejected: vehicle in workshop"
   createdAt  DateTime @default(now())
 
   route    Route        @relation(fields: [routeId], references: [id])
@@ -195,6 +201,20 @@ model Booking {
   startedAt   DateTime? // rentals
   completedAt DateTime?
   noShow      Boolean @default(false)
+
+  // Rentals: the assigned driver's answer in the app (see Trip.driverResponse)
+  driverResponse    String? // ACCEPTED | REJECTED
+  driverRespondedAt DateTime?
+  driverNote        String?
+
+  // Passenger's rating after the trip (1-5 stars)
+  rating        Int?
+  ratingComment String?
+  ratedAt       DateTime?
+
+  // Cash taken by a driver, until the office marks it as handed over
+  cashCollectedBy  String? // Driver.id
+  cashHandedOverAt DateTime?
 
   // Payment
   paymentStatus   String  @default("UNPAID") // UNPAID | PAID | REFUND_PENDING | REFUNDED
@@ -250,6 +270,23 @@ model VehicleLocation {
   updatedAt DateTime @updatedAt
 
   vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+}
+
+// Emergency button pressed in the driver app. Stays on the admin dashboard until resolved.
+model SosAlert {
+  id         String    @id @default(cuid())
+  driverId   String
+  lat        Float?
+  lng        Float?
+  tripId     String?
+  bookingId  String?
+  vehicleReg String?
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@index([resolvedAt, createdAt])
 }
 
 // Every SMS / WhatsApp message the system sends (or would send, if no provider is configured).

@@ -28,6 +28,8 @@ export default async function Footer() {
     ["/my-bookings", "My trips"],
     ["/#faq", "Help & FAQ"],
     ["/login", "Login / Sign up"],
+    ["/privacy", "Privacy policy"],
+    ["/terms", "Terms & cancellation"],
   ];
 
   return (

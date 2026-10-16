@@ -1,9 +1,22 @@
+import type { Vehicle } from "@prisma/client";
 import { db } from "./db";
 import { getRequestUser } from "./auth";
 import { HttpError } from "./http";
 import { assignInvoiceNo, publicStop } from "./booking";
+import { fmtDateTime } from "./format";
+import { notify, officePhone } from "./notify";
 
 const START_EARLY_HOURS = 3; // a driver can start a trip up to this long before departure
+const HISTORY_DAYS = 30;
+
+const dutyVehicle = (v: Vehicle) => ({
+  id: v.id,
+  name: v.name,
+  regNumber: v.regNumber,
+  seats: v.seats,
+  // Shown in the app so the driver knows when the papers of the car they drive run out.
+  docs: { insurance: v.insuranceExpiry, permit: v.permitExpiry, fitness: v.fitnessExpiry, puc: v.pucExpiry },
+});
 
 export async function requireDriver(req: Request) {
   const user = await getRequestUser(req);
@@ -59,9 +72,10 @@ export async function listDuties(driverId: string, days = 7) {
       startAt: t.departAt,
       endAt: t.arriveAt,
       status: t.status, // SCHEDULED | STARTED | COMPLETED
+      response: t.driverResponse, // null until the driver accepts
       boardingPoint: t.boardingPoint,
       dropPoint: t.dropPoint,
-      vehicle: { id: t.vehicle.id, name: t.vehicle.name, regNumber: t.vehicle.regNumber, seats: t.vehicle.seats },
+      vehicle: dutyVehicle(t.vehicle),
       blockedSeats: t.seats.map((s) => ({ seatNo: s.seatNo, reason: s.blockReason })),
       passengers: t.bookings.map((b) => ({
         bookingId: b.id,
@@ -88,7 +102,8 @@ export async function listDuties(driverId: string, days = 7) {
       startAt: b.startAt,
       endAt: b.endAt,
       status: b.completedAt ? "COMPLETED" : b.startedAt ? "STARTED" : "SCHEDULED",
-      vehicle: b.vehicle ? { id: b.vehicle.id, name: b.vehicle.name, regNumber: b.vehicle.regNumber, seats: b.vehicle.seats } : null,
+      response: b.driverResponse,
+      vehicle: b.vehicle ? dutyVehicle(b.vehicle) : null,
       customer: { name: b.passengerName, phone: b.passengerPhone, passengers: b.passengers },
       pickupAddress: b.pickupAddress,
       dropAddress: b.dropAddress,
@@ -154,7 +169,10 @@ export async function collectCash(driverId: string, bookingId: string) {
   const mine = b && (b.driverId === driverId || b.trip?.driverId === driverId);
   if (!b || !mine) throw new HttpError(404, "Booking not found in your duties.");
   if (b.paymentStatus !== "UNPAID" || b.status === "CANCELLED") throw new HttpError(400, "Nothing to collect for this booking.");
-  await db.booking.update({ where: { id: b.id }, data: { paymentStatus: "PAID", paymentMode: "CASH", paidAt: new Date() } });
+  await db.booking.update({
+    where: { id: b.id },
+    data: { paymentStatus: "PAID", paymentMode: "CASH", paidAt: new Date(), cashCollectedBy: driverId, cashHandedOverAt: null },
+  });
   await assignInvoiceNo(b.id);
   return { collected: b.totalAmount };
 }
@@ -163,7 +181,8 @@ export async function startTrip(driverId: string, tripId: string) {
   const trip = await driverTrip(driverId, tripId);
   if (trip.status !== "SCHEDULED") throw new HttpError(400, `This trip is already ${trip.status.toLowerCase()}.`);
   if (trip.departAt.getTime() - Date.now() > START_EARLY_HOURS * 3600_000) throw new HttpError(400, "It is too early to start this trip.");
-  await db.trip.update({ where: { id: trip.id }, data: { status: "STARTED", startedAt: new Date() } });
+  // Starting a duty is also accepting it.
+  await db.trip.update({ where: { id: trip.id }, data: { status: "STARTED", startedAt: new Date(), driverResponse: "ACCEPTED", driverRespondedAt: trip.driverRespondedAt ?? new Date() } });
 }
 
 export async function endTrip(driverId: string, tripId: string) {
@@ -182,7 +201,10 @@ export async function startRental(driverId: string, bookingId: string, input: { 
   if (b.startedAt) throw new HttpError(400, "This trip has already started.");
   if (b.startAt && b.startAt.getTime() - Date.now() > START_EARLY_HOURS * 3600_000) throw new HttpError(400, "It is too early to start this trip.");
   if (input.otp !== b.boardingOtp) throw new HttpError(400, "Wrong start OTP. Ask the customer for the OTP shown in their booking.");
-  await db.booking.update({ where: { id: b.id }, data: { startedAt: new Date(), boardedAt: new Date(), startOdometer: input.odometer ?? null } });
+  await db.booking.update({
+    where: { id: b.id },
+    data: { startedAt: new Date(), boardedAt: new Date(), startOdometer: input.odometer ?? null, driverResponse: "ACCEPTED", driverRespondedAt: b.driverRespondedAt ?? new Date() },
+  });
 }
 
 export async function endRental(driverId: string, bookingId: string, input: { otp: string; odometer?: number }) {
@@ -201,9 +223,162 @@ export async function updateLocation(driverId: string, p: { lat: number; lng: nu
   const rental = trip
     ? null
     : await db.booking.findFirst({ where: { driverId, kind: "RENTAL", startedAt: { not: null }, completedAt: null }, orderBy: { startedAt: "desc" } });
+  if (!trip && !rental) throw new HttpError(409, "No trip in progress. Location is only shared during a trip.");
   const vehicleId = trip?.vehicleId ?? rental?.vehicleId;
-  if (!vehicleId) throw new HttpError(409, "No trip in progress. Location is only shared during a trip.");
+  // A full-cab booking started before the office picked a vehicle: nowhere to store the fix yet, but the
+  // trip is real, so keep the app sharing (a 409 here would switch sharing off for the whole trip).
+  if (!vehicleId) return { vehicleId: null };
   const data = { driverId, lat: p.lat, lng: p.lng, speed: p.speed ?? null, heading: p.heading ?? null };
   await db.vehicleLocation.upsert({ where: { vehicleId }, update: data, create: { vehicleId, ...data } });
   return { vehicleId };
+}
+
+// ---------- Accept / reject ----------
+
+/** Driver accepts or turns down a duty that has not started. Rejecting hands it back to the office. */
+export async function respondToDuty(
+  driver: { id: string },
+  driverName: string,
+  kind: "TRIP" | "RENTAL",
+  id: string,
+  input: { accept: boolean; reason?: string },
+) {
+  const reason = input.reason?.trim() ?? "";
+  if (!input.accept && reason.length < 3) throw new HttpError(400, "Tell the office why you can't take this duty.");
+  const now = new Date();
+
+  if (kind === "TRIP") {
+    const trip = await driverTrip(driver.id, id);
+    if (trip.status !== "SCHEDULED") throw new HttpError(400, `This trip is already ${trip.status.toLowerCase()}.`);
+    if (input.accept) {
+      await db.trip.update({ where: { id }, data: { driverResponse: "ACCEPTED", driverRespondedAt: now, driverNote: null } });
+      return;
+    }
+    const full = await db.trip.findUniqueOrThrow({ where: { id }, include: { route: true } });
+    await db.trip.update({ where: { id }, data: { driverId: null, driverResponse: "REJECTED", driverRespondedAt: now, driverNote: `${driverName} rejected: ${reason}` } });
+    await alertOffice(`${driverName} rejected the ${full.route.fromCity} → ${full.route.toCity} trip of ${fmtDateTime(full.departAt)}: ${reason}. Please assign another driver.`);
+    return;
+  }
+
+  const b = await driverRental(driver.id, id);
+  if (b.startedAt) throw new HttpError(400, "This trip has already started.");
+  if (input.accept) {
+    await db.booking.update({ where: { id }, data: { driverResponse: "ACCEPTED", driverRespondedAt: now, driverNote: null } });
+    return;
+  }
+  await db.booking.update({ where: { id }, data: { driverId: null, driverResponse: "REJECTED", driverRespondedAt: now, driverNote: `${driverName} rejected: ${reason}` } });
+  await alertOffice(`${driverName} rejected full-cab booking ${b.code}${b.startAt ? ` (${fmtDateTime(b.startAt)})` : ""}: ${reason}. Please assign another driver.`);
+}
+
+async function alertOffice(body: string, event: "DUTY_REJECTED" | "SOS" = "DUTY_REJECTED") {
+  const to = officePhone();
+  if (to) await notify(to, event, [body], body);
+  else await db.notification.create({ data: { channel: "SMS", to: "office", event, body, status: "LOGGED", error: "No ADMIN_PHONE set" } });
+}
+
+/** Tells the driver they have a new duty (SMS / WhatsApp; the app also checks for new duties by itself). */
+export async function notifyDriverDuty(kind: "TRIP" | "RENTAL", id: string) {
+  if (kind === "TRIP") {
+    const t = await db.trip.findUnique({ where: { id }, include: { route: true, vehicle: true, driver: { include: { user: true } } } });
+    if (!t?.driver) return;
+    const what = `${t.route.fromCity} → ${t.route.toCity}`;
+    const when = fmtDateTime(t.departAt);
+    await notify(t.driver.user.phone, "DUTY_ASSIGNED", [what, when, t.vehicle.regNumber], `New duty: ${what} on ${when}, vehicle ${t.vehicle.regNumber}. Open the JSS Travels Driver app to accept it.`);
+    return;
+  }
+  const b = await db.booking.findUnique({ where: { id }, include: { vehicle: true, driver: { include: { user: true } } } });
+  if (!b?.driver) return;
+  const what = `Full cab ${b.code}, ${b.pickupCity}${b.dropCity && b.dropCity !== b.pickupCity ? ` → ${b.dropCity}` : ""}`;
+  const when = b.startAt ? fmtDateTime(b.startAt) : "";
+  await notify(b.driver.user.phone, "DUTY_ASSIGNED", [what, when, b.vehicle?.regNumber ?? ""], `New duty: ${what} on ${when}${b.vehicle ? `, vehicle ${b.vehicle.regNumber}` : ""}. Open the JSS Travels Driver app to accept it.`);
+}
+
+// ---------- SOS ----------
+
+export async function raiseSos(driver: { id: string; emergencyContact: string }, user: { name: string; phone: string }, p: { lat?: number; lng?: number }) {
+  const trip = await db.trip.findFirst({ where: { driverId: driver.id, status: "STARTED" }, include: { vehicle: true }, orderBy: { startedAt: "desc" } });
+  const rental = trip
+    ? null
+    : await db.booking.findFirst({ where: { driverId: driver.id, kind: "RENTAL", startedAt: { not: null }, completedAt: null }, include: { vehicle: true } });
+  const vehicleReg = trip?.vehicle.regNumber ?? rental?.vehicle?.regNumber ?? null;
+  const alert = await db.sosAlert.create({
+    data: { driverId: driver.id, lat: p.lat ?? null, lng: p.lng ?? null, tripId: trip?.id ?? null, bookingId: rental?.id ?? null, vehicleReg },
+  });
+  const map = p.lat != null && p.lng != null ? ` Location: https://maps.google.com/?q=${p.lat},${p.lng}` : "";
+  const body = `SOS from driver ${user.name} (${user.phone})${vehicleReg ? `, vehicle ${vehicleReg}` : ""}.${map}`;
+  await alertOffice(body, "SOS");
+  const contact = driver.emergencyContact.replace(/\D/g, "").slice(-10);
+  if (/^[6-9]\d{9}$/.test(contact)) await notify(contact, "SOS", [body], body);
+  return { id: alert.id };
+}
+
+// ---------- Cash & history ----------
+
+const istDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+/** Cash the driver still holds, a per-day summary and the duties completed in the last 30 days. */
+export async function driverEarnings(driverId: string) {
+  const since = new Date(Date.now() - HISTORY_DAYS * 24 * 3600_000);
+  const [held, collected, trips, rentals] = await Promise.all([
+    db.booking.aggregate({ where: { cashCollectedBy: driverId, cashHandedOverAt: null, paymentStatus: "PAID" }, _sum: { totalAmount: true }, _count: true }),
+    db.booking.findMany({ where: { cashCollectedBy: driverId, paidAt: { gte: since } }, select: { id: true, tripId: true, totalAmount: true, paidAt: true } }),
+    db.trip.findMany({
+      where: { driverId, status: "COMPLETED", completedAt: { gte: since } },
+      include: { route: true, vehicle: true, bookings: { where: { status: "COMPLETED" }, select: { passengers: true, seatNos: true, noShow: true } } },
+      orderBy: { completedAt: "desc" },
+    }),
+    db.booking.findMany({ where: { driverId, kind: "RENTAL", status: "COMPLETED", completedAt: { gte: since } }, include: { vehicle: true }, orderBy: { completedAt: "desc" } }),
+  ]);
+
+  const cashByTrip = new Map<string, number>();
+  const cashByBooking = new Map<string, number>();
+  for (const c of collected) {
+    if (c.tripId) cashByTrip.set(c.tripId, (cashByTrip.get(c.tripId) ?? 0) + c.totalAmount);
+    else cashByBooking.set(c.id, c.totalAmount);
+  }
+
+  const history = [
+    ...trips.map((t) => {
+      const boarded = t.bookings.filter((b) => !b.noShow);
+      return {
+        kind: "TRIP" as const,
+        id: t.id,
+        title: `${t.route.fromCity} → ${t.route.toCity}`,
+        at: t.departAt,
+        completedAt: t.completedAt!,
+        vehicleReg: t.vehicle.regNumber,
+        passengers: boarded.reduce((n, b) => n + (b.seatNos ? b.seatNos.split(",").length : b.passengers), 0),
+        km: t.route.distanceKm,
+        cash: cashByTrip.get(t.id) ?? 0,
+      };
+    }),
+    ...rentals.map((b) => ({
+      kind: "RENTAL" as const,
+      id: b.id,
+      title: b.dropCity && b.dropCity !== b.pickupCity ? `${b.pickupCity} → ${b.dropCity}` : (b.pickupCity ?? "Full cab"),
+      at: b.startAt ?? b.completedAt!,
+      completedAt: b.completedAt!,
+      vehicleReg: b.vehicle?.regNumber ?? null,
+      passengers: b.passengers,
+      km: b.endOdometer != null && b.startOdometer != null ? b.endOdometer - b.startOdometer : b.estimatedKm,
+      cash: cashByBooking.get(b.id) ?? 0,
+    })),
+  ].sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
+
+  const days = new Map<string, { date: string; duties: number; passengers: number; km: number; cash: number }>();
+  const day = (date: string) => days.get(date) ?? days.set(date, { date, duties: 0, passengers: 0, km: 0, cash: 0 }).get(date)!;
+  for (const h of history) {
+    const d = day(istDay(h.completedAt));
+    d.duties++;
+    d.passengers += h.passengers;
+    d.km += h.km ?? 0;
+  }
+  for (const c of collected) if (c.paidAt) day(istDay(c.paidAt)).cash += c.totalAmount;
+
+  return {
+    cashInHand: held._sum.totalAmount ?? 0,
+    cashInHandCount: held._count,
+    days: [...days.values()].sort((a, b) => b.date.localeCompare(a.date)),
+    history,
+  };
 }

@@ -32,10 +32,11 @@ export async function verifyToken<T = Record<string, unknown>>(token: string): P
 
 async function userFromToken(token: string | undefined | null): Promise<SessionUser | null> {
   if (!token) return null;
-  const payload = await verifyToken<{ sub?: string; typ?: string }>(token);
+  const payload = await verifyToken<{ sub?: string; typ?: string; tv?: number }>(token);
   if (!payload?.sub || payload.typ !== "session") return null;
   const user = await db.user.findUnique({ where: { id: payload.sub } });
-  if (!user) return null;
+  // Tokens issued before an app logout carry an older version and stop working.
+  if (!user || (payload.tv ?? 0) !== user.tokenVersion) return null;
   return { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role };
 }
 
@@ -52,5 +53,11 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 }
 
 export async function createSessionToken(userId: string) {
-  return signToken({ sub: userId, typ: "session" });
+  const user = await db.user.findUnique({ where: { id: userId }, select: { tokenVersion: true } });
+  return signToken({ sub: userId, typ: "session", tv: user?.tokenVersion ?? 0 });
+}
+
+/** App logout: every Bearer token issued to this user so far stops working. */
+export async function revokeTokens(userId: string) {
+  await db.user.update({ where: { id: userId }, data: { tokenVersion: { increment: 1 } } });
 }
