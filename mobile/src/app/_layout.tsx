@@ -8,11 +8,20 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { AuthProvider } from '../auth';
+import { AuthProvider, useAuth } from '../auth';
+import '../background'; // registers the background booking check at startup
+import { useNotificationRouting } from '../notifications';
 import { colors } from '../theme';
 
 // Keep the native splash up until the fonts are ready (called at module scope, as the docs recommend).
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+/** Opens the ticket when a booking notification is tapped (only once someone is logged in). */
+function NotificationRouter() {
+  const { user } = useAuth();
+  useNotificationRouting(!!user);
+  return null;
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold });
@@ -27,6 +36,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
+      <NotificationRouter />
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="(tabs)" options={{ title: 'Home' }} />

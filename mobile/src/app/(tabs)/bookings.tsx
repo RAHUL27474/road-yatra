@@ -2,12 +2,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { api, Booking, errorMessage } from '../../api';
+import { api, ApiError, Booking, errorMessage } from '../../api';
 import { useAuth } from '../../auth';
+import { cacheBookings, cachedBookings } from '../../cache';
+import { checkBookingUpdates, syncTripReminders } from '../../notifications';
 import { fmtDateShort, fmtTime, inr, RENTAL_TYPE } from '../../format';
 import { VehicleArt } from '../../illustrations';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
-import { Button, EmptyState, ErrorBanner, Header, isOnTrip, Screen, SegmentedControl, Skeleton, StatusBadge } from '../../ui';
+import { Button, EmptyState, ErrorBanner, Header, isOnTrip, Notice, Screen, SegmentedControl, Skeleton, StatusBadge } from '../../ui';
 
 /** Upcoming = active booking whose journey hasn't finished: in the future, or under way right now. */
 function isUpcoming(b: Booking, now: number) {
@@ -25,13 +27,27 @@ export default function MyBookings() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadedAt, setLoadedAt] = useState(0);
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [offline, setOffline] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      setBookings((await api<{ bookings: Booking[] }>('/api/bookings')).bookings);
+      const list = (await api<{ bookings: Booking[] }>('/api/bookings')).bookings;
+      setBookings(list);
       setLoadedAt(Date.now());
+      setOffline(false);
+      cacheBookings(list);
+      // The passenger is looking at the list: record changes without a banner, and keep reminders in step.
+      checkBookingUpdates(list, true);
+      syncTripReminders(list);
     } catch (e) {
+      const cached = e instanceof ApiError && e.status === 0 ? await cachedBookings() : null;
+      if (cached) {
+        setOffline(true);
+        setLoadedAt(Date.now());
+        setBookings((b) => b ?? cached);
+        return;
+      }
       setError(errorMessage(e));
       setBookings((b) => b ?? []);
     }
@@ -98,7 +114,16 @@ export default function MyBookings() {
             await load();
             setRefreshing(false);
           }}
-          ListHeaderComponent={<ErrorBanner message={error} onRetry={load} />}
+          ListHeaderComponent={
+            <>
+              {offline ? (
+                <Notice tone="info" icon="cloud-offline-outline">
+                  No internet — showing your saved tickets. QR codes still work.
+                </Notice>
+              ) : null}
+              <ErrorBanner message={error} onRetry={load} />
+            </>
+          }
           ListEmptyComponent={
             error ? null : tab === 'upcoming' ? (
               <EmptyState

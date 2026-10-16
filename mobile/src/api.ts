@@ -115,6 +115,9 @@ export type Booking = {
   cancellationCharge: number | null;
   invoiceNo: string | null;
   trackable: boolean;
+  /** 1-5 stars once rated; canRate while a completed trip can still be rated. */
+  rating?: number | null;
+  canRate?: boolean;
   trackUrl: string | null;
   invoiceUrl: string | null;
   holdExpiresAt: string | null;

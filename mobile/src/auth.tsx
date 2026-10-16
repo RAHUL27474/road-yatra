@@ -1,8 +1,9 @@
 import * as storage from './storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, ApiError, setAuthToken, User } from './api';
-
-const TOKEN_KEY = 'ry_token';
+import { startBookingChecks, stopBookingChecks, TOKEN_KEY } from './background';
+import { clearBookingCache } from './cache';
+import { cancelAllReminders } from './notifications';
 
 export type OtpRequestResult = { sent: boolean; isNewUser: boolean; devOtp?: string };
 /** Sign-up details. `channel` is where the verification OTP goes: the mobile number or the email. */
@@ -20,6 +21,10 @@ type AuthState = {
   requestOtp: (phone: string) => Promise<OtpRequestResult>;
   /** Logs in with the OTP. Returns `needsName` for a new number sent without a name (resend with the name). */
   verifyOtp: (phone: string, otp: string, name?: string) => Promise<{ needsName: boolean }>;
+  /** Edit name / email (the mobile number is the login and can't change). */
+  updateProfile: (input: { name: string; email: string }) => Promise<void>;
+  /** Deletes the account on the server (Google Play requirement) and logs out. */
+  deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -32,9 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const save = useCallback(async (token: string | null, u: User | null) => {
     setAuthToken(token);
     if (token) await storage.setItem(TOKEN_KEY, token);
-    else await storage.deleteItem(TOKEN_KEY);
+    else {
+      await storage.deleteItem(TOKEN_KEY);
+      // Logged out: no tickets, reminders or background checks of this account stay on the phone.
+      await Promise.all([stopBookingChecks(), clearBookingCache(), cancelAllReminders()]);
+    }
     setUser(u);
   }, []);
+
+  // Watch the account's bookings in the background while logged in.
+  useEffect(() => {
+    if (user) startBookingChecks();
+  }, [user]);
 
   useEffect(() => {
     (async () => {
@@ -75,6 +89,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if ('needsName' in r) return { needsName: true };
         await save(r.token, r.user);
         return { needsName: false };
+      },
+      updateProfile: async (input) => {
+        const r = await api<{ user: User }>('/api/auth/me', { method: 'PATCH', body: input });
+        setUser(r.user);
+      },
+      deleteAccount: async () => {
+        await api('/api/auth/me', { method: 'DELETE' });
+        await save(null, null);
       },
       logout: async () => {
         await api('/api/auth/logout', { method: 'POST' }).catch(() => {});

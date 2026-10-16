@@ -7,11 +7,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_URL, Config, getConfig } from '../../api';
+import { API_URL, Config, errorMessage, getConfig } from '../../api';
 import { useAuth } from '../../auth';
 import { BRAND, Devotional, Emblem, supportPhone, telUrl } from '../../brand';
+import { openPage } from '../../store';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
-import { Button, ListRow, Loading, Notice, Screen } from '../../ui';
+import { Button, Input, ListRow, Loading, Notice, Screen } from '../../ui';
 
 /** "100% refund if cancelled 24+ hours before departure, 50% if 2+ hours before." */
 function cancellationPolicy(config: Config) {
@@ -33,9 +34,43 @@ const initials = (name: string) =>
     .join('') || '?';
 
 export default function Account() {
-  const { user, ready, logout } = useAuth();
+  const { user, ready, logout, updateProfile, deleteAccount } = useAuth();
   const insets = useSafeAreaInsets();
   const [config, setConfig] = useState<Config | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = () => {
+    setName(user?.name ?? '');
+    setEmail(user?.email ?? '');
+    setEditing(true);
+  };
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      await updateProfile({ name: name.trim(), email: email.trim() });
+      setEditing(false);
+    } catch (e) {
+      Alert.alert('Could not save', errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const askDelete = () =>
+    Alert.alert(
+      'Delete account?',
+      'Your name, mobile number, email and password will be removed and you will be logged out. Past bookings are kept only for our tax records. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => deleteAccount().catch((e) => Alert.alert('Could not delete account', errorMessage(e))),
+        },
+      ],
+    );
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => {});
@@ -103,6 +138,27 @@ export default function Account() {
             </View>
           )}
 
+          {user && editing ? (
+            <View style={st.card}>
+              <Text style={[type('md', 'bold'), { marginBottom: spacing.md }]}>Edit profile</Text>
+              <Input label="Name" icon="person-outline" value={name} onChangeText={setName} maxLength={80} autoCapitalize="words" />
+              <Input
+                label="Email (optional)"
+                icon="mail-outline"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={[type('xs', 'regular', colors.textMuted), { marginTop: -spacing.sm, marginBottom: spacing.md }]}>
+                Your mobile number (+91 {user.phone}) is your login and can't be changed here.
+              </Text>
+              <Button title="Save" icon="checkmark" onPress={saveProfile} loading={saving} disabled={name.trim().length < 2} />
+              <Button title="Cancel" variant="ghost" onPress={() => setEditing(false)} style={{ marginTop: spacing.xs }} />
+            </View>
+          ) : null}
+
           {user?.role === 'DRIVER' ? (
             <Notice tone="warning" icon="car-sport-outline">
               This is a driver account. Please use the JSS Travels Driver app for your duties.
@@ -125,15 +181,27 @@ export default function Account() {
               tone="warning"
               onPress={config ? () => Alert.alert('Cancellation policy', cancellationPolicy(config)) : undefined}
             />
+            <ListRow icon="document-text-outline" title="Terms & cancellation" tone="brand" onPress={() => openPage(`${API_URL}/terms`)} />
+            <ListRow icon="lock-closed-outline" title="Privacy policy" tone="brand" onPress={() => openPage(`${API_URL}/privacy`)} />
             <ListRow
               icon="information-circle-outline"
               title="App information"
               subtitle={`Version ${version}`}
               tone="neutral"
               last
-              onPress={() => Alert.alert(BRAND.short, `${BRAND.name}\nShared taxi seats and full cab hire.\n\nVersion ${version}\nServer: ${API_URL}`)}
+              onPress={() => Alert.alert(BRAND.short, `${BRAND.name}\nShared taxi seats and full cab hire.\n\nVersion ${version}`)}
             />
           </View>
+
+          {user ? (
+            <>
+              <Text style={st.group}>MY ACCOUNT</Text>
+              <View style={[st.card, { padding: 0, overflow: 'hidden' }]}>
+                <ListRow icon="create-outline" title="Edit profile" subtitle="Name and email" tone="brand" onPress={startEdit} />
+                <ListRow icon="trash-outline" title="Delete account" subtitle="Remove your account and personal details" tone="danger" last onPress={askDelete} />
+              </View>
+            </>
+          ) : null}
 
           <Text style={st.group}>ABOUT US</Text>
           <View style={st.card}>

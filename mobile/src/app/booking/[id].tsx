@@ -4,14 +4,16 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { api, Booking, Config, errorMessage, getConfig } from '../../api';
+import { api, ApiError, Booking, Config, errorMessage, getConfig } from '../../api';
 import { useAuth } from '../../auth';
+import { cacheBooking, cachedBooking } from '../../cache';
+import { checkBookingUpdates, syncTripReminders } from '../../notifications';
 import { supportPhone } from '../../brand';
 import { fmtDate, fmtDateTime, fmtDuration, fmtTime, inr, RENTAL_TYPE, VEHICLE_TYPE } from '../../format';
 import { VehicleArt } from '../../illustrations';
 import { openPage, openPayment, reachableUrl } from '../../store';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
-import { Button, EmptyState, ErrorBanner, hapticTap, Header, IonName, isOnTrip, Notice, Row, Screen, Skeleton, statusInfo, Tone } from '../../ui';
+import { Button, EmptyState, ErrorBanner, hapticTap, Header, Input, IonName, isOnTrip, Notice, Row, Screen, Skeleton, statusInfo, Tone } from '../../ui';
 
 const PAYMENT_LABEL = { UNPAID: 'Unpaid', PAID: 'Paid', REFUND_PENDING: 'Refund pending', REFUNDED: 'Refunded' };
 const MODE_LABEL = { RAZORPAY: 'Online', DEMO: 'Online (demo)', CASH: 'Cash to driver' };
@@ -26,6 +28,18 @@ const BANNER: Record<Tone, readonly [string, string]> = {
 };
 
 const call = (phone: string) => Linking.openURL(`tel:${phone.replace(/[^\d+]/g, '')}`).catch(() => {});
+const whatsApp = (phone: string) => {
+  const d = phone.replace(/\D/g, '');
+  const intl = d.length === 10 ? `91${d}` : d;
+  Linking.openURL(`whatsapp://send?phone=${intl}`).catch(() => Linking.openURL(`https://wa.me/${intl}`).catch(() => {}));
+};
+/** Google Maps directions: exact coordinates of the pickup point if the office saved them, else its name / the address. */
+const directions = (b: Booking) => {
+  const s = b.pickupStop;
+  const dest = s?.lat != null && s?.lng != null ? `${s.lat},${s.lng}` : s ? [s.name, s.address, s.city].filter(Boolean).join(', ') : b.pickupAddress;
+  if (dest) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`).catch(() => {});
+};
+const POLL_MS = 30_000;
 
 export default function BookingDetail() {
   const { id, fresh } = useLocalSearchParams<{ id: string; fresh?: string }>();
@@ -36,21 +50,41 @@ export default function BookingDetail() {
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [offline, setOffline] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      setBooking((await api<{ booking: Booking }>(`/api/bookings/${id}`)).booking);
+      const fresh = (await api<{ booking: Booking }>(`/api/bookings/${id}`)).booking;
+      setBooking(fresh);
+      setOffline(false);
+      cacheBooking(fresh);
     } catch (e) {
+      // No internet at the pickup point: the saved copy still has the QR and OTP.
+      const saved = e instanceof ApiError && e.status === 0 ? await cachedBooking(id) : null;
+      if (saved) {
+        setOffline(true);
+        setBooking((b) => b ?? saved);
+        return;
+      }
       setError(errorMessage(e));
     }
   }, [id]);
 
+  // Load on focus, then keep the ticket live (driver assigned, trip started...) every 30 s while it's open.
   useFocusEffect(
     useCallback(() => {
-      if (user) load();
+      if (!user) return;
+      load();
+      const t = setInterval(load, POLL_MS);
+      return () => clearInterval(t);
     }, [user, load]),
   );
+  useEffect(() => {
+    if (!booking) return;
+    checkBookingUpdates([booking], true);
+    syncTripReminders([booking], true);
+  }, [booking]);
   useEffect(() => {
     getConfig().then(setConfig).catch(() => {});
   }, []);
@@ -155,6 +189,8 @@ export default function BookingDetail() {
   const durationMins = b.kind === 'SEAT' && startIso && endIso ? Math.round((Date.parse(endIso) - Date.parse(startIso)) / 60000) : 0;
 
   const actions: { key: string; icon: IonName; label: string; onPress: () => void; danger?: boolean }[] = [];
+  const goingSoon = b.status === 'CONFIRMED' && b.tripStatus === 'SCHEDULED' && !!(b.pickupStop || b.pickupAddress);
+  if (goingSoon) actions.push({ key: 'dir', icon: 'map-outline', label: 'Directions', onPress: () => directions(b) });
   if (trackUrl) actions.push({ key: 'track', icon: 'navigate-outline', label: 'Track', onPress: () => openPage(trackUrl) });
   if (trackUrl) actions.push({ key: 'share', icon: 'share-social-outline', label: 'Share', onPress: shareTrip });
   if (b.invoiceUrl) actions.push({ key: 'invoice', icon: 'document-text-outline', label: 'Invoice', onPress: () => openPage(b.invoiceUrl!) });
@@ -179,6 +215,14 @@ export default function BookingDetail() {
           />
         }
       >
+        {offline ? (
+          <Notice tone="info" icon="cloud-offline-outline">
+            No internet — this is your saved ticket. The QR code and OTP still work.
+          </Notice>
+        ) : null}
+
+        {b.canRate || b.rating ? <RateTrip booking={b} onRated={setBooking} /> : null}
+
         {b.status === 'CONFIRMED' && fresh ? (
           <View style={st.fresh}>
             <View style={st.freshIcon}>
@@ -346,6 +390,17 @@ export default function BookingDetail() {
             <Pressable
               onPress={() => {
                 hapticTap();
+                whatsApp(b.driver!.phone);
+              }}
+              style={({ pressed }) => [st.callBtn, { backgroundColor: '#25D366' }, pressed && { opacity: 0.85 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`WhatsApp driver ${b.driver.name}`}
+            >
+              <Ionicons name="logo-whatsapp" size={22} color={colors.white} />
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                hapticTap();
                 call(b.driver!.phone);
               }}
               style={({ pressed }) => [st.callBtn, pressed && { opacity: 0.85 }]}
@@ -482,6 +537,48 @@ const initials = (name: string) =>
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join('') || '?';
+
+/** Stars after a completed trip (once). Shows the given rating afterwards. */
+function RateTrip({ booking: b, onRated }: { booking: Booking; onRated: (b: Booking) => void }) {
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [busy, setBusy] = useState(false);
+  const done = b.rating != null;
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      onRated((await api<{ booking: Booking }>(`/api/bookings/${b.id}/rate`, { body: { rating: stars, ...(comment.trim() ? { comment: comment.trim() } : {}) } })).booking);
+      hapticTap();
+      Alert.alert('Thank you!', 'Your rating helps us keep every trip safe and comfortable.');
+    } catch (e) {
+      Alert.alert('Could not send rating', errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const shown = done ? b.rating! : stars;
+  return (
+    <View style={[st.card, { borderWidth: 1.5, borderColor: done ? colors.border : '#F5C46B' }]}>
+      <Text style={type('md', 'bold')}>{done ? 'Your rating' : 'How was your trip?'}</Text>
+      {!done && b.driver ? <Text style={type('sm', 'regular', colors.textMuted)}>Rate your journey with {b.driver.name}</Text> : null}
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginVertical: spacing.md }}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Pressable key={n} disabled={done} onPress={() => setStars(n)} accessibilityRole="button" accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`} hitSlop={6}>
+            <Ionicons name={n <= shown ? 'star' : 'star-outline'} size={36} color={n <= shown ? '#F59E0B' : colors.textSubtle} />
+          </Pressable>
+        ))}
+      </View>
+      {!done && stars > 0 ? (
+        <>
+          <Input placeholder={stars <= 3 ? 'What went wrong? (optional)' : 'Anything to tell us? (optional)'} value={comment} onChangeText={setComment} maxLength={500} multiline />
+          <Button title="Send rating" icon="send" onPress={submit} loading={busy} />
+        </>
+      ) : null}
+    </View>
+  );
+}
 
 function GridCell({ label, value, sub, subColor, align }: { label: string; value: string; sub?: string; subColor?: string; align?: 'right' }) {
   const right = align === 'right';

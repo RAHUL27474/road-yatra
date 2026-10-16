@@ -376,8 +376,10 @@ function PassengerForm({
       .then(setConfig)
       .catch(() => {});
   }, []);
-  const allowCash = !!config?.allowCash;
-  const allowOnline = config?.onlinePayments !== false;
+  // Until the config arrives (or if it can't load) offer cash only: online payment is the exception, and the
+  // server re-checks the choice anyway. Defaulting to online left people stuck on "online payment not available".
+  const allowCash = config ? !!config.allowCash : true;
+  const allowOnline = config ? config.onlinePayments !== false : false;
   const mode: PaymentChoice = !allowOnline ? 'CASH' : allowCash ? payment : 'ONLINE';
 
   const pay = async (fallbackName = '', fallbackPhone = '') => {
