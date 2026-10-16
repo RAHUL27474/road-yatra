@@ -32,6 +32,9 @@ export async function amountToCharge(b: Pick<Booking, "paymentMode" | "passenger
 export async function startPayment(bookingId: string) {
   const booking = await payableBooking(bookingId);
   const amount = await amountToCharge(booking);
+  // Remember what this order charges: it is what gets recorded as paid, even if the advance setting changes meanwhile.
+  // (amountPaid only counts once the booking is CONFIRMED; a PENDING booking owes nothing yet.)
+  await db.booking.update({ where: { id: booking.id }, data: { amountPaid: amount } });
   if (isDemoPayments()) return { mode: "DEMO" as const, amount };
 
   const res = await fetch("https://api.razorpay.com/v1/orders", {
@@ -57,7 +60,7 @@ export async function startPayment(bookingId: string) {
  * Returns false if it was already confirmed (or expired) by someone else.
  */
 async function markPaid(booking: Booking, paymentMode: string, paymentId: string) {
-  const amount = await amountToCharge(booking);
+  const amount = booking.amountPaid > 0 ? booking.amountPaid : await amountToCharge(booking);
   const partial = booking.paymentMode === "ADVANCE" && amount < booking.totalAmount;
   const { count } = await db.booking.updateMany({
     where: { id: booking.id, status: "PENDING" },
@@ -78,6 +81,9 @@ export async function confirmPayment(
   bookingId: string,
   p: { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string },
 ) {
+  // The webhook may have confirmed this order a moment earlier: that's a success, not an error.
+  const existing = await db.booking.findUnique({ where: { id: bookingId } });
+  if (existing?.status === "CONFIRMED" && p.razorpay_order_id && existing.razorpayOrderId === p.razorpay_order_id) return existing;
   const booking = await payableBooking(bookingId);
 
   if (isDemoPayments()) {

@@ -230,7 +230,11 @@ model Booking {
 
   // Cash taken by a driver, until the office marks it as handed over
   cashCollectedBy  String? // Driver.id
+  cashCollected    Float     @default(0) // what the driver actually took (the balance, for an online-advance booking)
+  cashCollectedAt  DateTime?
   cashHandedOverAt DateTime?
+  // Refund owed for seats cancelled from a booking that is still going (the office pays it, then clears it)
+  seatRefundDue    Float     @default(0)
 
   // Payment
   paymentStatus   String  @default("UNPAID") // UNPAID | PAID | REFUND_PENDING | REFUNDED

@@ -293,6 +293,8 @@ export async function offlineSeatBooking(formData: FormData) {
       userId: customer.id,
       tripId,
       seatNos: formData.getAll("seatNos").map(Number),
+      // "Woman passenger(s)": lets the office use women-only seats and protects the seats next to her.
+      seatPassengers: bool(formData, "female") ? formData.getAll("seatNos").map((n) => ({ seatNo: Number(n), female: true })) : undefined,
       passengerName: name,
       passengerPhone: phone,
       pickupStopId: str(formData, "pickupStopId") || undefined,
@@ -357,6 +359,11 @@ export async function updateBooking(formData: FormData) {
   } else if (action === "cash") {
     await db.booking.update({ where: { id }, data: { paymentStatus: "PAID", paymentMode: b.paymentMode ?? "CASH", paidAt: new Date() } });
     await assignInvoiceNo(id);
+  } else if (action === "seatRefunded") {
+    // Refund for seats cancelled from a booking that is still going: paid out by the office.
+    const amount = b.seatRefundDue;
+    await db.booking.update({ where: { id }, data: { seatRefundDue: 0, refundAmount: (b.refundAmount ?? 0) + amount } });
+    await notify(b.passengerPhone, "REFUND_DONE", [b.code, String(amount)], `Refund of Rs ${amount} for the cancelled seats on booking ${b.code} has been processed.`);
   } else if (action === "refunded") {
     await db.booking.update({ where: { id }, data: { paymentStatus: "REFUNDED" } });
     await notify(b.passengerPhone, "REFUND_DONE", [b.code, String(b.refundAmount ?? 0)], `Refund of Rs ${b.refundAmount ?? 0} for booking ${b.code} has been processed.`);
@@ -423,7 +430,7 @@ export async function markCashReceived(formData: FormData) {
   const driverId = str(formData, "driverId");
   // Only the cash the office saw on the page: anything the driver collected after it loaded is still with them.
   const upTo = new Date(str(formData, "upTo") || Date.now());
-  await db.booking.updateMany({ where: { cashCollectedBy: driverId, cashHandedOverAt: null, paidAt: { lte: upTo } }, data: { cashHandedOverAt: new Date() } });
+  await db.booking.updateMany({ where: { cashCollectedBy: driverId, cashHandedOverAt: null, cashCollectedAt: { lte: upTo } }, data: { cashHandedOverAt: new Date() } });
   revalidatePath("/admin/drivers");
   revalidatePath("/admin");
 }

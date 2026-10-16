@@ -427,16 +427,19 @@ export function cancellationQuote(b: Booking & { trip?: Trip | null }, slabs: Ca
   const slab = [...slabs].sort((x, y) => y.minHoursBefore - x.minHoursBefore).find((s) => hoursBefore >= s.minHoursBefore);
   const refundPercent = slab?.refundPercent ?? 0;
   const paid = b.paymentStatus === "PAID";
-  // Toll & parking haven't been spent yet, so they are always refunded in full.
-  const refund = paid ? b.extraCharges + round(((b.baseAmount + b.taxAmount) * refundPercent) / 100) : 0;
-  return { allowed, hoursBefore, refundPercent, refund, charge: paid ? b.totalAmount - refund : 0 };
+  const advance = b.paymentStatus === "PARTIAL" ? b.amountPaid : 0;
+  // Toll & parking haven't been spent yet, so they are always refunded in full. An online advance follows the same slab.
+  const refund = paid ? b.extraCharges + round(((b.baseAmount + b.taxAmount) * refundPercent) / 100) : round((advance * refundPercent) / 100);
+  return { allowed, hoursBefore, refundPercent, refund, charge: paid ? b.totalAmount - refund : advance - refund };
 }
 
 export async function cancelBooking(bookingId: string, opts: { by: "CUSTOMER" | "ADMIN" | "SYSTEM"; refundAmount?: number; note?: string }) {
   const b = await db.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { trip: true } });
   const quote = cancellationQuote(b, (await getSettings()).cancellationSlabs);
-  const paid = b.paymentStatus === "PAID";
-  const refund = paid ? Math.min(b.totalAmount, Math.max(0, round(opts.refundAmount ?? quote.refund))) : 0;
+  // Money received online so far: everything (PAID) or the advance (PARTIAL).
+  const received = b.paymentStatus === "PAID" ? b.totalAmount : b.paymentStatus === "PARTIAL" ? b.amountPaid : 0;
+  const paid = received > 0;
+  const refund = paid ? Math.min(received, Math.max(0, round(opts.refundAmount ?? quote.refund))) : 0;
   await db.$transaction([
     db.bookedSeat.deleteMany({ where: { bookingId } }),
     db.booking.update({
@@ -445,9 +448,11 @@ export async function cancelBooking(bookingId: string, opts: { by: "CUSTOMER" | 
         status: "CANCELLED",
         cancelledAt: new Date(),
         cancelledBy: opts.by,
-        refundAmount: refund,
-        cancellationCharge: paid ? b.totalAmount - refund : 0,
-        paymentStatus: paid && refund > 0 ? "REFUND_PENDING" : b.paymentStatus,
+        // Add to (not overwrite) any refund already owed for seats cancelled earlier.
+        refundAmount: refund + b.seatRefundDue,
+        seatRefundDue: 0,
+        cancellationCharge: paid ? received - refund : 0,
+        paymentStatus: refund + b.seatRefundDue > 0 ? "REFUND_PENDING" : b.paymentStatus,
         adminNote: opts.note ?? b.adminNote,
       },
     }),
@@ -481,6 +486,7 @@ export async function cancelSeats(bookingId: string, seatNos: number[]) {
   // Paid in full: refund the slab share of the removed seats. Paid an advance: refund only what now exceeds the new total.
   const refund =
     b.paymentStatus === "PAID" ? round((removed * quote.refundPercent) / 100) : b.paymentStatus === "PARTIAL" ? Math.max(0, b.amountPaid - amounts.totalAmount) : 0;
+  const advanceCovers = b.paymentStatus === "PARTIAL" && b.amountPaid >= amounts.totalAmount;
   await db.$transaction([
     db.bookedSeat.deleteMany({ where: { bookingId, seatNo: { in: drop } } }),
     db.booking.update({
@@ -489,7 +495,9 @@ export async function cancelSeats(bookingId: string, seatNos: number[]) {
         seatNos: keep.join(","),
         passengers: keep.length,
         ...amounts,
-        ...(refund > 0 ? { refundAmount: (b.refundAmount ?? 0) + refund, paymentStatus: "REFUND_PENDING", amountPaid: b.paymentStatus === "PARTIAL" ? amounts.totalAmount : b.amountPaid } : {}),
+        // The booking keeps going, so its payment status stays; the refund waits in seatRefundDue for the office.
+        ...(refund > 0 ? { seatRefundDue: { increment: refund } } : {}),
+        ...(advanceCovers ? { amountPaid: amounts.totalAmount, paymentStatus: "PAID" } : {}),
         adminNote: [b.adminNote, `Seat ${drop.join(", ")} cancelled by customer${refund ? ` (refund Rs ${refund})` : ""}.`].filter(Boolean).join(" "),
       },
     }),
@@ -529,7 +537,7 @@ export async function changeBooking(
     const amounts = withTax(t.fare * count * (1 - b.discountPercent / 100));
     if (b.paymentStatus !== "UNPAID" && amounts.totalAmount !== b.totalAmount) throw new HttpError(400, "The fare on that trip is different. Please call the office to change a paid booking.");
     newTrip = t;
-    Object.assign(data, { tripId: t.id, seatNos: seatNos.join(","), ...amounts, changeCount: { increment: 1 }, changedAt: new Date(), nearNotifiedAt: null });
+    Object.assign(data, { tripId: t.id, seatNos: seatNos.join(","), ...amounts, changedAt: new Date(), nearNotifiedAt: null });
     // Travellers keep their details, in seat order.
     const old = (b.seats ?? []).filter((s) => s.bookingId).sort((x, y) => x.seatNo - y.seatNo);
     const given = new Map((input.seatPassengers ?? []).map((p) => [p.seatNo, p]));
@@ -541,7 +549,14 @@ export async function changeBooking(
     const blocked = rows.filter((r) => womenOnly.includes(r.seatNo) && !r.female).map((r) => r.seatNo);
     if (blocked.length) throw new HttpError(400, `Seat ${blocked.join(", ")} is next to a woman passenger and can only be booked for a woman.`);
     try {
-      await db.$transaction([db.bookedSeat.deleteMany({ where: { bookingId: b.id } }), db.bookedSeat.createMany({ data: rows })]);
+      await db.$transaction(async (tx) => {
+        // Claim the one free change first, so two taps at once can't both move the booking.
+        const { count } = await tx.booking.updateMany({ where: { id: b.id, changeCount: b.changeCount }, data: { changeCount: { increment: 1 } } });
+        if (!count) throw new HttpError(409, "This booking was just changed. Please reopen it.");
+        await tx.bookedSeat.deleteMany({ where: { bookingId: b.id } });
+        await tx.bookedSeat.createMany({ data: rows });
+        await tx.booking.update({ where: { id: b.id }, data: { tripId: t.id, seatNos: seatNos.join(",") } });
+      });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new HttpError(409, "One of those seats was just booked. Please pick again.");
       throw e;

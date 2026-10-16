@@ -179,7 +179,16 @@ export async function collectCash(driverId: string, bookingId: string) {
   await db.booking.update({
     where: { id: b.id },
     // After an online advance the booking keeps paymentMode ADVANCE; the driver only collects the balance.
-    data: { paymentStatus: "PAID", paymentMode: b.paymentMode === "ADVANCE" ? "ADVANCE" : "CASH", paidAt: new Date(), cashCollectedBy: driverId, cashHandedOverAt: null },
+    data: {
+      paymentStatus: "PAID",
+      paymentMode: b.paymentMode === "ADVANCE" ? "ADVANCE" : "CASH",
+      // An advance keeps its own payment date; the cash part is dated by cashCollectedAt.
+      ...(b.paymentMode === "ADVANCE" ? {} : { paidAt: new Date() }),
+      cashCollectedBy: driverId,
+      cashCollected: due,
+      cashCollectedAt: new Date(),
+      cashHandedOverAt: null,
+    },
   });
   await assignInvoiceNo(b.id);
   return { collected: due };
@@ -360,8 +369,8 @@ const istDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolk
 export async function driverEarnings(driverId: string) {
   const since = new Date(Date.now() - HISTORY_DAYS * 24 * 3600_000);
   const [held, collected, trips, rentals] = await Promise.all([
-    db.booking.aggregate({ where: { cashCollectedBy: driverId, cashHandedOverAt: null, paymentStatus: "PAID" }, _sum: { totalAmount: true }, _count: true }),
-    db.booking.findMany({ where: { cashCollectedBy: driverId, paidAt: { gte: since } }, select: { id: true, tripId: true, totalAmount: true, paidAt: true } }),
+    db.booking.aggregate({ where: { cashCollectedBy: driverId, cashHandedOverAt: null, paymentStatus: "PAID" }, _sum: { cashCollected: true }, _count: true }),
+    db.booking.findMany({ where: { cashCollectedBy: driverId, cashCollectedAt: { gte: since } }, select: { id: true, tripId: true, cashCollected: true, cashCollectedAt: true } }),
     db.trip.findMany({
       where: { driverId, status: "COMPLETED", completedAt: { gte: since } },
       include: { route: true, vehicle: true, bookings: { where: { status: "COMPLETED" }, select: { passengers: true, seatNos: true, noShow: true } } },
@@ -373,8 +382,8 @@ export async function driverEarnings(driverId: string) {
   const cashByTrip = new Map<string, number>();
   const cashByBooking = new Map<string, number>();
   for (const c of collected) {
-    if (c.tripId) cashByTrip.set(c.tripId, (cashByTrip.get(c.tripId) ?? 0) + c.totalAmount);
-    else cashByBooking.set(c.id, c.totalAmount);
+    if (c.tripId) cashByTrip.set(c.tripId, (cashByTrip.get(c.tripId) ?? 0) + c.cashCollected);
+    else cashByBooking.set(c.id, c.cashCollected);
   }
 
   const history = [
@@ -413,10 +422,10 @@ export async function driverEarnings(driverId: string) {
     d.passengers += h.passengers;
     d.km += h.km ?? 0;
   }
-  for (const c of collected) if (c.paidAt) day(istDay(c.paidAt)).cash += c.totalAmount;
+  for (const c of collected) if (c.cashCollectedAt) day(istDay(c.cashCollectedAt)).cash += c.cashCollected;
 
   return {
-    cashInHand: held._sum.totalAmount ?? 0,
+    cashInHand: held._sum.cashCollected ?? 0,
     cashInHandCount: held._count,
     days: [...days.values()].sort((a, b) => b.date.localeCompare(a.date)),
     history,

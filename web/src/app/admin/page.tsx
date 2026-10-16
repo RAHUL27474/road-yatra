@@ -1,12 +1,28 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { expireStaleHolds, bookingInclude, serializeBooking } from "@/lib/booking";
+import { expireStaleHolds, bookingInclude, cashDue as bookingCashDue, serializeBooking } from "@/lib/booking";
 import { fmtDate, fmtTime, inr } from "@/lib/format";
 import { bookingTitle, STATUS_STYLE } from "@/components/BookingSummary";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { resolveSos } from "./actions";
 
 const DOC_WARN_DAYS = 30;
+
+/** Money received since `from`: full payments by their date, online advances, and drivers' cash by when it was taken. */
+async function received(from: Date) {
+  const [paid, advances, cash] = await Promise.all([
+    // Paid in one go (online, or cash recorded by the office) — driver cash and advances are counted below.
+    db.booking.findMany({
+      where: { paymentStatus: { in: ["PAID", "REFUND_PENDING", "REFUNDED"] }, paidAt: { gte: from }, cashCollectedAt: null, paymentMode: { not: "ADVANCE" } },
+      select: { totalAmount: true },
+    }),
+    // Online advances, whether or not the driver has collected the balance yet (paidAt stays the advance date).
+    db.booking.findMany({ where: { paymentMode: "ADVANCE", paidAt: { gte: from }, amountPaid: { gt: 0 }, status: { not: "PENDING" } }, select: { amountPaid: true } }),
+    db.booking.findMany({ where: { cashCollectedAt: { gte: from } }, select: { cashCollected: true } }),
+  ]);
+  const sum = paid.reduce((n, b) => n + b.totalAmount, 0) + advances.reduce((n, b) => n + b.amountPaid, 0) + cash.reduce((n, b) => n + b.cashCollected, 0);
+  return { _sum: { totalAmount: sum }, _count: paid.length + advances.length + cash.length };
+}
 
 export default async function AdminDashboard() {
   await expireStaleHolds();
@@ -18,11 +34,17 @@ export default async function AdminDashboard() {
   const warnBy = new Date(Date.now() + DOC_WARN_DAYS * 24 * 3600_000);
 
   const [todayPaid, monthPaid, todayBookings, refundsPending, cashDue, todaysTrips, todaysRentals, recent, vehicles, drivers] = await Promise.all([
-    db.booking.aggregate({ where: { paymentStatus: { in: ["PAID", "REFUND_PENDING", "REFUNDED"] }, paidAt: { gte: dayStart } }, _sum: { totalAmount: true }, _count: true }),
-    db.booking.aggregate({ where: { paymentStatus: { in: ["PAID", "REFUND_PENDING", "REFUNDED"] }, paidAt: { gte: monthStart } }, _sum: { totalAmount: true }, _count: true }),
+    received(dayStart),
+    received(monthStart),
     db.booking.groupBy({ by: ["kind"], where: { createdAt: { gte: dayStart }, status: { in: ["CONFIRMED", "COMPLETED"] } }, _count: true }),
-    db.booking.count({ where: { paymentStatus: "REFUND_PENDING" } }),
-    db.booking.aggregate({ where: { paymentMode: "CASH", paymentStatus: "UNPAID", status: { in: ["CONFIRMED", "COMPLETED"] } }, _sum: { totalAmount: true }, _count: true }),
+    db.booking.count({ where: { OR: [{ paymentStatus: "REFUND_PENDING" }, { seatRefundDue: { gt: 0 } }] } }),
+    // Still to come from customers: unpaid cash bookings and the balance after an online advance.
+    db.booking
+      .findMany({
+        where: { status: { in: ["CONFIRMED", "COMPLETED"] }, OR: [{ paymentMode: "CASH", paymentStatus: "UNPAID" }, { paymentStatus: "PARTIAL" }] },
+        select: { status: true, paymentStatus: true, totalAmount: true, amountPaid: true },
+      })
+      .then((list) => ({ _sum: { totalAmount: list.reduce((n, b) => n + bookingCashDue(b), 0) }, _count: list.length })),
     db.trip.findMany({
       where: { status: { in: ["SCHEDULED", "STARTED", "COMPLETED"] }, departAt: { gte: dayStart, lt: dayEnd } },
       include: { route: true, vehicle: true, driver: { include: { user: true } }, _count: { select: { seats: true } } },
@@ -37,7 +59,7 @@ export default async function AdminDashboard() {
   const [pendingDrivers, sos, driverCash] = await Promise.all([
     db.driver.count({ where: { status: "PENDING" } }),
     db.sosAlert.findMany({ where: { resolvedAt: null }, include: { driver: { include: { user: true } } }, orderBy: { createdAt: "desc" } }),
-    db.booking.aggregate({ where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, paymentStatus: "PAID" }, _sum: { totalAmount: true }, _count: true }),
+    db.booking.aggregate({ where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, paymentStatus: "PAID" }, _sum: { cashCollected: true }, _count: true }),
   ]);
 
   // Documents expiring within 30 days (or already expired)
@@ -60,7 +82,7 @@ export default async function AdminDashboard() {
     ["Bookings today", String(count("SEAT") + count("RENTAL")), `${count("SEAT")} shared · ${count("RENTAL")} full cab`],
     ["Seat occupancy today", seatsToday ? `${Math.round((soldToday / seatsToday) * 100)}%` : "—", `${soldToday}/${seatsToday} seats`],
     ["Cash to collect", inr(cashDue._sum.totalAmount ?? 0), `${cashDue._count} booking(s)`],
-    ["Cash with drivers", inr(driverCash._sum.totalAmount ?? 0), `${driverCash._count} booking(s) not handed over`],
+    ["Cash with drivers", inr(driverCash._sum.cashCollected ?? 0), `${driverCash._count} booking(s) not handed over`],
     ["Refunds pending", String(refundsPending), refundsPending ? "needs action" : "all clear"],
   ];
 

@@ -125,6 +125,9 @@ export default async function TripManifest({ params, searchParams }: { params: P
             <h2 className="font-bold">Phone / walk-in booking</h2>
             <input type="hidden" name="tripId" value={trip.id} />
             {seatCheckboxes("seatNos")}
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="female" className="accent-pink-600" /> Woman passenger (all selected seats) — needed for women-only seats
+            </label>
             <div className="grid gap-2 sm:grid-cols-2">
               <input name="passengerName" className="input" placeholder="Passenger name" required />
               <input name="passengerPhone" className="input" placeholder="Mobile number" required inputMode="numeric" pattern="[6-9][0-9]{9}" />

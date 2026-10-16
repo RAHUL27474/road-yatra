@@ -18,10 +18,10 @@ export default async function DriversPage() {
   const cash = await db.booking.groupBy({
     by: ["cashCollectedBy"],
     where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, paymentStatus: "PAID" },
-    _sum: { totalAmount: true },
+    _sum: { cashCollected: true },
     _count: true,
   });
-  const cashHeld = new Map(cash.map((c) => [c.cashCollectedBy!, { amount: c._sum.totalAmount ?? 0, count: c._count }]));
+  const cashHeld = new Map(cash.map((c) => [c.cashCollectedBy!, { amount: c._sum.cashCollected ?? 0, count: c._count }]));
   // Passenger ratings: a seat booking's driver is the trip's driver, a full cab's is on the booking.
   const rated = await db.booking.findMany({ where: { rating: { not: null } }, select: { rating: true, driverId: true, trip: { select: { driverId: true } } } });
   const ratings = new Map<string, { sum: number; n: number }>();

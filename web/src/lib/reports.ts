@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { ymd } from "./format";
+import { cashDue } from "./booking";
 
 export type Report = { title: string; note: string; columns: string[]; rows: (string | number)[][] };
 
@@ -46,8 +47,9 @@ export async function buildReport(type: string, from: string, to: string): Promi
             sold.filter((b) => b.kind === "SEAT").reduce((n, b) => n + b.passengers, 0),
             sold.filter((b) => b.kind === "RENTAL").length,
             sold.reduce((n, b) => n + b.totalAmount, 0),
-            sold.filter((b) => b.paymentStatus === "PAID" && b.paymentMode !== "CASH").reduce((n, b) => n + b.totalAmount, 0),
-            sold.filter((b) => b.paymentMode === "CASH").reduce((n, b) => n + b.totalAmount, 0),
+            // Online: full online payments plus advances. Cash: cash bookings plus the balance of advance bookings.
+            sold.reduce((n, b) => n + (b.paymentMode === "ADVANCE" ? b.amountPaid : b.paymentStatus === "PAID" && b.paymentMode !== "CASH" ? b.totalAmount : 0), 0),
+            sold.reduce((n, b) => n + (b.paymentMode === "CASH" ? b.totalAmount : b.paymentMode === "ADVANCE" ? b.totalAmount - b.amountPaid : 0), 0),
             list.filter((b) => b.status === "CANCELLED").length,
             list.reduce((n, b) => n + (b.refundAmount ?? 0), 0),
           ];
@@ -99,7 +101,7 @@ export async function buildReport(type: string, from: string, to: string): Promi
             bs.filter((b) => b.kind === "RENTAL").length,
             km,
             bs.reduce((n, b) => n + b.totalAmount, 0),
-            bs.filter((b) => b.paymentStatus === "UNPAID").reduce((n, b) => n + b.totalAmount, 0),
+            bs.reduce((n, b) => n + cashDue(b), 0),
           ];
         }),
       };
@@ -142,7 +144,7 @@ export async function buildReport(type: string, from: string, to: string): Promi
           b.passengerPhone,
           b.cancelledBy ?? "",
           b.totalAmount,
-          b.paymentStatus === "UNPAID" ? "No" : "Yes",
+          b.paymentStatus === "UNPAID" ? "No" : b.paymentStatus === "PARTIAL" ? "Advance" : "Yes",
           b.cancellationCharge ?? 0,
           b.refundAmount ?? 0,
           b.paymentStatus,
@@ -155,7 +157,8 @@ export async function buildReport(type: string, from: string, to: string): Promi
         title: REPORTS.payments,
         note: "By payment date.",
         columns: ["Paid on", "Invoice", "Booking", "Customer", "Mode", "Payment ID", "Amount (₹)", "Status"],
-        rows: list.map((b) => [ymd(b.paidAt), b.invoiceNo ?? "", b.code, b.passengerName, b.paymentMode ?? "", b.paymentId ?? "", b.totalAmount, b.paymentStatus]),
+        // An advance booking shows what was paid online on that date (the cash balance is in the driver cash records).
+        rows: list.map((b) => [ymd(b.paidAt), b.invoiceNo ?? "", b.code, b.passengerName, b.paymentMode ?? "", b.paymentId ?? "", b.paymentMode === "ADVANCE" ? b.amountPaid : b.totalAmount, b.paymentStatus]),
       };
     }
     case "gst": {

@@ -128,6 +128,11 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
                     {(b.paymentStatus === "UNPAID" || b.paymentStatus === "PARTIAL") && b.status === "CONFIRMED" && <button name="action" value="cash" className="btn-ghost py-1">Mark paid</button>}
                     {b.status === "CONFIRMED" && <button name="action" value="complete" className="btn-ghost py-1">Mark completed</button>}
                     {b.paymentStatus === "REFUND_PENDING" && <button name="action" value="refunded" className="btn-primary py-1">Mark refunded</button>}
+                    {row.seatRefundDue > 0 && (
+                      <button name="action" value="seatRefunded" className="btn-primary py-1" title="Refund owed for seats the customer cancelled">
+                        Seat refund {inr(row.seatRefundDue)} done
+                      </button>
+                    )}
                   </form>
 
                   {b.kind === "RENTAL" && b.status === "CONFIRMED" && b.tripStatus !== "COMPLETED" && (

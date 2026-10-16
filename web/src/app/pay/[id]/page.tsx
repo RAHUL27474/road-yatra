@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Hourglass, Lock } from "lucide-react";
 import { loadBookingForPage } from "@/lib/booking-access";
 import { expireStaleHolds, serializeBooking } from "@/lib/booking";
-import { isDemoPayments } from "@/lib/payment";
+import { amountToCharge, isDemoPayments } from "@/lib/payment";
 import BookingSummary from "@/components/BookingSummary";
 import PayPanel from "./PayPanel";
 
@@ -34,7 +34,7 @@ export default async function PayPage({ params, searchParams }: { params: Promis
             <PayPanel
               bookingId={b.id}
               payToken={t}
-              amount={b.totalAmount}
+              amount={await amountToCharge(access.booking)}
               expiresAt={b.holdExpiresAt!.toISOString()}
               demo={isDemoPayments()}
               confirmUrl={confirmUrl}

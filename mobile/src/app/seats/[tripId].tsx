@@ -112,7 +112,13 @@ export default function SeatSelection() {
         Alert.alert('Limit reached', `You can book up to ${MAX_SEATS} seats at a time.`);
         return sel;
       }
-      if (womenOnly.has(n)) Alert.alert('Women only', `Seat ${n} is next to a woman passenger, so it can only be booked for a woman. You will mark the traveller on the next step.`);
+      if (womenOnly.has(n))
+        Alert.alert(
+          'Women only',
+          changeFor
+            ? `Seat ${n} is next to a woman passenger, so it can only be taken by a woman. Choose it only if the traveller is a woman.`
+            : `Seat ${n} is next to a woman passenger, so it can only be booked for a woman. You will mark the traveller on the next step.`,
+        );
       return [...sel, n].sort((a, b) => a - b);
     });
   };
@@ -123,7 +129,10 @@ export default function SeatSelection() {
   const moveHere = async () => {
     setMoving(true);
     try {
-      await api<{ booking: Booking }>(`/api/bookings/${changeFor}/change`, { body: { tripId: trip.id, seatNos: selected } });
+      await api<{ booking: Booking }>(`/api/bookings/${changeFor}/change`, {
+        // Women-only seats are taken for a woman (the alert said so when they were chosen).
+        body: { tripId: trip.id, seatNos: selected, seatPassengers: selected.filter((n) => womenOnly.has(n)).map((seatNo) => ({ seatNo, female: true })) },
+      });
       Alert.alert('Booking changed', `Your booking now is on ${fmtDateShort(trip.departAt)} at ${fmtTime(trip.departAt)}, seat ${selected.join(', ')}. Your QR ticket stays the same.`);
       router.navigate({ pathname: '/booking/[id]', params: { id: changeFor! } });
     } catch (e) {

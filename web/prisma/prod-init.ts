@@ -47,6 +47,11 @@ async function main() {
     if (r.count) console.log(`Seat layout ${seatLayout} set on ${r.count} vehicle(s)`);
   }
 
+  // Driver cash recorded before cashCollected existed: it was always the whole fare, taken when it was marked paid.
+  const old = await db.booking.findMany({ where: { cashCollectedBy: { not: null }, cashCollectedAt: null }, select: { id: true, totalAmount: true, paidAt: true } });
+  for (const b of old) await db.booking.update({ where: { id: b.id }, data: { cashCollected: b.totalAmount, cashCollectedAt: b.paidAt ?? new Date() } });
+  if (old.length) console.log(`Backfilled driver cash on ${old.length} booking(s)`);
+
   const passwordHash = await bcrypt.hash(password, 10);
   const existing = await db.user.findFirst({ where: { OR: [{ email }, { phone }] } });
   if (existing) await db.user.update({ where: { id: existing.id }, data: { email, phone, role: "ADMIN", passwordHash } });
