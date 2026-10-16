@@ -2,10 +2,13 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams } from 'expo-router';
 import { ReactNode, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { BoardResult, Passenger, post, TripDuty } from '../../api';
+import { BoardResult, Passenger, post, Stop, TripDuty } from '../../api';
 import { useDuties } from '../../duties';
 import { bookedSeats, fmtTime, fmtWhen, inr, routeTitle } from '../../format';
+import { postOrQueue } from '../../offline';
+import { RespondBar } from '../../respond';
 import { Scanner } from '../../Scanner';
+import { SosButton } from '../../sos';
 import { colors, fonts, radius, space } from '../../theme';
 import {
   Badge,
@@ -21,6 +24,7 @@ import {
   Ionicons,
   Loading,
   Money,
+  navigateToStop,
   Notice,
   OtpInput,
   Plate,
@@ -29,7 +33,10 @@ import {
   showError,
   StatusPill,
   T,
+  whatsApp,
 } from '../../ui';
+
+const SAVED_OFFLINE = 'Saved on the phone — no internet. It will be sent automatically when the network is back.';
 
 const seatText = (seats: number[] | string) => `Seat ${Array.isArray(seats) ? seats.join(', ') : seats}`;
 
@@ -59,14 +66,28 @@ function Stat({ label, children, last }: { label: string; children: ReactNode; l
 export default function TripScreen() {
   useKeepAwake();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { duties, refresh } = useDuties();
+  const { duties, pending, refresh } = useDuties();
   const [busy, setBusy] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [otpFor, setOtpFor] = useState<Passenger | null>(null);
   const [otp, setOtp] = useState('');
 
-  const trip = duties?.find((d): d is TripDuty => d.kind === 'TRIP' && d.id === id);
+  const found = duties?.find((d): d is TripDuty => d.kind === 'TRIP' && d.id === id);
+  // Show actions saved offline as if they had already gone through.
+  const trip: TripDuty | undefined = found && {
+    ...found,
+    passengers: found.passengers.map((p) => {
+      const mine = pending.filter((a) => a.effect.bookingId === p.bookingId);
+      if (!mine.length) return p;
+      return {
+        ...p,
+        boarded: p.boarded || mine.some((a) => a.effect.kind === 'board'),
+        noShow: p.noShow || mine.some((a) => a.effect.kind === 'noShow'),
+        amountDue: mine.some((a) => a.effect.kind === 'cash') ? 0 : p.amountDue,
+      };
+    }),
+  };
   if (!duties) return <Loading />;
   if (!trip)
     return (
@@ -92,17 +113,25 @@ export default function TripScreen() {
   const collectCash = (bookingId: string, name: string, amount: number) =>
     confirm('Cash collected?', `Confirm you received ${inr(amount)} in cash from ${name}.`, 'Yes, collected', () =>
       act('cash' + bookingId, async () => {
-        const r = await post<{ collected: number }>(`/api/driver/bookings/${bookingId}/collect-cash`);
+        const r = await postOrQueue<{ collected: number }>(`/api/driver/bookings/${bookingId}/collect-cash`, undefined, { kind: 'cash', bookingId }, `Cash ${inr(amount)} from ${name}`);
         haptic.success();
-        Alert.alert('Payment recorded', `${inr(r.collected)} cash from ${name}.`);
+        Alert.alert(r.queued ? 'Cash noted' : 'Payment recorded', r.queued ? `${inr(amount)} cash from ${name}.\n\n${SAVED_OFFLINE}` : `${inr(r.result.collected)} cash from ${name}.`);
       }),
     );
 
   const board = async (body: { qr: string } | { bookingId: string; otp: string }) => {
-    const r = await act('board', () => post<BoardResult>('/api/driver/board', body));
-    if (!r) return;
+    // The ticket QR is "RY:<code>:<otp>": find the passenger locally so an offline boarding shows on the list.
+    const code = 'qr' in body ? /^RY:([A-Z0-9]+):\d{4}$/.exec(body.qr.trim())?.[1] : undefined;
+    const p = 'bookingId' in body ? trip.passengers.find((x) => x.bookingId === body.bookingId) : trip.passengers.find((x) => x.code === code);
+    const out = await act('board', () => postOrQueue<BoardResult>('/api/driver/board', body, { kind: 'board', bookingId: p?.bookingId ?? '' }, `Board ${p?.name ?? code ?? 'passenger'}`));
+    if (!out) return;
     setOtpFor(null);
     haptic.success();
+    if (out.queued) {
+      Alert.alert(p ? `${p.name} boarded` : 'Boarding saved', `${p ? `${seatText(p.seatNos)}${p.amountDue > 0 ? `\nCollect ${inr(p.amountDue)} cash` : ''}\n\n` : ''}${SAVED_OFFLINE} The OTP is checked then.`);
+      return;
+    }
+    const r = out.result;
     if (r.amountDue > 0)
       Alert.alert(`${r.name} boarded`, `${seatText(r.seatNos)}\n\nCollect ${inr(r.amountDue)} cash`, [
         { text: 'Later', style: 'cancel' },
@@ -126,13 +155,25 @@ export default function TripScreen() {
   };
 
   const noShow = (p: Passenger) =>
-    confirm('Mark no-show?', `${p.name} (${seatText(p.seatNos)}) did not turn up.`, 'No-show', () => act('ns' + p.bookingId, () => post(`/api/driver/bookings/${p.bookingId}/no-show`)), true);
+    confirm(
+      'Mark no-show?',
+      `${p.name} (${seatText(p.seatNos)}) did not turn up.`,
+      'No-show',
+      () =>
+        act('ns' + p.bookingId, async () => {
+          const r = await postOrQueue(`/api/driver/bookings/${p.bookingId}/no-show`, undefined, { kind: 'noShow', bookingId: p.bookingId }, `No-show ${p.name}`);
+          if (r.queued) Alert.alert('No-show noted', SAVED_OFFLINE);
+        }),
+      true,
+    );
 
   // Manifest grouped by pickup stop, in booking order.
-  const groups = new Map<string, Passenger[]>();
+  const groups = new Map<string, { stop: Stop | null; list: Passenger[] }>();
   for (const p of trip.passengers) {
     const key = p.pickupStop ? p.pickupStop.name : 'Pickup not chosen';
-    groups.set(key, [...(groups.get(key) ?? []), p]);
+    const g = groups.get(key) ?? { stop: p.pickupStop, list: [] };
+    g.list.push(p);
+    groups.set(key, g);
   }
   const boarded = trip.passengers.filter((p) => p.boarded).length;
   const cashDue = trip.passengers.reduce((n, p) => n + (p.amountDue > 0 ? p.amountDue : 0), 0);
@@ -140,7 +181,7 @@ export default function TripScreen() {
 
   return (
     <Screen>
-      <Header back title={routeTitle(trip)} subtitle={`${fmtWhen(trip.startAt)} · arrives ${fmtTime(trip.endAt)}`} overlap={36}>
+      <Header back title={routeTitle(trip)} subtitle={`${fmtWhen(trip.startAt)} · arrives ${fmtTime(trip.endAt)}`} overlap={36} right={<SosButton />}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.sm, marginTop: space.md, paddingLeft: 56 }}>
           <Plate reg={trip.vehicle.regNumber} />
           <T v="label" color={colors.onBrandMuted} numberOfLines={1} style={{ flexShrink: 1 }}>
@@ -192,6 +233,7 @@ export default function TripScreen() {
           />
         }
       >
+        <RespondBar duty={trip} />
         {!done && (
           <Button
             title="Scan ticket"
@@ -229,16 +271,17 @@ export default function TripScreen() {
           </Card>
         )}
 
-        {[...groups].map(([stop, list]) => (
-          <View key={stop} style={{ marginBottom: space.lg }}>
+        {[...groups].map(([name, { stop, list }]) => (
+          <View key={name} style={{ marginBottom: space.lg }}>
             <View style={st.groupHead}>
               <View style={st.pin}>
                 <Ionicons name="location" size={18} color={colors.white} />
               </View>
               <T v="h2" numberOfLines={1} style={{ flex: 1 }}>
-                {stop}
+                {name}
               </T>
               <Badge label={`${list.length}`} tone="brand" icon="person" />
+              {stop && !done ? <IconButton icon="navigate" tone="brand" size={40} label={`Navigate to ${name}`} onPress={() => navigateToStop(stop)} /> : null}
             </View>
 
             <View style={{ gap: space.md }}>
@@ -257,7 +300,16 @@ export default function TripScreen() {
                         </T>
                       </View>
                     </View>
-                    <IconButton icon="call" tone="success" solid size={52} label={`Call ${p.name}`} onPress={() => callPhone(p.phone)} />
+                    <View style={{ gap: space.sm }}>
+                      <IconButton icon="call" tone="success" solid size={52} label={`Call ${p.name}`} onPress={() => callPhone(p.phone)} />
+                      <IconButton
+                        icon="logo-whatsapp"
+                        tone="success"
+                        size={52}
+                        label={`WhatsApp ${p.name}`}
+                        onPress={() => whatsApp(p.phone, `Namaste ${p.name}, this is your JSS Travels driver for ${routeTitle(trip)} (${fmtWhen(trip.startAt)}).`)}
+                      />
+                    </View>
                   </View>
 
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md }}>

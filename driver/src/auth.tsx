@@ -1,7 +1,10 @@
 import * as SecureStore from 'expo-secure-store';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { api, ApiError, Application, setAccessLostHandler, setAuthToken, TOKEN_KEY, User } from './api';
+import { api, ApiError, Application, normalizeLogin, setAccessLostHandler, setAuthToken, TOKEN_KEY, User } from './api';
+import { stopDutyChecks } from './background';
+import { clearQueue } from './offline';
 import { stopLocationSharing } from './location';
+import { KEYS, remove } from './storage';
 
 export const ADMIN_NOT_ALLOWED = 'Admin accounts cannot use the driver app. Please use the website admin panel.';
 
@@ -11,9 +14,10 @@ export const ADMIN_NOT_ALLOWED = 'Admin accounts cannot use the driver app. Plea
  * - apply:    no application yet → Apply form
  * - pending:  application under review (or approved while the role switch is still pending)
  * - rejected: application not approved → reason + "Fix and re-apply"
+ * - inactive: approved, but the office has paused the account → status screen with "Call office"
  * - unknown:  the status couldn't be loaded (offline) → status screen with retry
  */
-export type Access = 'driver' | 'apply' | 'pending' | 'rejected' | 'unknown';
+export type Access = 'driver' | 'apply' | 'pending' | 'rejected' | 'inactive' | 'unknown';
 
 type Session = { user: User; application: Application | null; access: Access };
 
@@ -42,6 +46,7 @@ const AuthContext = createContext<AuthState | null>(null);
 function accessFor(user: User, app: Application | null): Access {
   if (!app) return 'apply';
   if (app.status === 'REJECTED') return 'rejected';
+  if (app.status === 'APPROVED' && !app.active) return 'inactive';
   if (app.status === 'APPROVED' && user.role === 'DRIVER') return 'driver';
   return 'pending';
 }
@@ -157,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { needsName: false };
       },
       loginPassword: async (login, password) => {
-        await accept(await api<{ token: string; user: User }>('/api/auth/login', { body: { login: login.trim(), password } }));
+        await accept(await api<{ token: string; user: User }>('/api/auth/login', { body: { login: normalizeLogin(login), password } }));
       },
       registerPassword: async (input) => {
         await accept(await api<{ token: string; user: User }>('/api/auth/register', { body: input }));
@@ -165,7 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshAccess,
       logout: async () => {
         await stopLocationSharing();
+        await stopDutyChecks();
         await api('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        // Nothing of this driver's duties stays on the phone for the next person who logs in.
+        await clearQueue();
+        await remove(KEYS.duties, KEYS.knownDuties, KEYS.docsRemindedOn);
         await clear();
       },
     }),

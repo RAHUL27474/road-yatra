@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { API_URL, fileUrl, getConfig } from '../../api';
+import { DutyVehicle, fileUrl, getConfig } from '../../api';
 import { useAuth } from '../../auth';
 import { useDuties } from '../../duties';
 import { fmtDate } from '../../format';
@@ -11,7 +11,9 @@ import { Avatar, Badge, Button, callPhone, Card, confirm, Divider, Header, Ionic
 
 export default function Profile() {
   const { user, logout } = useAuth();
-  const { driver, sharing } = useDuties();
+  const { driver, duties, sharing } = useDuties();
+  // Vehicles on the driver's open duties, once each.
+  const vehicles = [...new Map((duties ?? []).filter((d) => d.status !== 'COMPLETED' && d.vehicle?.docs).map((d) => [d.vehicle!.id, d.vehicle!])).values()];
   const [support, setSupport] = useState<string | null>(BRAND.phone);
 
   useEffect(() => {
@@ -96,6 +98,17 @@ export default function Profile() {
           </View>
         </Card>
 
+        {vehicles.length ? (
+          <>
+            <SectionTitle title="Vehicle papers" />
+            <View style={{ gap: space.md }}>
+              {vehicles.map((v) => (
+                <VehiclePapers key={v.id} v={v} />
+              ))}
+            </View>
+          </>
+        ) : null}
+
         <SectionTitle title="Support" />
         <Card style={{ paddingVertical: space.xs }}>
           {support ? (
@@ -125,8 +138,6 @@ export default function Profile() {
               </T>
             }
           />
-          <Divider />
-          <ListRow icon="server-outline" iconTone="neutral" title="Server" subtitle={API_URL} />
         </Card>
 
         <Button
@@ -140,6 +151,49 @@ export default function Profile() {
         />
       </ScrollView>
     </View>
+  );
+}
+
+/** Insurance / permit / fitness / PUC of a vehicle the driver is assigned to, with expiry badges. */
+function VehiclePapers({ v }: { v: DutyVehicle }) {
+  const docs: [string, string | null | undefined][] = [
+    ['Insurance', v.docs?.insurance],
+    ['Permit', v.docs?.permit],
+    ['Fitness', v.docs?.fitness],
+    ['PUC', v.docs?.puc],
+  ];
+  return (
+    <Card style={{ gap: space.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+        <Ionicons name="car-sport" size={20} color={colors.brand} />
+        <T v="h2" style={{ flex: 1 }} numberOfLines={1}>
+          {v.regNumber}
+        </T>
+        <T v="label" color={colors.textMuted} numberOfLines={1}>
+          {v.name}
+        </T>
+      </View>
+      {docs.map(([label, date]) => {
+        const days = date ? Math.floor((new Date(date).getTime() - Date.now()) / 86_400_000) : null;
+        return (
+          <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 32 }}>
+            <T v="bodyStrong" style={{ flex: 1 }}>
+              {label}
+            </T>
+            <T v="label" color={colors.textMuted}>
+              {date ? fmtDate(date) : 'Not recorded'}
+            </T>
+            {days == null ? null : days < 0 ? (
+              <Badge label="Expired" tone="danger" icon="alert-circle" />
+            ) : days <= 15 ? (
+              <Badge label={`${days}d left`} tone="warning" icon="warning" />
+            ) : (
+              <Badge label="Valid" tone="success" />
+            )}
+          </View>
+        );
+      })}
+    </Card>
   );
 }
 

@@ -6,7 +6,10 @@ export type User = { id: string; name: string; email: string | null; phone: stri
 export type Config = { brandName: string; supportPhone: string; otpLogin: boolean; emailOtp?: boolean };
 export type Stop = { id: string; city: string; name: string; address: string; lat: number | null; lng: number | null };
 export type DutyStatus = 'SCHEDULED' | 'STARTED' | 'COMPLETED';
-export type DutyVehicle = { id: string; name: string; regNumber: string; seats: number };
+/** null until the driver accepts; a rejected duty leaves the driver's list. */
+export type DutyResponse = 'ACCEPTED' | 'REJECTED' | null;
+export type VehicleDocs = { insurance: string | null; permit: string | null; fitness: string | null; puc: string | null };
+export type DutyVehicle = { id: string; name: string; regNumber: string; seats: number; docs?: VehicleDocs };
 export type PaymentStatus = 'UNPAID' | 'PAID' | 'REFUND_PENDING' | 'REFUNDED';
 export type Passenger = {
   bookingId: string;
@@ -30,6 +33,7 @@ export type TripDuty = {
   startAt: string;
   endAt: string;
   status: DutyStatus;
+  response?: DutyResponse;
   boardingPoint: string;
   dropPoint: string;
   vehicle: DutyVehicle;
@@ -46,6 +50,7 @@ export type RentalDuty = {
   startAt: string;
   endAt: string | null;
   status: DutyStatus;
+  response?: DutyResponse;
   vehicle: DutyVehicle | null;
   customer: { name: string; phone: string; passengers: number };
   pickupAddress: string | null;
@@ -81,6 +86,29 @@ export type Application = {
 export type DutiesResponse = { driver: DriverInfo; duties: Duty[] };
 export type BoardResult = { bookingId: string; name: string; seatNos: number[] | string; amountDue: number };
 export type RentalEndResult = { kmDriven: number | null; includedKm: number | null; amountDue: number };
+export type HistoryItem = {
+  kind: 'TRIP' | 'RENTAL';
+  id: string;
+  title: string;
+  at: string;
+  completedAt: string;
+  vehicleReg: string | null;
+  passengers: number;
+  km: number | null;
+  cash: number;
+};
+export type EarningsDay = { date: string; duties: number; passengers: number; km: number; cash: number };
+export type Earnings = { cashInHand: number; cashInHandCount: number; days: EarningsDay[]; history: HistoryItem[] };
+
+/** "98765 43210", "+91 98765 43210" or "098765..." → "9876543210". Anything else (an email) is returned trimmed. */
+export function normalizeLogin(login: string) {
+  const t = login.trim();
+  if (t.includes('@')) return t;
+  const digits = t.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits.length === 10 ? digits : t;
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -112,7 +140,7 @@ export function setAccessLostHandler(fn: (() => void) | null) {
   onAccessLost = fn;
 }
 const DUTY_PATH = /^\/api\/driver\/(?!application|apply)/;
-const ACCESS_LOST = /under review|not approved/i;
+const ACCESS_LOST = /under review|not approved|inactive/i;
 function checkAccessLost(path: string, status: number, message: string) {
   if (status === 403 && DUTY_PATH.test(path) && ACCESS_LOST.test(message)) onAccessLost?.();
 }

@@ -8,7 +8,7 @@ import { BRAND } from '../brand';
 import { colors, fonts, radius, space, Tone, tones } from '../theme';
 import { Avatar, Badge, Button, callPhone, Card, confirm, Divider, Header, IconName, Ionicons, Notice, SectionTitle, showError, T } from '../ui';
 
-/** Under review (PENDING), not approved (REJECTED), or status not loaded (offline). */
+/** Under review (PENDING), not approved (REJECTED), paused by the office (inactive), or status not loaded (offline). */
 export default function ApplicationStatus() {
   const { user, application, access, refreshAccess, logout } = useAuth();
   const [support, setSupport] = useState<string | null>(BRAND.phone);
@@ -56,6 +56,7 @@ export default function ApplicationStatus() {
   const askLogout = () => confirm('Log out?', 'You can log in again with your mobile number to see your application.', 'Log out', () => logout().catch(showError), true);
 
   const rejected = access === 'rejected';
+  const inactive = access === 'inactive';
   const pending = access === 'pending';
 
   return (
@@ -71,7 +72,21 @@ export default function ApplicationStatus() {
         contentContainerStyle={{ padding: space.lg, paddingBottom: space.xxxl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brand]} tintColor={colors.brand} />}
       >
-        {pending || rejected ? (
+        {inactive ? (
+          <>
+            <Hero
+              tone="warning"
+              icon="pause-circle-outline"
+              badgeIcon="lock-closed"
+              title="Account paused"
+              subtitle="The office has paused your driver account. You can't see or start duties until it is switched back on."
+            />
+            <View style={{ gap: space.md, marginTop: space.xl }}>
+              {support ? <Button title={`Call office · ${support}`} icon="call" onPress={() => callPhone(support)} /> : null}
+              <Button title="Check again" icon="refresh" variant="outline" onPress={onCheck} loading={checking} />
+            </View>
+          </>
+        ) : pending || rejected ? (
           <>
             <Hero
               tone={rejected ? 'danger' : 'warning'}

@@ -62,6 +62,22 @@ export const callPhone = (phone: string) => Linking.openURL(`tel:${phone.replace
 export const navigateTo = (address: string) =>
   Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`).catch(showError);
 
+/** Google Maps directions to a pickup point: exact coordinates when the office saved them, else its name and city. */
+export const navigateToStop = (s: { name: string; city: string; address?: string; lat: number | null; lng: number | null }) =>
+  s.lat != null && s.lng != null
+    ? Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`).catch(showError)
+    : navigateTo([s.name, s.address, s.city].filter(Boolean).join(', '));
+
+/** Opens a WhatsApp chat with an Indian mobile number (falls back to wa.me if the app check fails). */
+export const whatsApp = (phone: string, text = '') => {
+  const digits = phone.replace(/\D/g, '');
+  const intl = digits.length === 10 ? `91${digits}` : digits;
+  const q = text ? `&text=${encodeURIComponent(text)}` : '';
+  Linking.openURL(`whatsapp://send?phone=${intl}${q}`).catch(() =>
+    Linking.openURL(`https://wa.me/${intl}${text ? `?text=${encodeURIComponent(text)}` : ''}`).catch(showError),
+  );
+};
+
 export const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 export const initials = (name: string | null | undefined) =>

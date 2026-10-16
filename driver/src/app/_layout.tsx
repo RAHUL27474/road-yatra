@@ -12,12 +12,15 @@ import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../auth';
 import { DutiesProvider } from '../duties';
 import '../location'; // registers the background location task at startup
+import '../background'; // registers the background new-duty check
+import { useNotificationRouting } from '../notifications';
 import { colors } from '../theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootStack({ fontsReady }: { fontsReady: boolean }) {
   const { ready, user, access } = useAuth();
+  useNotificationRouting(access === 'driver');
   const show = ready && fontsReady;
   useEffect(() => {
     if (show) SplashScreen.hideAsync().catch(() => {});
@@ -33,7 +36,7 @@ function RootStack({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="trip/[id]" options={{ title: 'Shared trip' }} />
         <Stack.Screen name="rental/[id]" options={{ title: 'Full cab' }} />
       </Stack.Protected>
-      <Stack.Protected guard={!!user && (access === 'pending' || access === 'rejected' || access === 'unknown')}>
+      <Stack.Protected guard={!!user && (access === 'pending' || access === 'rejected' || access === 'inactive' || access === 'unknown')}>
         <Stack.Screen name="status" options={{ title: 'Application status', animation: 'fade' }} />
       </Stack.Protected>
       <Stack.Protected guard={!!user && (access === 'apply' || access === 'rejected')}>

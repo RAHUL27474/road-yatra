@@ -6,13 +6,17 @@ import { useAuth } from '../../auth';
 import { useDuties } from '../../duties';
 import { bookedSeats, fmtDayLabel, fmtLongDate, fmtTime, RENTAL_TYPE, routeTitle, ymdIST } from '../../format';
 import { colors, fonts, radius, space } from '../../theme';
+import { needsAnswer, RespondBar } from '../../respond';
+import { SosButton } from '../../sos';
 import { Badge, Button, Card, EmptyState, haptic, Header, Ionicons, Notice, Plate, PulseDot, Skeleton, StatusPill, T } from '../../ui';
 
 function group(duties: Duty[]) {
   const today = ymdIST(new Date());
   const scheduled = duties.filter((d) => d.status === 'SCHEDULED');
   return [
-    { title: 'Today', data: scheduled.filter((d) => ymdIST(new Date(d.startAt)) <= today) },
+    // Past days that were never started: the driver (or the office) has to sort these out.
+    { title: 'Not started', data: scheduled.filter((d) => ymdIST(new Date(d.startAt)) < today) },
+    { title: 'Today', data: scheduled.filter((d) => ymdIST(new Date(d.startAt)) === today) },
     { title: 'Upcoming', data: scheduled.filter((d) => ymdIST(new Date(d.startAt)) > today) },
     { title: 'Recent', data: duties.filter((d) => d.status === 'COMPLETED').reverse() },
   ].filter((sec) => sec.data.length);
@@ -112,6 +116,7 @@ function DutyCard({ d }: { d: Duty }) {
             {routeTitle(d)}
           </T>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+            {needsAnswer(d) ? <Badge label="New" tone="warning" icon="notifications" /> : null}
             <Badge label={d.kind === 'TRIP' ? 'Shared' : 'Full cab'} tone={d.kind === 'TRIP' ? 'brand' : 'accent'} />
             {d.vehicle ? <Plate reg={d.vehicle.regNumber} small /> : <Badge label="No vehicle" tone="warning" />}
           </View>
@@ -144,6 +149,11 @@ function DutyCard({ d }: { d: Duty }) {
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={{ marginTop: 'auto' }} />
         </View>
       </Card>
+      {needsAnswer(d) ? (
+        <View style={st.respond}>
+          <RespondBar duty={d} compact />
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -171,7 +181,7 @@ function DutySkeleton() {
 
 export default function Duties() {
   const { user } = useAuth();
-  const { driver, duties, error, sharing, refresh } = useDuties();
+  const { driver, duties, error, offline, pending, sharing, refresh } = useDuties();
   const [refreshing, setRefreshing] = useState(false);
   const firstName = (driver?.name ?? user?.name ?? '').trim().split(/\s+/)[0];
   const onTrip = (duties ?? []).filter((d) => d.status === 'STARTED');
@@ -195,6 +205,7 @@ export default function Duties() {
               {fmtLongDate(new Date())}
             </T>
           </View>
+          <SosButton />
         </View>
         <View style={{ marginTop: space.md }}>
           <SharingPill sharing={sharing} />
@@ -212,6 +223,10 @@ export default function Duties() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brand]} tintColor={colors.brand} />}
           ListHeaderComponent={
             <View style={{ gap: space.md }}>
+              {offline ? (
+                <Notice tone="neutral" icon="cloud-offline-outline" text="No internet. Showing your last saved duties — boarding and cash still work and will sync later." />
+              ) : null}
+              {pending.length ? <Notice tone="warning" icon="sync" text={`${pending.length} action${pending.length > 1 ? 's' : ''} saved offline, waiting to sync.`} /> : null}
               {error ? <Notice tone="danger" text={`${error} Pull down to retry.`} /> : null}
               {onTrip.map((d) => (
                 <OnTripHero key={d.kind + d.id} d={d} />
@@ -250,6 +265,15 @@ const st = StyleSheet.create({
   heroStats: { flexDirection: 'row', gap: space.lg, marginVertical: space.lg, paddingTop: space.md, borderTopWidth: 1, borderTopColor: colors.border },
   heroNum: { fontFamily: fonts.extrabold, fontSize: 28, lineHeight: 34, color: colors.text },
   dutyCard: { flexDirection: 'row', gap: space.md, padding: space.lg },
+  respond: {
+    marginTop: -space.sm,
+    paddingHorizontal: space.md,
+    paddingBottom: space.md,
+    paddingTop: space.sm + space.xs,
+    backgroundColor: colors.warningLight,
+    borderBottomLeftRadius: radius.card,
+    borderBottomRightRadius: radius.card,
+  },
   timeBlock: { width: 74, borderRightWidth: 1, borderRightColor: colors.border, paddingRight: space.sm },
   time: { fontFamily: fonts.extrabold, fontSize: 22, lineHeight: 28, color: colors.text, fontVariant: ['tabular-nums'] },
   right: { alignItems: 'flex-end', maxWidth: 84, gap: 2 },

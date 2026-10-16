@@ -76,6 +76,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#1E3A8A"
         }
+      ],
+      "expo-background-task",
+      [
+        "expo-notifications",
+        {
+          "color": "#1E3A8A"
+        }
       ]
     ],
     "primaryColor": "#1E3A8A",

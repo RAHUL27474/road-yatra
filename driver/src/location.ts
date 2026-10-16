@@ -7,6 +7,7 @@
 import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 import * as TaskManager from 'expo-task-manager';
+import { Alert } from 'react-native';
 import { api, ApiError, TOKEN_KEY } from './api';
 
 export const LOCATION_TASK = 'ry-driver-location';
@@ -62,6 +63,21 @@ if (!TaskManager.isTaskDefined(LOCATION_TASK)) {
   });
 }
 
+/** In-app disclosure shown before asking for background location. Resolves true if the driver chose to continue. */
+function explainBackgroundLocation() {
+  return new Promise<boolean>((resolve) =>
+    Alert.alert(
+      'Share location during trips',
+      'JSS Travels Driver collects your location while a trip is in progress — even when the app is closed or the screen is off — so passengers and the office can see where the vehicle is.\n\nLocation is only shared between "Start trip" and "End trip". On the next screen, choose "Allow all the time".',
+      [
+        { text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Continue', onPress: () => resolve(true) },
+      ],
+      { cancelable: false },
+    ),
+  );
+}
+
 /** Starts sharing (idempotent). Returns false if the driver refused location permission. */
 export async function startLocationSharing(): Promise<boolean> {
   const fg = await Location.requestForegroundPermissionsAsync();
@@ -83,7 +99,8 @@ export async function startLocationSharing(): Promise<boolean> {
     let bg = await Location.getBackgroundPermissionsAsync();
     if (bg.status !== 'granted' && !askedBackground) {
       askedBackground = true;
-      bg = await Location.requestBackgroundPermissionsAsync();
+      // Google Play requires this explanation, in the app, before the system "Allow all the time" prompt.
+      if (await explainBackgroundLocation()) bg = await Location.requestBackgroundPermissionsAsync();
     }
     if (bg.status !== 'granted') return true; // foreground-only sharing
     await Location.startLocationUpdatesAsync(LOCATION_TASK, {

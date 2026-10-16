@@ -5,6 +5,9 @@ import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-nativ
 import { post, RentalDuty, RentalEndResult } from '../../api';
 import { useDuties } from '../../duties';
 import { fmtDayLabel, fmtTime, fmtWhen, inr, RENTAL_TYPE, routeTitle } from '../../format';
+import { postOrQueue } from '../../offline';
+import { RespondBar } from '../../respond';
+import { SosButton } from '../../sos';
 import { colors, fonts, radius, space } from '../../theme';
 import {
   Avatar,
@@ -32,6 +35,7 @@ import {
   StatusPill,
   T,
   TextLink,
+  whatsApp,
 } from '../../ui';
 
 function AddressRow({ label, address, color, last }: { label: string; address: string | null; color: string; last?: boolean }) {
@@ -73,7 +77,7 @@ const tileValue = { fontFamily: fonts.extrabold, fontSize: 22, lineHeight: 28, c
 export default function RentalScreen() {
   useKeepAwake();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { duties, refresh } = useDuties();
+  const { duties, pending, refresh } = useDuties();
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [sheet, setSheet] = useState<'start' | 'end' | null>(null);
@@ -81,7 +85,9 @@ export default function RentalScreen() {
   const [odo, setOdo] = useState('');
   const [result, setResult] = useState<RentalEndResult | null>(null);
 
-  const r = duties?.find((d): d is RentalDuty => d.kind === 'RENTAL' && d.id === id);
+  const found = duties?.find((d): d is RentalDuty => d.kind === 'RENTAL' && d.id === id);
+  // Cash noted while offline counts as collected on screen.
+  const r: RentalDuty | undefined = found && (pending.some((a) => a.effect.kind === 'cash' && a.effect.bookingId === found.id) ? { ...found, amountDue: 0 } : found);
   if (!duties) return <Loading />;
   if (!r)
     return (
@@ -124,9 +130,14 @@ export default function RentalScreen() {
     confirm('Cash collected?', `Confirm you received ${inr(r.amountDue)} in cash from ${r.customer.name}.`, 'Yes, collected', async () => {
       setBusy(true);
       try {
-        const c = await post<{ collected: number }>(`/api/driver/bookings/${r.id}/collect-cash`);
+        const c = await postOrQueue<{ collected: number }>(`/api/driver/bookings/${r.id}/collect-cash`, undefined, { kind: 'cash', bookingId: r.id }, `Cash ${inr(r.amountDue)} from ${r.customer.name}`);
         haptic.success();
-        Alert.alert('Payment recorded', `${inr(c.collected)} cash from ${r.customer.name}.`);
+        Alert.alert(
+          c.queued ? 'Cash noted' : 'Payment recorded',
+          c.queued
+            ? `${inr(r.amountDue)} cash from ${r.customer.name}.\n\nSaved on the phone — no internet. It will be sent automatically when the network is back.`
+            : `${inr(c.result.collected)} cash from ${r.customer.name}.`,
+        );
         setResult((x) => (x ? { ...x, amountDue: 0 } : x));
       } catch (e) {
         showError(e);
@@ -152,6 +163,7 @@ export default function RentalScreen() {
         title={routeTitle(r)}
         subtitle={`Full cab · ${r.code}${r.rentalType ? ` · ${RENTAL_TYPE[r.rentalType] ?? r.rentalType}` : ''}`}
         overlap={40}
+        right={<SosButton />}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.sm, marginTop: space.md, paddingLeft: 56 }}>
           {r.vehicle ? (
@@ -187,6 +199,13 @@ export default function RentalScreen() {
               </T>
             </View>
           </View>
+          <IconButton
+            icon="logo-whatsapp"
+            tone="success"
+            size={52}
+            label={`WhatsApp ${r.customer.name}`}
+            onPress={() => whatsApp(r.customer.phone, `Namaste ${r.customer.name}, this is your JSS Travels driver for booking ${r.code} (${fmtWhen(r.startAt)}).`)}
+          />
           <IconButton icon="call" tone="success" solid size={60} label={`Call ${r.customer.name}`} onPress={() => callPhone(r.customer.phone)} />
         </Card>
       </View>
@@ -206,6 +225,8 @@ export default function RentalScreen() {
           />
         }
       >
+        <RespondBar duty={r} style={{ marginTop: 0 }} />
+
         {/* Route */}
         <Card>
           <AddressRow label="Pickup" address={r.pickupAddress} color={colors.success} />
