@@ -73,6 +73,7 @@ model Vehicle {
   seats        Int // passenger seats (excluding driver)
   seatsPerRow  Int     @default(4) // used to draw the seat map
   aisleAfter   Int     @default(2) // aisle is drawn after this many seats in a row (0 = no aisle)
+  seatLayout   String  @default("") // seats per row, front to back, e.g. "1,3,2" (Ertiga) or "1,3" (Dzire); "" = use seatsPerRow
   amenities    String  @default("") // comma separated: AC,Music,Charging Point
   imageUrl     String?
   // How this vehicle can be booked

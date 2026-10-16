@@ -53,6 +53,12 @@ export default async function VehicleForm({ params, searchParams }: { params: Pr
         {field("seats", "Passenger seats", { type: "number", min: 1, max: 60, required: true, defaultValue: v?.seats ?? 7 }, "Not counting the driver")}
         {field("seatsPerRow", "Seats per row", { type: "number", min: 1, max: 6, required: true, defaultValue: v?.seatsPerRow ?? 3 }, "Used to draw the seat map")}
         {field("aisleAfter", "Aisle after seat no.", { type: "number", min: 0, max: 5, defaultValue: v?.aisleAfter ?? 0 }, "e.g. 2 for a 2+1 layout, 0 = no aisle")}
+        {field(
+          "seatLayout",
+          "Seats in each row (front to back)",
+          { defaultValue: v?.seatLayout ?? "", placeholder: "1,3,2" },
+          "Ertiga: 1,3,2 · Dzire: 1,3. Must add up to the passenger seats. Leave empty to use “seats per row”.",
+        )}
       </section>
 
       <section className="card space-y-4 p-5">

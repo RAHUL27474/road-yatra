@@ -26,10 +26,10 @@ async function main() {
 
   // Fleet (registration numbers are placeholders — change them in Admin → Vehicles)
   const fleet = [
-    { regNumber: "UK06TA1001", name: "Maruti Ertiga (7 seater)", type: "ERTIGA", seats: 6, seatsPerRow: 3, aisleAfter: 0, allowSeatBooking: true, ratePerKm: 13, driverAllowance: 400, localPackage: 2200, airportFare: 1800 },
-    { regNumber: "UK06TA1002", name: "Maruti Dzire (New model)", type: "SEDAN", seats: 4, seatsPerRow: 2, aisleAfter: 0, allowSeatBooking: true, ratePerKm: 11, driverAllowance: 350, localPackage: 1800, airportFare: 1400 },
-    { regNumber: "UK06TA1003", name: "Maruti Dzire (Old model)", type: "SEDAN", seats: 4, seatsPerRow: 2, aisleAfter: 0, allowSeatBooking: false, ratePerKm: 10, driverAllowance: 350, localPackage: 1600, airportFare: 1300 },
-    { regNumber: "UK06TA1004", name: "Tata Altroz", type: "HATCHBACK", seats: 4, seatsPerRow: 2, aisleAfter: 0, allowSeatBooking: false, ratePerKm: 10, driverAllowance: 350, localPackage: 1600, airportFare: 1300 },
+    { regNumber: "UK06TA1001", name: "Maruti Ertiga (7 seater)", type: "ERTIGA", seats: 6, seatsPerRow: 3, aisleAfter: 0, seatLayout: "1,3,2", allowSeatBooking: true, ratePerKm: 13, driverAllowance: 400, localPackage: 2200, airportFare: 1800 },
+    { regNumber: "UK06TA1002", name: "Maruti Dzire (New model)", type: "SEDAN", seats: 4, seatsPerRow: 2, aisleAfter: 0, seatLayout: "1,3", allowSeatBooking: true, ratePerKm: 11, driverAllowance: 350, localPackage: 1800, airportFare: 1400 },
+    { regNumber: "UK06TA1003", name: "Maruti Dzire (Old model)", type: "SEDAN", seats: 4, seatsPerRow: 2, aisleAfter: 0, seatLayout: "1,3", allowSeatBooking: false, ratePerKm: 10, driverAllowance: 350, localPackage: 1600, airportFare: 1300 },
+    { regNumber: "UK06TA1004", name: "Tata Altroz", type: "HATCHBACK", seats: 4, seatsPerRow: 2, aisleAfter: 0, seatLayout: "1,3", allowSeatBooking: false, ratePerKm: 10, driverAllowance: 350, localPackage: 1600, airportFare: 1300 },
   ];
   for (const v of fleet) {
     const data = { ...v, amenities: "AC,Music,Charging Point", allowRental: true, minKmPerDay: 250, tollFactor: 1, active: true };

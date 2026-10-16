@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { api, errorMessage, TripDetail } from '../../api';
 import { fmtDateShort, fmtDuration, fmtTime, inr, VEHICLE_TYPE } from '../../format';
+import { seatRows } from '../../seats';
 import { VehicleArt } from '../../illustrations';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
 import { amenityIcon, Button, ErrorBanner, hapticSelect, Header, Screen, Skeleton } from '../../ui';
@@ -69,10 +70,12 @@ export default function SeatSelection() {
       </Screen>
     );
 
-  const { seats, seatsPerRow, aisleAfter } = trip.vehicle;
-  const perRow = Math.max(1, seatsPerRow);
-  const rows: number[][] = [];
-  for (let n = 1; n <= seats; n += perRow) rows.push(Array.from({ length: Math.min(perRow, seats - n + 1) }, (_, i) => n + i));
+  const { seats, seatsPerRow, aisleAfter, seatLayout } = trip.vehicle;
+  const all = seatRows(seats, seatsPerRow, seatLayout);
+  // A single front seat (Ertiga, Dzire) is drawn next to the driver.
+  const frontSeat = all.length > 1 && all[0].length === 1 ? all[0][0] : null;
+  const rows = frontSeat ? all.slice(1) : all;
+  const perRow = Math.max(1, ...rows.map((r) => r.length));
   const taken = new Set(trip.takenSeats);
   const hasAisle = aisleAfter > 0 && aisleAfter < perRow;
   // Fit the seat map inside the screen: screen padding, card padding and the vehicle body padding.
@@ -156,10 +159,14 @@ export default function SeatSelection() {
               </Svg>
             </View>
             <View style={st.front}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <MaterialCommunityIcons name="car-door" size={18} color={colors.textSubtle} />
-                <Text style={type('xs', 'semibold', colors.textSubtle)}>Entry</Text>
-              </View>
+              {frontSeat ? (
+                <SeatTile n={frontSeat} size={seat} state={taken.has(frontSeat) ? 'taken' : selected.includes(frontSeat) ? 'sel' : 'free'} onPress={() => toggle(frontSeat)} />
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="car-door" size={18} color={colors.textSubtle} />
+                  <Text style={type('xs', 'semibold', colors.textSubtle)}>Entry</Text>
+                </View>
+              )}
               <View style={{ alignItems: 'center' }}>
                 <SteeringWheel />
                 <Text style={[type('xs', 'semibold', colors.textSubtle), { marginTop: 2 }]}>Driver</Text>

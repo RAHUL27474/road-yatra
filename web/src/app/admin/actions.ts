@@ -11,6 +11,7 @@ import { HttpError } from "@/lib/http";
 import { notify } from "@/lib/notify";
 import { saveSetting, type CancellationSlab } from "@/lib/settings";
 import { BLOCK_REASONS } from "@/lib/format";
+import { parseSeatLayout } from "@/lib/seats";
 
 async function requireAdmin() {
   const user = await getCurrentUser();
@@ -49,6 +50,7 @@ export async function saveVehicle(formData: FormData) {
     seats: num(formData, "seats"),
     seatsPerRow: num(formData, "seatsPerRow"),
     aisleAfter: num(formData, "aisleAfter"),
+    seatLayout: str(formData, "seatLayout").replace(/\s+/g, ""),
     amenities: str(formData, "amenities"),
     imageUrl: str(formData, "imageUrl") || null,
     allowSeatBooking: bool(formData, "allowSeatBooking"),
@@ -67,6 +69,10 @@ export async function saveVehicle(formData: FormData) {
   };
   const back = id ? `/admin/vehicles/${id}` : "/admin/vehicles/new";
   if (!data.name || !data.regNumber || data.seats < 1 || data.seatsPerRow < 1) fail(back, "Name, registration number and seats are required.");
+  if (data.seatLayout) {
+    const rows = parseSeatLayout(data.seatLayout);
+    if (!rows || rows.reduce((a, b) => a + b, 0) !== data.seats) fail(back, `Seats in each row must be numbers like 1,3,2 that add up to ${data.seats} seats.`);
+  }
   const dup = await db.vehicle.findFirst({ where: { regNumber: data.regNumber, NOT: id ? { id } : undefined } });
   if (dup) fail(back, `Another vehicle already has registration ${data.regNumber}.`);
   if (id) await db.vehicle.update({ where: { id }, data });

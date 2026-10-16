@@ -447,6 +447,7 @@ export function publicVehicle(v: Vehicle) {
     seats: v.seats,
     seatsPerRow: v.seatsPerRow,
     aisleAfter: v.aisleAfter,
+    seatLayout: v.seatLayout,
     amenities: v.amenities ? v.amenities.split(",").map((a) => a.trim()).filter(Boolean) : [],
     imageUrl: v.imageUrl,
   };

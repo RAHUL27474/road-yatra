@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { fmtDate, fmtTime, inr } from "@/lib/format";
 import Flash from "@/components/Flash";
-import { cancelTrip, scheduleTrips } from "../actions";
+import { assignTripDriver, cancelTrip, scheduleTrips } from "../actions";
 
 export default async function TripsPage({ searchParams }: { searchParams: Promise<{ error?: string; created?: string; skipped?: string }> }) {
   const { error, created, skipped } = await searchParams;
@@ -121,8 +121,30 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
                   <br />
                   <span className="font-mono">{t.vehicle.regNumber}</span>
                   <br />
-                  {t.driver ? t.driver.user.name : <span className="font-semibold text-red-600">No driver</span>}
-                  {t.status === "STARTED" && <span className="badge ml-1 bg-blue-100 text-blue-700">ON TRIP</span>}
+                  {t.status === "STARTED" ? (
+                    <>
+                      {t.driver?.user.name}
+                      <span className="badge ml-1 bg-blue-100 text-blue-700">ON TRIP</span>
+                    </>
+                  ) : (
+                    // Drivers change day to day: pick today's driver right here.
+                    <form action={assignTripDriver} className="mt-1 flex items-center gap-1">
+                      <input type="hidden" name="id" value={t.id} />
+                      <select name="driverId" defaultValue={t.driverId ?? ""} className={`input py-1 text-xs ${t.driverId ? "" : "border-red-300 text-red-600"}`}>
+                        <option value="">No driver</option>
+                        {drivers.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.user.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button className="btn-ghost px-2 py-1 text-xs">Save</button>
+                    </form>
+                  )}
+                  {t.driver && t.status === "SCHEDULED" && (
+                    <p className={t.driverResponse === "ACCEPTED" ? "text-green-700" : "text-amber-700"}>{t.driverResponse === "ACCEPTED" ? "accepted" : "not accepted yet"}</p>
+                  )}
+                  {!t.driver && t.driverNote && <p className="font-semibold text-red-600">{t.driverNote}</p>}
                 </td>
                 <td>
                   {t._count.seats}/{t.vehicle.seats}

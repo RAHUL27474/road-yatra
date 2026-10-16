@@ -8,6 +8,8 @@ export type Vehicle = {
   seats: number;
   seatsPerRow: number;
   aisleAfter: number;
+  /** Seats per row, front to back, e.g. "1,3,2" (empty = plain grid of seatsPerRow). */
+  seatLayout?: string;
   amenities: string[];
   imageUrl: string | null;
 };

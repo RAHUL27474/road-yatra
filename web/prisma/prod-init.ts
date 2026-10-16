@@ -36,6 +36,17 @@ async function main() {
     await db.setting.create({ data: { key: "prodInitialised", value: JSON.stringify(new Date().toISOString()) } });
   }
 
+  // Real seat layouts for the fleet, set once (an admin can change them in Vehicles afterwards):
+  // Ertiga = 1 front + 3 middle + 2 back, Dzire/hatchback = 1 front + 3 back.
+  const layouts: [string[], number, string][] = [
+    [["ERTIGA"], 6, "1,3,2"],
+    [["SEDAN", "HATCHBACK"], 4, "1,3"],
+  ];
+  for (const [types, seats, seatLayout] of layouts) {
+    const r = await db.vehicle.updateMany({ where: { type: { in: types }, seats, seatLayout: "" }, data: { seatLayout } });
+    if (r.count) console.log(`Seat layout ${seatLayout} set on ${r.count} vehicle(s)`);
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
   const existing = await db.user.findFirst({ where: { OR: [{ email }, { phone }] } });
   if (existing) await db.user.update({ where: { id: existing.id }, data: { email, phone, role: "ADMIN", passwordHash } });

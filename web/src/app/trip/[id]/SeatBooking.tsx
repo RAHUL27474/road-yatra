@@ -16,7 +16,7 @@ type Props = {
     fromCity: string;
     toCity: string;
     takenSeats: number[];
-    vehicle: { seats: number; seatsPerRow: number; aisleAfter: number };
+    vehicle: { seats: number; seatsPerRow: number; aisleAfter: number; seatLayout?: string };
   };
   pickupStops: Stop[];
   dropStops: Stop[];
