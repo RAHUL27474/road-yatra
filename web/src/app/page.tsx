@@ -172,17 +172,18 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-brand-darker/95 via-brand-darker/60 to-brand-darker/0" />
         <div className="absolute inset-0 -z-10 bg-brand-darker/40 sm:hidden" />
         <div className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-brand-darker/60 to-transparent" />
-        <div className="container-x pt-10 pb-40 sm:pt-16 sm:pb-48 lg:pb-52">
+        {/* Kept short so the booking box below is visible on a laptop screen without scrolling. */}
+        <div className="container-x pt-6 pb-28 sm:pt-8 sm:pb-28 lg:pb-28">
           <p className="deva inline-flex items-center gap-2 text-base font-bold tracking-wide text-gold sm:text-lg">
             <Sparkles className="h-4 w-4" aria-hidden /> ॥ जय श्री श्याम ॥
           </p>
-          <h1 className="mt-3 max-w-3xl text-[2rem] leading-[1.12] font-extrabold tracking-tight text-white sm:text-5xl">
+          <h1 className="mt-2 max-w-3xl text-[1.75rem] leading-[1.12] font-extrabold tracking-tight text-white sm:text-4xl lg:text-[2.6rem]">
             Khatima se Delhi – <span className="text-gold">Seat bhi book karein,</span> Puri Cab bhi.
           </h1>
-          <p className="mt-4 max-w-2xl text-base text-slate-200 sm:text-lg">
+          <p className="mt-3 max-w-2xl text-sm text-slate-200 sm:text-base">
             Daily shared taxi from Khatima to Delhi and Haridwar, one-way and round-trip cabs, and hill station trips to Nainital, Mussoorie, Rishikesh and Auli. Service day and night.
           </p>
-          <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-semibold text-white sm:text-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-white sm:text-sm">
             <span className="saffron-gradient rounded-full px-3 py-1 shadow-md">Your Journey Our Priority</span>
             {["Safe", "Comfortable", "Reliable"].map((t) => (
               <span key={t} className="flex items-center gap-1 rounded-full bg-white/12 px-3 py-1 ring-1 ring-white/25 backdrop-blur">
@@ -193,7 +194,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
         </div>
       </section>
 
-      <section id="search" className="relative z-20 container-x -mt-32 scroll-mt-28 sm:-mt-36">
+      <section id="search" className="relative z-20 container-x -mt-20 scroll-mt-28 sm:-mt-20">
         <SearchBox key={tab ?? "seats"} cities={cities} initialTab={tab === "hire" ? "hire" : "seats"} />
       </section>
 
