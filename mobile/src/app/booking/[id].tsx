@@ -290,6 +290,8 @@ export default function BookingDetail() {
           </View>
         ) : null}
 
+        {b.status === 'CONFIRMED' || b.status === 'COMPLETED' ? <DriverHero booking={b} /> : null}
+
         {/* ---------------- Ticket ---------------- */}
         <View style={st.ticket}>
           <LinearGradient colors={BANNER[status.tone]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={st.banner}>
@@ -386,58 +388,6 @@ export default function BookingDetail() {
             />
           </View>
         </View>
-
-        {b.driver ? (
-          <View style={[st.card, { flexDirection: 'row', alignItems: 'center', gap: spacing.md }]}>
-            {b.driver.photoUrl ? (
-              <Image source={{ uri: b.driver.photoUrl }} style={st.avatar} />
-            ) : (
-              <View style={[st.avatar, { backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={type('lg', 'bold', colors.white)}>{initials(b.driver.name)}</Text>
-              </View>
-            )}
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={type('xs', 'medium', colors.textMuted)}>Your driver</Text>
-              <Text style={type('md', 'bold')} numberOfLines={1}>
-                {b.driver.name}
-              </Text>
-              {b.vehicle || b.vehicleNumber ? (
-                <Text style={type('xs', 'regular', colors.textMuted)} numberOfLines={1}>
-                  {[b.vehicle?.name, b.vehicleNumber].filter(Boolean).join(' · ')}
-                </Text>
-              ) : null}
-            </View>
-            <Pressable
-              onPress={() => {
-                hapticTap();
-                whatsApp(b.driver!.phone);
-              }}
-              style={({ pressed }) => [st.callBtn, { backgroundColor: '#25D366' }, pressed && { opacity: 0.85 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`WhatsApp driver ${b.driver.name}`}
-            >
-              <Ionicons name="logo-whatsapp" size={22} color={colors.white} />
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                hapticTap();
-                call(b.driver!.phone);
-              }}
-              style={({ pressed }) => [st.callBtn, pressed && { opacity: 0.85 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Call driver ${b.driver.phone}`}
-            >
-              <Ionicons name="call" size={20} color={colors.white} />
-            </Pressable>
-          </View>
-        ) : b.status === 'CONFIRMED' ? (
-          <View style={[st.card, st.driverPending]}>
-            <View style={[st.roundIcon, { backgroundColor: colors.background }]}>
-              <Ionicons name="person-outline" size={20} color={colors.textMuted} />
-            </View>
-            <Text style={[type('sm', 'medium', colors.textMuted), { flex: 1 }]}>Driver name, phone and vehicle number will appear here once a driver is assigned.</Text>
-          </View>
-        ) : null}
 
         {actions.length ? (
           <View style={st.actions}>
@@ -566,6 +516,77 @@ const initials = (name: string) =>
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join('') || '?';
+
+/**
+ * Ride-app style card at the top of the ticket: the vehicle number (known as soon as the booking is confirmed)
+ * in a number-plate box, then the driver's photo, name, call and WhatsApp once the office assigns one.
+ */
+function DriverHero({ booking: b }: { booking: Booking }) {
+  const d = b.driver;
+  if (!d && !b.vehicleNumber) return null;
+  return (
+    <View style={[st.card, st.hero]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        {d?.photoUrl ? (
+          <Image source={{ uri: reachableUrl(d.photoUrl.startsWith('http') ? d.photoUrl : `${API_URL}${d.photoUrl}`) }} style={st.heroPhoto} />
+        ) : (
+          <View style={[st.heroPhoto, { backgroundColor: d ? colors.brand : colors.background, alignItems: 'center', justifyContent: 'center' }]}>
+            {d ? <Text style={type('xl', 'extrabold', colors.white)}>{initials(d.name)}</Text> : <Ionicons name="person-outline" size={28} color={colors.textMuted} />}
+          </View>
+        )}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={type('xs', 'semibold', colors.textMuted)}>{d ? 'YOUR DRIVER' : 'DRIVER'}</Text>
+          <Text style={type('lg', 'extrabold', d ? colors.text : colors.textMuted)} numberOfLines={1}>
+            {d ? d.name : 'Being assigned'}
+          </Text>
+          {b.vehicle ? (
+            <Text style={type('xs', 'regular', colors.textMuted)} numberOfLines={1}>
+              {b.vehicle.name}
+            </Text>
+          ) : null}
+        </View>
+        {b.vehicleNumber ? (
+          <View style={st.plate} accessibilityLabel={`Vehicle number ${b.vehicleNumber}`}>
+            <Text style={st.plateIn}>IND</Text>
+            <Text style={st.plateText}>{b.vehicleNumber}</Text>
+          </View>
+        ) : null}
+      </View>
+      {d ? (
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+          <Pressable
+            onPress={() => {
+              hapticTap();
+              call(d.phone);
+            }}
+            style={({ pressed }) => [st.heroBtn, { backgroundColor: colors.success }, pressed && { opacity: 0.85 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Call driver ${d.phone}`}
+          >
+            <Ionicons name="call" size={18} color={colors.white} />
+            <Text style={type('sm', 'bold', colors.white)}>Call driver</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              hapticTap();
+              whatsApp(d.phone);
+            }}
+            style={({ pressed }) => [st.heroBtn, { backgroundColor: '#25D366' }, pressed && { opacity: 0.85 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`WhatsApp driver ${d.name}`}
+          >
+            <Ionicons name="logo-whatsapp" size={18} color={colors.white} />
+            <Text style={type('sm', 'bold', colors.white)}>WhatsApp</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Text style={[type('xs', 'regular', colors.textMuted), { marginTop: spacing.sm }]}>
+          Driver's name, photo and phone appear here as soon as the office assigns one — you also get a notification.
+        </Text>
+      )}
+    </View>
+  );
+}
 
 /** Where to stand: photo of the spot, landmark, address, and directions. */
 function PickupCard({ booking: b }: { booking: Booking }) {
@@ -916,6 +937,12 @@ const st = StyleSheet.create({
   dash: { height: 0, borderTopWidth: 1, borderColor: colors.border, borderStyle: 'dashed', marginVertical: spacing.sm },
   line: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
   eta: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.success },
+  hero: { borderWidth: 1.5, borderColor: colors.brandLight },
+  heroPhoto: { width: 60, height: 60, borderRadius: 30 },
+  plate: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderColor: '#111827', borderRadius: 6, backgroundColor: '#FFFFFF', overflow: 'hidden' },
+  plateIn: { backgroundColor: '#1D4ED8', color: '#FFFFFF', fontSize: 8, fontWeight: '800', paddingHorizontal: 3, paddingVertical: 6 },
+  plateText: { fontSize: 15, fontWeight: '800', letterSpacing: 1, color: '#111827', paddingHorizontal: 6, paddingVertical: 4 },
+  heroBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.pill },
   stopPhoto: { width: '100%', height: 160, borderRadius: 12, backgroundColor: colors.background },
   manageRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
   panel: { paddingVertical: spacing.sm, gap: spacing.xs },

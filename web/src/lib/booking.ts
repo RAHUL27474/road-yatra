@@ -741,8 +741,8 @@ export function serializeBooking(b: FullBooking, slabs?: CancellationSlab[]) {
         }
       : null,
     vehicle: vehicle ? publicVehicle(vehicle) : null,
-    // Shown once a driver is assigned, so the passenger can find the vehicle.
-    vehicleNumber: driver && vehicle ? vehicle.regNumber : null,
+    // Shown as soon as the booking is confirmed (a shared trip has its vehicle fixed), like a ride app shows the plate.
+    vehicleNumber: vehicle && (b.status === "CONFIRMED" || b.status === "COMPLETED") ? vehicle.regNumber : null,
     driver: driver ? { name: driver.user.name, phone: driver.user.phone, photoUrl: driver.photoUrl } : null,
     // The passenger shows this OTP (or the QR) to the driver when boarding.
     boardingOtp: confirmed && !b.boardedAt && !b.startedAt ? b.boardingOtp : null,
