@@ -14,6 +14,7 @@ import { cityRegion, fmtDuration, fmtYmdShort, inr, nextDays, relativeDay, ymdIS
 import { VehicleArt } from '../../illustrations';
 import { rentalCache } from '../../store';
 import { PilgrimageSection, WhatsAppBookCard } from '../../pilgrimage';
+import { OurDrivers } from '../../OurDrivers';
 import { colors, radius, shadow, shadowSoft, spacing, tabular, type } from '../../theme';
 import { Button, Card, Chip, ErrorBanner, hapticSelect, hapticTap, IonName, Notice, OptionSheet, Skeleton } from '../../ui';
 
@@ -260,6 +261,7 @@ export default function Home() {
 
           <WhatsAppBookCard phone={config?.whatsapp} />
           <PilgrimageSection phone={config?.whatsapp} />
+          <OurDrivers />
 
           <View style={st.trustRow}>
             <TrustItem icon="shield-checkmark-outline" label="Verified drivers" />

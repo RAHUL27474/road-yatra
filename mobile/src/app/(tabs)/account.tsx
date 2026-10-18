@@ -181,6 +181,7 @@ export default function Account() {
               tone="warning"
               onPress={config ? () => Alert.alert('Cancellation policy', cancellationPolicy(config)) : undefined}
             />
+            <ListRow icon="star-outline" title="Give feedback" subtitle="Rate us in one tap" tone="warning" onPress={() => router.push('/feedback')} />
             <ListRow icon="document-text-outline" title="Terms & cancellation" tone="brand" onPress={() => openPage(`${API_URL}/terms`)} />
             <ListRow icon="lock-closed-outline" title="Privacy policy" tone="brand" onPress={() => openPage(`${API_URL}/privacy`)} />
             <ListRow

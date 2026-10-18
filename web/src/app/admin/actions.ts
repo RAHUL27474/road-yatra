@@ -94,7 +94,8 @@ export async function saveDriver(formData: FormData) {
   const data = {
     licenceNo: str(formData, "licenceNo").toUpperCase(),
     licenceExpiry: date(formData, "licenceExpiry"),
-    photoUrl: str(formData, "photoUrl") || null,
+    photoUrl: await driverPhoto(formData, back),
+    showOnWebsite: bool(formData, "showOnWebsite"),
     notes: str(formData, "notes"),
     active: bool(formData, "active"),
   };
@@ -120,6 +121,40 @@ export async function saveDriver(formData: FormData) {
   }
   revalidatePath("/admin/drivers");
   redirect("/admin/drivers");
+}
+
+/** Photo for a driver: a new upload wins, "remove photo" clears it, otherwise the typed URL (or the current one). */
+async function driverPhoto(formData: FormData, back: string) {
+  const file = formData.get("photo");
+  if (file instanceof File && file.size > 0) return publicFileUrl(await attempt(back, () => saveImage(file, "public", "Driver photo")));
+  if (bool(formData, "removePhoto")) return null;
+  return str(formData, "photoUrl") || null;
+}
+
+/**
+ * Removes a driver. One with trip history is kept for the records but switched off: inactive, hidden from the
+ * website, logged out of the app and taken off upcoming duties (the office reassigns them). A driver with no
+ * history is deleted, and their login becomes a normal customer account.
+ */
+export async function removeDriver(formData: FormData) {
+  await requireAdmin();
+  const id = str(formData, "id");
+  const d = await db.driver.findUniqueOrThrow({ where: { id }, include: { _count: { select: { trips: true, bookings: true, sosAlerts: true } } } });
+  const history = d._count.trips + d._count.bookings + d._count.sosAlerts > 0;
+  const now = new Date();
+  if (history) {
+    await db.$transaction([
+      db.driver.update({ where: { id }, data: { active: false, showOnWebsite: false } }),
+      db.trip.updateMany({ where: { driverId: id, status: "SCHEDULED", departAt: { gt: now } }, data: { driverId: null, driverResponse: null, driverNote: "Driver removed by the office" } }),
+      db.booking.updateMany({ where: { driverId: id, kind: "RENTAL", status: "CONFIRMED", startedAt: null }, data: { driverId: null, driverResponse: null, driverNote: "Driver removed by the office" } }),
+      db.user.update({ where: { id: d.userId }, data: { tokenVersion: { increment: 1 } } }),
+    ]);
+  } else {
+    await db.$transaction([db.driver.delete({ where: { id } }), db.user.update({ where: { id: d.userId }, data: { role: "CUSTOMER", tokenVersion: { increment: 1 } } })]);
+  }
+  revalidatePath("/admin/drivers");
+  revalidatePath("/");
+  redirect(`/admin/drivers?removed=${history ? "deactivated" : "deleted"}`);
 }
 
 // ---------- Routes & stops ----------
@@ -420,6 +455,15 @@ export async function saveSettings(formData: FormData) {
   await saveSetting("advancePerSeat", Math.max(0, Math.round(num(formData, "advancePerSeat"))));
   revalidatePath("/admin/settings");
   redirect("/admin/settings?saved=1");
+}
+
+// ---------- Feedback ----------
+
+export async function markFeedbackHandled(formData: FormData) {
+  await requireAdmin();
+  const f = await db.feedback.findUniqueOrThrow({ where: { id: str(formData, "id") } });
+  await db.feedback.update({ where: { id: f.id }, data: { handled: !f.handled } });
+  revalidatePath("/admin/feedback");
 }
 
 // ---------- Driver cash & SOS ----------

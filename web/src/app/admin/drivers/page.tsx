@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { fmtDate, fmtDateTime, inr } from "@/lib/format";
 import { markCashReceived } from "../actions";
+import Flash from "@/components/Flash";
 
 const STATUS: Record<string, string> = {
   APPROVED: "bg-green-100 text-green-700",
@@ -9,7 +10,8 @@ const STATUS: Record<string, string> = {
   REJECTED: "bg-red-100 text-red-700",
 };
 
-export default async function DriversPage() {
+export default async function DriversPage({ searchParams }: { searchParams: Promise<{ removed?: string }> }) {
+  const { removed } = await searchParams;
   const drivers = await db.driver.findMany({
     include: { user: true, _count: { select: { trips: { where: { status: "COMPLETED" } }, bookings: { where: { status: "COMPLETED" } } } } },
     orderBy: { createdAt: "asc" },
@@ -43,6 +45,11 @@ export default async function DriversPage() {
         <h1 className="page-title">Drivers</h1>
         <Link href="/admin/drivers/new" className="btn-primary">+ Add driver</Link>
       </div>
+      <Flash
+        success={
+          removed === "deleted" ? "Driver deleted." : removed === "deactivated" ? "Driver removed: switched off, hidden from the website and taken off upcoming duties (past trips kept)." : undefined
+        }
+      />
       <p className="text-sm text-slate-500">
         Drivers can apply themselves in the JSS Travels Driver app (mobile OTP + licence and photo upload). Their application appears below for
         you to approve. You can also add a driver directly with &quot;+ Add driver&quot;.
@@ -115,7 +122,16 @@ export default async function DriversPage() {
             {others.map((d) => (
               <tr key={d.id}>
                 <td className="font-semibold">
-                  {d.user.name}
+                  <span className="flex items-center gap-2">
+                    {d.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={d.photoUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+                    ) : (
+                      <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs text-slate-400">{d.user.name[0]}</span>
+                    )}
+                    {d.user.name}
+                    {d.showOnWebsite && d.active && <span className="badge bg-blue-50 text-[10px] text-blue-700">on website</span>}
+                  </span>
                   {ratings.get(d.id) && (
                     <p className="text-xs font-normal text-amber-700">
                       ★ {(ratings.get(d.id)!.sum / ratings.get(d.id)!.n).toFixed(1)} · {ratings.get(d.id)!.n} rating{ratings.get(d.id)!.n > 1 ? "s" : ""}

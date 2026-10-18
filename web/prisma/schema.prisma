@@ -57,6 +57,7 @@ model Driver {
   experienceYears  Int?
   emergencyContact String    @default("")
   active           Boolean   @default(true)
+  showOnWebsite    Boolean   @default(true) // photo + name in "Our drivers" on the website and the customer app
   notes            String    @default("")
   appliedAt        DateTime?
   reviewedAt       DateTime?
@@ -311,6 +312,22 @@ model SosAlert {
   driver Driver @relation(fields: [driverId], references: [id])
 
   @@index([resolvedAt, createdAt])
+}
+
+// General feedback from the website / customer app (trip ratings live on Booking.rating).
+model Feedback {
+  id          String   @id @default(cuid())
+  userId      String?
+  name        String   @default("")
+  phone       String   @default("")
+  rating      Int // 1-5
+  comment     String   @default("")
+  bookingCode String?
+  source      String   @default("WEB") // WEB | APP
+  handled     Boolean  @default(false) // the office has seen / replied to it
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // Every SMS / WhatsApp message the system sends (or would send, if no provider is configured).

@@ -1,3 +1,4 @@
+import OurDrivers from "@/components/OurDrivers";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -418,6 +419,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           </ol>
         </div>
       </section>
+
+      <OurDrivers />
 
       {/* ---------- Why us ---------- */}
       <section className="section container-x">

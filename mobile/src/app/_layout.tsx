@@ -47,6 +47,7 @@ export default function RootLayout() {
         <Stack.Screen name="booking/[id]" options={{ title: 'Booking' }} />
         <Stack.Screen name="login" options={{ title: 'Log in', presentation: 'modal' }} />
         <Stack.Screen name="register" options={{ title: 'Create account', presentation: 'modal' }} />
+        <Stack.Screen name="feedback" options={{ title: 'Feedback' }} />
       </Stack>
     </AuthProvider>
   );

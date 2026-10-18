@@ -15,6 +15,7 @@ import {
   Ticket,
   UserRound,
   type LucideIcon,
+  Star,
 } from "lucide-react";
 
 const NAV: [string, LucideIcon, string][] = [
@@ -27,6 +28,7 @@ const NAV: [string, LucideIcon, string][] = [
   ["/admin/routes", Route, "Routes & fares"],
   ["/admin/stops", MapPin, "Pickup points"],
   ["/admin/reports", ChartColumn, "Reports"],
+  ["/admin/feedback", Star, "Feedback"],
   ["/admin/messages", MessageSquare, "WhatsApp log"],
   ["/admin/settings", Settings, "Settings"],
 ];
