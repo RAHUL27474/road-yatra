@@ -39,10 +39,11 @@ export async function expireStaleHolds() {
   const stale = await db.booking.findMany({ where: { status: "PENDING", createdAt: { lt: cutoff } }, select: { id: true } });
   if (!stale.length) return;
   const ids = stale.map((b) => b.id);
-  await db.$transaction([
-    db.bookedSeat.deleteMany({ where: { bookingId: { in: ids } } }),
-    db.booking.updateMany({ where: { id: { in: ids } }, data: { status: "EXPIRED" } }),
-  ]);
+  // Only bookings still PENDING: one that was paid a moment ago must not be expired (nor its seats freed).
+  await db.$transaction(async (tx) => {
+    await tx.booking.updateMany({ where: { id: { in: ids }, status: "PENDING" }, data: { status: "EXPIRED" } });
+    await tx.bookedSeat.deleteMany({ where: { bookingId: { in: ids }, booking: { status: "EXPIRED" } } });
+  });
 }
 
 /** Finds the customer account for a phone number, creating one for offline (phone/walk-in) bookings. */
@@ -77,13 +78,27 @@ function initialStatus(c: Channel) {
 
 // ---------- Seat booking ----------
 
+const MAX_OPEN_CASH_BOOKINGS = 3;
+
+/**
+ * Cash bookings are confirmed without paying, so one account can hold only a few unpaid upcoming ones —
+ * otherwise a throwaway account could block every seat. The office (phone bookings) is not limited.
+ */
+async function checkOpenCashBookings(c: Channel & { userId: string }) {
+  if (c.source === "OFFLINE" || c.payment !== "CASH") return;
+  const open = await db.booking.count({
+    where: { userId: c.userId, status: "CONFIRMED", paymentStatus: "UNPAID", OR: [{ trip: { departAt: { gt: new Date() } } }, { startAt: { gt: new Date() } }] },
+  });
+  if (open >= MAX_OPEN_CASH_BOOKINGS) throw new HttpError(429, `You already have ${open} unpaid upcoming bookings. Travel or cancel one first, or call us to book more.`);
+}
+
 export type SeatPassenger = { seatNo: number; name?: string; phone?: string; female?: boolean };
 
 /**
  * Return-trip discount (Admin → Settings): the customer already holds the onward journey — the reverse route,
  * departing within the 15 days before this trip.
  */
-async function returnDiscount(userId: string, trip: { departAt: Date; route: { fromCity: string; toCity: string } }) {
+export async function returnDiscount(userId: string, trip: { departAt: Date; route: { fromCity: string; toCity: string } }) {
   const pct = (await getSettings()).returnDiscountPercent;
   if (!(pct > 0)) return 0;
   const onward = await db.booking.findFirst({
@@ -118,6 +133,7 @@ export async function createSeatBooking(
 ) {
   await expireStaleHolds();
   await checkCashAllowed(input);
+  await checkOpenCashBookings(input);
   const trip = await db.trip.findUnique({ where: { id: input.tripId }, include: { vehicle: true, route: true } });
   if (!trip || trip.status !== "SCHEDULED") throw new HttpError(404, "This trip is not available for booking.");
   // The office can still book a phone customer on it; online customers can't book a vehicle switched off here.
@@ -316,6 +332,12 @@ export async function createRentalBooking(
 ) {
   await expireStaleHolds();
   if (input.payment === "ADVANCE") throw new HttpError(400, "Advance payment is only for shared seats. Please pay online or in cash.");
+  await checkOpenCashBookings(input);
+  // Keep hires to sensible dates so a booking can't lock a vehicle for months.
+  if (input.source !== "OFFLINE") {
+    if (input.startAt.getTime() > Date.now() + 90 * 24 * 3600_000) throw new HttpError(400, "Online bookings open up to 90 days ahead. Please call us for later dates.");
+    if (input.returnAt && input.returnAt.getTime() - input.startAt.getTime() > 30 * 24 * 3600_000) throw new HttpError(400, "Online round trips can be up to 30 days. Please call us for longer hires.");
+  }
   await checkCashAllowed(input);
   const plan = await planRental(input, { allowPast: input.source === "OFFLINE" });
   const vehicle = await db.vehicle.findUnique({ where: { id: input.vehicleId } });
@@ -325,7 +347,8 @@ export async function createRentalBooking(
   const price = priceRental(vehicle, input.rentalType, plan);
   const hasDrop = input.rentalType === "ONE_WAY" || input.rentalType === "ROUND_TRIP";
 
-  const booking = await db.$transaction(
+  const booking = await db
+    .$transaction(
     async (tx) => {
       if (!(await isVehicleFree(tx, vehicle.id, plan.startAt, plan.endAt))) {
         throw new HttpError(409, "Sorry, this vehicle was just booked for those dates. Please choose another.");
@@ -359,7 +382,12 @@ export async function createRentalBooking(
       });
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+    )
+    .catch((e) => {
+      // Two people holding the same cab at the same moment: Postgres aborts one of the serializable transactions.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2034") throw new HttpError(409, "Sorry, this vehicle was just booked for those dates. Please choose another.");
+      throw e;
+    });
   if (booking.status === "CONFIRMED") await onBookingConfirmed(booking.id);
   return booking;
 }
@@ -374,14 +402,27 @@ function financialYear(d = new Date()) {
 }
 
 /** Gives a paid booking the next tax invoice number (once). Format: RY/26-27/000001 */
-export async function assignInvoiceNo(bookingId: string) {
+class InvoiceTaken extends Error {}
+
+export async function assignInvoiceNo(bookingId: string): Promise<string | null> {
+  try {
+    return await assignInvoiceNoOnce(bookingId);
+  } catch (e) {
+    if (e instanceof InvoiceTaken) return (await db.booking.findUnique({ where: { id: bookingId }, select: { invoiceNo: true } }))?.invoiceNo ?? null;
+    throw e;
+  }
+}
+
+async function assignInvoiceNoOnce(bookingId: string) {
   const b = await db.booking.findUniqueOrThrow({ where: { id: bookingId } });
   if (b.invoiceNo || b.paymentStatus !== "PAID") return b.invoiceNo;
   const fy = financialYear();
   return db.$transaction(async (tx) => {
     const c = await tx.counter.upsert({ where: { key: `invoice-${fy}` }, update: { value: { increment: 1 } }, create: { key: `invoice-${fy}`, value: 1 } });
     const invoiceNo = `RY/${fy}/${String(c.value).padStart(6, "0")}`;
-    await tx.booking.update({ where: { id: bookingId }, data: { invoiceNo } });
+    // Claim it only if no one else numbered this booking meanwhile (a retry must not re-number an issued invoice).
+    const { count } = await tx.booking.updateMany({ where: { id: bookingId, invoiceNo: null }, data: { invoiceNo } });
+    if (!count) throw new InvoiceTaken();
     return invoiceNo;
   });
 }
@@ -453,10 +494,11 @@ export async function cancelBooking(bookingId: string, opts: { by: "CUSTOMER" | 
   const received = b.paymentStatus === "PAID" ? b.totalAmount : b.paymentStatus === "PARTIAL" ? b.amountPaid : 0;
   const paid = received > 0;
   const refund = paid ? Math.min(received, Math.max(0, round(opts.refundAmount ?? quote.refund))) : 0;
-  await db.$transaction([
-    db.bookedSeat.deleteMany({ where: { bookingId } }),
-    db.booking.update({
-      where: { id: bookingId },
+  if (b.status !== "PENDING" && b.status !== "CONFIRMED") throw new HttpError(400, `This booking is already ${b.status.toLowerCase()}.`);
+  // Claim the cancellation atomically: a double tap (or a stale admin page) must not cancel twice and wipe the refund.
+  const claimed = await db.$transaction(async (tx) => {
+    const { count } = await tx.booking.updateMany({
+      where: { id: bookingId, status: { in: ["PENDING", "CONFIRMED"] } },
       data: {
         status: "CANCELLED",
         cancelledAt: new Date(),
@@ -468,8 +510,11 @@ export async function cancelBooking(bookingId: string, opts: { by: "CUSTOMER" | 
         paymentStatus: refund + b.seatRefundDue > 0 ? "REFUND_PENDING" : b.paymentStatus,
         adminNote: opts.note ?? b.adminNote,
       },
-    }),
-  ]);
+    });
+    if (count) await tx.bookedSeat.deleteMany({ where: { bookingId } });
+    return count > 0;
+  });
+  if (!claimed) throw new HttpError(400, "This booking was just cancelled.");
   await notify(
     b.passengerPhone,
     "BOOKING_CANCELLED",
@@ -489,6 +534,8 @@ export async function cancelSeats(bookingId: string, seatNos: number[]) {
   const drop = [...new Set(seatNos)].filter((n) => current.includes(n));
   if (!drop.length) throw new HttpError(400, "Choose the seats to cancel.");
   if (drop.length >= current.length) return cancelBooking(bookingId, { by: "CUSTOMER", note: "Cancelled by customer" });
+  // An issued GST invoice can't be changed in place (it needs a credit note): the office handles those.
+  if (b.invoiceNo) throw new HttpError(400, "This booking already has a tax invoice. Please call us to cancel some of its seats.");
   const settings = await getSettings();
   const quote = cancellationQuote(b, settings.cancellationSlabs);
   if (!quote.allowed) throw new HttpError(400, "This booking can no longer be cancelled online. Please call us.");
@@ -555,7 +602,9 @@ export async function changeBooking(
     const old = (b.seats ?? []).filter((s) => s.bookingId).sort((x, y) => x.seatNo - y.seatNo);
     const given = new Map((input.seatPassengers ?? []).map((p) => [p.seatNo, p]));
     const rows = seatNos.map((seatNo, i) => {
-      const p = given.get(seatNo) ?? { name: old[i]?.passengerName ?? undefined, phone: old[i]?.passengerPhone ?? undefined, female: old[i]?.female };
+      const was = { name: old[i]?.passengerName ?? undefined, phone: old[i]?.passengerPhone ?? undefined, female: old[i]?.female };
+      const g = given.get(seatNo);
+      const p = g ? { name: g.name || was.name, phone: g.phone || was.phone, female: g.female ?? was.female } : was;
       return { tripId: t.id, seatNo, bookingId: b.id, passengerName: p.name || null, passengerPhone: p.phone || null, female: !!p.female };
     });
     const { womenOnlySeats: womenOnly } = await womenSeatInfo(t.id, t.vehicle);

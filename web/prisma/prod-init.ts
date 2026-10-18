@@ -54,7 +54,9 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const existing = await db.user.findFirst({ where: { OR: [{ email }, { phone }] } });
-  if (existing) await db.user.update({ where: { id: existing.id }, data: { email, phone, role: "ADMIN", passwordHash } });
+  // A new ADMIN_PASSWORD also logs out every existing admin session.
+  const changed = !existing?.passwordHash || !(await bcrypt.compare(password, existing.passwordHash));
+  if (existing) await db.user.update({ where: { id: existing.id }, data: { email, phone, role: "ADMIN", passwordHash, ...(changed ? { sessionVersion: { increment: 1 }, tokenVersion: { increment: 1 } } : {}) } });
   else await db.user.create({ data: { name: "Admin", email, phone, role: "ADMIN", passwordHash } });
   console.log(`Admin account ready: ${email}`);
 }

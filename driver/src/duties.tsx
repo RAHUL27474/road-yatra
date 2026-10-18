@@ -41,12 +41,15 @@ export function DutiesProvider({ children }: { children: ReactNode }) {
   isDriverRef.current = isDriver;
   const hasData = useRef(false);
   hasData.current = !!data;
+  // Only the newest refresh may write: a slow poll that started before "Start trip" must not show it SCHEDULED again.
+  const seq = useRef(0);
 
   const refresh = useCallback(async () => {
+    const my = ++seq.current;
     await flushQueue().catch(() => {});
     try {
       const fresh = await api<DutiesResponse>('/api/driver/duties');
-      if (!isDriverRef.current) return;
+      if (!isDriverRef.current || my !== seq.current) return;
       setData(fresh);
       setError(null);
       setOffline(false);
@@ -75,7 +78,8 @@ export function DutiesProvider({ children }: { children: ReactNode }) {
       setData(null);
       setError(null);
       setOffline(false);
-      stopDutyChecks();
+      // access is null while the login is still being restored: not a reason to cancel the background check.
+      if (access !== null) stopDutyChecks();
       return;
     }
     // Show the saved copy straight away, then load fresh data.
@@ -105,13 +109,15 @@ export function DutiesProvider({ children }: { children: ReactNode }) {
   useEffect(() => onQueueChange(setPending), []);
 
   const onTrip = isDriver && !!data?.duties.some((d) => d.status === 'STARTED');
+  const loaded = !!data;
   useEffect(() => {
     if (onTrip)
       startLocationSharing().then((ok) => {
-        if (!ok) Alert.alert('Location needed', 'Allow location access so passengers and the office can track the vehicle during the trip.');
+        if (!ok && isDriverRef.current) Alert.alert('Location needed', 'Allow location access so passengers and the office can track the vehicle during the trip.');
       }, () => {});
-    else stopLocationSharing();
-  }, [onTrip]);
+    // Stop only on a real answer — logged out, or duties loaded with no trip running — not while still loading.
+    else if (access !== null && (!isDriver || loaded)) stopLocationSharing();
+  }, [onTrip, access, isDriver, loaded]);
 
   const value = useMemo(
     () => ({ driver: data?.driver ?? null, duties: data?.duties ?? null, error, offline, sharing, pending, refresh }),

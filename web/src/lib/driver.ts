@@ -178,10 +178,12 @@ export async function collectCash(driverId: string, bookingId: string, mode: "CA
   const b = await db.booking.findUnique({ where: { id: bookingId }, include: { trip: true } });
   const mine = b && (b.driverId === driverId || b.trip?.driverId === driverId);
   if (!b || !mine) throw new HttpError(404, "Booking not found in your duties.");
+  if (b.status !== "CONFIRMED" && b.status !== "COMPLETED") throw new HttpError(400, `This booking is ${b.status.toLowerCase()}.`);
   const due = cashDue(b);
   if (due <= 0) throw new HttpError(400, "Nothing to collect for this booking.");
-  await db.booking.update({
-    where: { id: b.id },
+  // Claim it once: a retried request (or the office marking it paid at the same time) must not record it twice.
+  const { count } = await db.booking.updateMany({
+    where: { id: b.id, paymentStatus: { in: ["UNPAID", "PARTIAL"] } },
     // After an online advance the booking keeps paymentMode ADVANCE; the driver only collects the balance.
     data: {
       paymentStatus: "PAID",
@@ -194,6 +196,7 @@ export async function collectCash(driverId: string, bookingId: string, mode: "CA
       cashHandedOverAt: null,
     },
   });
+  if (!count) throw new HttpError(400, "Payment for this booking is already recorded.");
   await assignInvoiceNo(b.id);
   return { collected: due, mode };
 }
@@ -373,7 +376,8 @@ const istDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolk
 export async function driverEarnings(driverId: string) {
   const since = new Date(Date.now() - HISTORY_DAYS * 24 * 3600_000);
   const [held, collected, trips, rentals] = await Promise.all([
-    db.booking.aggregate({ where: { cashCollectedBy: driverId, cashHandedOverAt: null, paymentStatus: "PAID" }, _sum: { cashCollected: true }, _count: true }),
+    // Cash the driver took stays theirs to hand over even if the booking is later cancelled and refunded.
+    db.booking.aggregate({ where: { cashCollectedBy: driverId, cashHandedOverAt: null, cashCollected: { gt: 0 } }, _sum: { cashCollected: true }, _count: true }),
     db.booking.findMany({ where: { cashCollectedBy: driverId, cashCollectedAt: { gte: since } }, select: { id: true, tripId: true, cashCollected: true, cashCollectedAt: true } }),
     db.trip.findMany({
       where: { driverId, status: "COMPLETED", completedAt: { gte: since } },

@@ -61,6 +61,8 @@ export type TripDetail = Omit<TripSummary, 'durationMins' | 'seatsLeft'> & {
   femaleSeats?: number[];
   womenOnlySeats?: number[];
   womenBooked?: number;
+  /** Return-trip discount for the logged-in customer (0 if none). */
+  discountPercent?: number;
   takenSeats: number[];
   pickupStops: Stop[];
   dropStops: Stop[];
@@ -167,6 +169,11 @@ export class ApiError extends Error {
 }
 
 let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+/** Called by the auth context: what to do when the server says the login is no longer valid. */
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
 /** Called by the auth context so every request carries the Bearer token. */
 export function setAuthToken(token: string | null) {
   authToken = token;
@@ -178,17 +185,28 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
   let res: Response;
+  // React Native's HTTP client never times out: give up after 20 s and treat it as "no network" (cached data shows).
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
+  let data: any = null;
   try {
     res = await fetch(API_URL + path, {
       method: opts.method ?? (opts.body !== undefined ? 'POST' : 'GET'),
       headers,
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      signal: ctrl.signal,
     });
+    data = await res.json().catch(() => null);
   } catch {
     throw new ApiError(0, `Can't reach the server at ${API_URL}. Check your internet connection.`);
+  } finally {
+    clearTimeout(timer);
   }
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(res.status, data?.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    // The login expired or was revoked mid-session: log out on the phone instead of "Please log in" everywhere.
+    if (res.status === 401 && authToken && !path.startsWith('/api/auth/')) onUnauthorized?.();
+    throw new ApiError(res.status, data?.error || `Request failed (${res.status})`);
+  }
   return data as T;
 }
 

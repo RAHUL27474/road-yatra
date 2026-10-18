@@ -5,7 +5,7 @@ import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-nativ
 import { BoardResult, Passenger, post, Stop, TripDuty } from '../../api';
 import { useDuties } from '../../duties';
 import { bookedSeats, fmtTime, fmtWhen, inr, routeTitle } from '../../format';
-import { postOrQueue } from '../../offline';
+import { flushQueue, pendingActions, postOrQueue } from '../../offline';
 import { RespondBar } from '../../respond';
 import { Scanner } from '../../Scanner';
 import { SosButton } from '../../sos';
@@ -152,7 +152,20 @@ export default function TripScreen() {
       act('trip', () => post(`/api/driver/trips/${trip.id}/start`)),
     );
 
-  const end = () => {
+  const end = async () => {
+    // Boardings / cash saved offline must reach the office before the trip ends — ending first would turn those
+    // passengers into no-shows and the queued boardings would then be refused.
+    setBusy('trip');
+    await flushQueue().catch(() => {});
+    setBusy(null);
+    const stuck = (await pendingActions()).filter((a) => trip.passengers.some((p) => p.bookingId === a.effect.bookingId));
+    if (stuck.length) {
+      Alert.alert(
+        'Not sent yet',
+        `${stuck.length} boarding/payment action${stuck.length > 1 ? 's' : ''} saved offline ha${stuck.length > 1 ? 've' : 's'} not reached the office yet. Get some network and tap End trip again.`,
+      );
+      return;
+    }
     const waiting = trip.passengers.filter((p) => !p.boarded && !p.noShow);
     const msg = waiting.length
       ? `${waiting.length} passenger${waiting.length > 1 ? 's have' : ' has'} not boarded (${waiting.map((p) => p.name).join(', ')}). They will be marked as no-show.`

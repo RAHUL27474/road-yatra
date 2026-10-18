@@ -19,6 +19,7 @@ model User {
   passwordHash String? // optional: customers and drivers log in with an SMS OTP
   role         String    @default("CUSTOMER") // CUSTOMER | DRIVER | ADMIN
   tokenVersion Int       @default(0) // bumped on app logout so old login tokens stop working
+  sessionVersion Int     @default(0) // bumped when the password changes or access is removed: ends website sessions
   // Proved ownership of the mobile number with an OTP that was really delivered (not test mode).
   // Bookings the office makes for a number only show on an account with this set.
   phoneVerified Boolean  @default(false)

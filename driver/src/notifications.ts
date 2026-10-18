@@ -50,7 +50,15 @@ const dutyKey = (d: Duty) => `${d.kind}:${d.id}`;
  * Returns the duties the driver has not been told about yet and remembers them.
  * The first run on a phone only records what is there, so installing the app doesn't fire a burst of alerts.
  */
-export async function takeNewDuties(duties: Duty[]): Promise<Duty[]> {
+let knownLock: Promise<unknown> = Promise.resolve();
+/** One at a time: the app's refresh and the background check can run together and would both alert. */
+export function takeNewDuties(duties: Duty[]): Promise<Duty[]> {
+  const run = knownLock.then(() => takeNewDutiesNow(duties));
+  knownLock = run.catch(() => {});
+  return run;
+}
+
+async function takeNewDutiesNow(duties: Duty[]): Promise<Duty[]> {
   // duty key → its start time. Older app versions stored a plain list of keys.
   const raw = await load<Record<string, string> | string[] | null>(KEYS.knownDuties, null);
   const known: Record<string, string> | null = Array.isArray(raw) ? Object.fromEntries(raw.map((k) => [k, ''])) : raw;

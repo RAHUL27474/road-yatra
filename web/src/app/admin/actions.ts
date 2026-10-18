@@ -110,7 +110,10 @@ export async function saveDriver(formData: FormData) {
   const passwordHash = password ? await hashPassword(password) : undefined;
 
   if (existing) {
-    await db.user.update({ where: { id: existing.userId }, data: { name, phone, ...(passwordHash ? { passwordHash } : {}) } });
+    await db.user.update({
+      where: { id: existing.userId },
+      data: { name, phone, ...(passwordHash ? { passwordHash, sessionVersion: { increment: 1 }, tokenVersion: { increment: 1 } } : {}) },
+    });
     await db.driver.update({ where: { id }, data });
   } else {
     // A customer account with this number becomes the driver's account.
@@ -147,7 +150,7 @@ export async function removeDriver(formData: FormData) {
       db.driver.update({ where: { id }, data: { active: false, showOnWebsite: false } }),
       db.trip.updateMany({ where: { driverId: id, status: "SCHEDULED", departAt: { gt: now } }, data: { driverId: null, driverResponse: null, driverNote: "Driver removed by the office" } }),
       db.booking.updateMany({ where: { driverId: id, kind: "RENTAL", status: "CONFIRMED", startedAt: null }, data: { driverId: null, driverResponse: null, driverNote: "Driver removed by the office" } }),
-      db.user.update({ where: { id: d.userId }, data: { tokenVersion: { increment: 1 } } }),
+      db.user.update({ where: { id: d.userId }, data: { tokenVersion: { increment: 1 }, sessionVersion: { increment: 1 } } }),
     ]);
   } else {
     await db.$transaction([db.driver.delete({ where: { id } }), db.user.update({ where: { id: d.userId }, data: { role: "CUSTOMER", tokenVersion: { increment: 1 } } })]);
@@ -283,6 +286,9 @@ export async function assignTripDriver(formData: FormData) {
 export async function cancelTrip(formData: FormData) {
   await requireAdmin();
   const id = str(formData, "id");
+  const trip = await db.trip.findUniqueOrThrow({ where: { id } });
+  // A trip that is under way or finished can't be cancelled (that would wipe its seats and history).
+  if (trip.status !== "SCHEDULED") fail("/admin/trips", `This trip is ${trip.status.toLowerCase()} and can't be cancelled.`);
   const bookings = await db.booking.findMany({ where: { tripId: id, status: { in: ["PENDING", "CONFIRMED"] } } });
   // The operator cancelled, so customers get a full refund.
   for (const b of bookings) await cancelBooking(b.id, { by: "ADMIN", refundAmount: b.totalAmount, note: "Trip cancelled by operator" });
@@ -387,11 +393,13 @@ export async function updateBooking(formData: FormData) {
   const b = await db.booking.findUniqueOrThrow({ where: { id } });
 
   if (action === "cancel") {
+    if (b.status !== "PENDING" && b.status !== "CONFIRMED") fail(back, `This booking is already ${b.status.toLowerCase()}.`);
     const refund = str(formData, "refundAmount");
     await cancelBooking(id, { by: "ADMIN", refundAmount: refund === "" ? undefined : Number(refund), note: note ?? "Cancelled by operator" });
   } else if (action === "complete") {
     await db.booking.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date() } });
   } else if (action === "cash" || action === "upi") {
+    if (b.paymentStatus !== "UNPAID" && b.paymentStatus !== "PARTIAL") fail(back, "Payment for this booking is already recorded.");
     // Paid at the office: cash, or a UPI payment the office saw in its account.
     const mode = action === "upi" ? "UPI" : b.paymentMode === "ADVANCE" ? "ADVANCE" : (b.paymentMode ?? "CASH");
     await db.booking.update({ where: { id }, data: { paymentStatus: "PAID", paymentMode: mode, paidAt: new Date() } });

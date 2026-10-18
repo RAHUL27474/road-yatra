@@ -148,7 +148,7 @@ export default function Results() {
                 text={`We have no scheduled trips from ${from} to ${to} on ${fmtYmdShort(date)}. Try another date above, or book a full cab.`}
                 action={
                   <View style={{ gap: spacing.sm }}>
-                    <Button title="Book a full cab" icon="car-sport-outline" onPress={() => router.navigate({ pathname: '/', params: { tab: 'hire' } })} />
+                    <Button title="Book a full cab" icon="car-sport-outline" onPress={() => router.dismissTo({ pathname: '/', params: { tab: 'hire' } })} />
                     <Button title="Change search" variant="outline" icon="search" onPress={modify} />
                   </View>
                 }

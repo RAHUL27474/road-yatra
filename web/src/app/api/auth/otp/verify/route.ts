@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { handle, ok } from "@/lib/http";
+import { handle, HttpError, ok } from "@/lib/http";
 import { verifyOtp } from "@/lib/otp";
 import { phoneSchema } from "@/lib/schemas";
 import { assertNewAccount, optionalEmail, otpChannel, otpCode, signupTarget } from "@/lib/signup";
@@ -20,6 +20,8 @@ export const POST = handle(async (req: Request) => {
   const { phone, otp, name, email, channel } = schema.parse(await req.json());
   if (channel === "EMAIL") await assertNewAccount(phone, email);
   let user = channel === "PHONE" ? await db.user.findUnique({ where: { phone } }) : null;
+  // Admin accounts log in with their password only (an OTP shown in test mode must never open the admin panel).
+  if (user?.role === "ADMIN") throw new HttpError(403, "Please log in with your password.");
   // New customers must give their name; ask before using up the OTP.
   if (!user && !name) return ok({ needsName: true });
   const { delivered } = await verifyOtp(signupTarget(channel, phone, email), otp);

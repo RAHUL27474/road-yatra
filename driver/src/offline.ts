@@ -88,3 +88,9 @@ export async function clearQueue() {
   queue = [];
   emit();
 }
+
+/** The actions still waiting to be sent (a copy). */
+export async function pendingActions() {
+  await ensureLoaded();
+  return [...queue];
+}

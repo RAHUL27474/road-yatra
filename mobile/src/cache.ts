@@ -22,7 +22,11 @@ async function write(key: string, value: unknown) {
 }
 
 export const cachedBookings = () => read<Booking[]>(LIST);
-export const cacheBookings = (list: Booking[]) => write(LIST, list);
+/** The list is the freshest copy (background task, list screen): refresh each ticket's own copy from it too. */
+export async function cacheBookings(list: Booking[]) {
+  await write(LIST, list);
+  await Promise.all(list.map((b) => write(ONE(b.id), b)));
+}
 
 /** A single ticket: the detail copy if we have one, else the copy from the list. */
 export async function cachedBooking(id: string) {
@@ -33,7 +37,7 @@ export const cacheBooking = (b: Booking) => write(ONE(b.id), b);
 /** Logout: nothing of this account stays on the phone. */
 export async function clearBookingCache() {
   try {
-    const keys = (await AsyncStorage.getAllKeys()).filter((k) => k === LIST || k.startsWith('ry_booking_') || k.startsWith('ry_notify_'));
+    const keys = (await AsyncStorage.getAllKeys()).filter((k) => k === LIST || k === 'ry_saved_travellers' || k.startsWith('ry_booking_') || k.startsWith('ry_notify_'));
     await AsyncStorage.multiRemove(keys);
   } catch {}
 }

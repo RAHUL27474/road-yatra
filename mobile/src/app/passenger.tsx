@@ -96,7 +96,9 @@ function SeatPassenger() {
   useEffect(load, [tripId]);
 
   if (!trip) return <Placeholder error={error} onRetry={load} />;
-  const baseAmount = Math.round(trip.fare * seatNos.length);
+  // Same price the server will charge, including this customer's return-trip discount (if any).
+  const discount = trip.discountPercent ?? 0;
+  const baseAmount = Math.round(trip.fare * seatNos.length * (1 - discount / 100));
   const taxAmount = Math.round(baseAmount * gstRate);
   const mins = Math.round((Date.parse(trip.arriveAt) - Date.parse(trip.departAt)) / 60000);
 
@@ -104,7 +106,7 @@ function SeatPassenger() {
     <PassengerForm
       steps={SEAT_STEPS}
       amounts={{ baseAmount, taxAmount, totalAmount: baseAmount + taxAmount }}
-      fareLabel={`Fare (${seatNos.length} × ${inr(trip.fare)})`}
+      fareLabel={`Fare (${seatNos.length} × ${inr(trip.fare)}${discount ? `, ${discount}% return discount` : ''})`}
       advance={config?.advancePerSeat ? Math.min(baseAmount + taxAmount, config.advancePerSeat * seatNos.length) : 0}
       travellers={<SeatTravellers seats={seatNos} womenOnly={womenOnly} value={travellers} onChange={setTravellers} />}
       summary={

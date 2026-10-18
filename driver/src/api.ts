@@ -1,5 +1,6 @@
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000').replace(/\/+$/, '');
 export const TOKEN_KEY = 'ry_driver_token';
+const REQUEST_TIMEOUT_MS = 20_000;
 
 export type User = { id: string; name: string; email: string | null; phone: string; role: 'CUSTOMER' | 'DRIVER' | 'ADMIN' };
 /** emailOtp: new drivers can verify by email instead of SMS. */
@@ -154,16 +155,24 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
   const token = opts.token !== undefined ? opts.token : authToken;
   if (token) headers.Authorization = `Bearer ${token}`;
   let res: Response;
+  // React Native's HTTP client has no timeout: on weak highway data a request can hang for minutes. Give up after
+  // REQUEST_TIMEOUT_MS and report it like "no network", so actions are queued and screens don't spin forever.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  let data: any = null;
   try {
     res = await fetch(API_URL + path, {
       method: opts.method ?? (opts.body !== undefined ? 'POST' : 'GET'),
       headers,
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      signal: ctrl.signal,
     });
+    data = await res.json().catch(() => null);
   } catch {
     throw new ApiError(0, `Can't reach the server at ${API_URL}. Check your internet connection.`);
+  } finally {
+    clearTimeout(timer);
   }
-  const data = await res.json().catch(() => null);
   if (!res.ok) {
     const message = data?.error || `Request failed (${res.status})`;
     checkAccessLost(path, res.status, message);

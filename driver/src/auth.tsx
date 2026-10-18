@@ -118,9 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         // Expired or invalid token: forget it. Network errors keep the token for next launch.
         if (e instanceof ApiError && e.status === 401) await clear();
-        // Opened with no signal: carry on as the last known account, so a driver still reaches the
-        // duties saved on the phone (offline boarding and cash work from there).
-        else if (e instanceof ApiError && e.status === 0) {
+        // No signal, or the server is having a moment (5xx / 429): carry on as the last known account, so a
+        // driver still reaches the duties saved on the phone (offline boarding and cash work from there).
+        else {
           const cached = await SecureStore.getItemAsync(USER_KEY).then((v) => (v ? (JSON.parse(v) as User) : null)).catch(() => null);
           if (cached && cached.role !== 'ADMIN') setSession({ user: cached, application: null, access: cached.role === 'DRIVER' ? 'driver' : 'unknown' });
         }
@@ -188,6 +188,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await stopLocationSharing();
         await stopDutyChecks();
         await api('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        // Drop the token now, so a duties request still in flight can't re-save this driver's data below.
+        setAuthToken(null);
         // Nothing of this driver's duties stays on the phone for the next person who logs in.
         await clearQueue();
         await remove(KEYS.duties, KEYS.knownDuties, KEYS.docsRemindedOn);

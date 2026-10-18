@@ -186,7 +186,9 @@ export async function buildReport(type: string, from: string, to: string): Promi
 
 export function toCsv(r: Report) {
   const esc = (v: string | number) => {
-    const s = String(v);
+    const raw = String(v);
+    // A customer-typed name like =HYPERLINK(...) must not run as a formula in Excel.
+    const s = typeof v === "string" && /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return [r.columns, ...r.rows].map((row) => row.map(esc).join(",")).join("\n");

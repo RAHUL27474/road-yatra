@@ -64,7 +64,8 @@ export async function requestOtp(target: string, channel: OtpChannel = "PHONE") 
 export async function verifyOtp(target: string, code: string): Promise<{ delivered: boolean }> {
   const otp = await db.otpCode.findFirst({ where: { phone: target, used: false }, orderBy: { createdAt: "desc" } });
   if (!otp || otp.expiresAt < new Date()) throw new HttpError(400, "OTP expired. Please request a new one.");
-  if (otp.attempts >= MAX_ATTEMPTS) throw new HttpError(429, "Too many wrong attempts. Please request a new OTP.");
+  const claim = await db.otpCode.updateMany({ where: { id: otp.id, attempts: { lt: MAX_ATTEMPTS } }, data: { attempts: { increment: 1 } } });
+  if (!claim.count) throw new HttpError(429, "Too many wrong attempts. Please request a new OTP.");
 
   let correct: boolean;
   if (otp.codeHash.startsWith(MC)) {
@@ -79,10 +80,7 @@ export async function verifyOtp(target: string, code: string): Promise<{ deliver
     const b = Buffer.from(hash(target, code));
     correct = a.length === b.length && crypto.timingSafeEqual(a, b);
   }
-  if (!correct) {
-    await db.otpCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
-    throw new HttpError(400, "Incorrect OTP.");
-  }
+  if (!correct) throw new HttpError(400, "Incorrect OTP."); // the attempt was already counted above
   await db.otpCode.update({ where: { id: otp.id }, data: { used: true } });
   return { delivered: otp.delivered };
 }

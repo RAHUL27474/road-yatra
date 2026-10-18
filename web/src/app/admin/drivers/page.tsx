@@ -19,7 +19,7 @@ export default async function DriversPage({ searchParams }: { searchParams: Prom
   const loadedAt = new Date().toISOString(); // "Received" marks only the cash shown on this page
   const cash = await db.booking.groupBy({
     by: ["cashCollectedBy"],
-    where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, paymentStatus: "PAID" },
+    where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, cashCollected: { gt: 0 } },
     _sum: { cashCollected: true },
     _count: true,
   });

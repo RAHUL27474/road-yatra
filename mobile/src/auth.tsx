@@ -1,6 +1,6 @@
 import * as storage from './storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, ApiError, setAuthToken, User } from './api';
+import { api, ApiError, setAuthToken, setUnauthorizedHandler, User } from './api';
 import { startBookingChecks, stopBookingChecks, TOKEN_KEY } from './background';
 import { clearBookingCache } from './cache';
 import { cancelAllReminders } from './notifications';
@@ -49,6 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   }, []);
 
+  useEffect(() => {
+    setUnauthorizedHandler(() => void save(null, null));
+    return () => setUnauthorizedHandler(null);
+  }, [save]);
+
   // Watch the account's bookings in the background while logged in.
   useEffect(() => {
     if (user) startBookingChecks();
@@ -67,9 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         // Expired or invalid token: forget it. Network errors keep the token for next launch.
         if (e instanceof ApiError && e.status === 401) await save(null, null);
-        // Opened with no signal (e.g. at the pickup point): stay logged in as the last known account so the
-        // tickets saved on the phone still open.
-        else if (e instanceof ApiError && e.status === 0) {
+        // No signal (e.g. at the pickup point), a captive portal or a server hiccup: stay logged in as the last
+        // known account so the tickets saved on the phone still open.
+        else {
           const cached = await storage.getItem(USER_KEY).then((v) => (v ? (JSON.parse(v) as User) : null)).catch(() => null);
           if (cached) setUser(cached);
         }

@@ -17,7 +17,8 @@ export default function Profile() {
   const [support, setSupport] = useState<string | null>(BRAND.phone);
 
   useEffect(() => {
-    getConfig().then((c) => setSupport(c.supportPhone || BRAND.phone), showError);
+    // Offline: keep the built-in office number quietly (no error popup every time the tab opens).
+    getConfig().then((c) => setSupport(c.supportPhone || BRAND.phone), () => {});
   }, []);
 
   const name = driver?.name ?? user?.name ?? '';

@@ -7,6 +7,7 @@ import { isOffIn, offPairs } from "./fleet";
 export async function searchTrips(from: string, to: string, date: string) {
   await expireStaleHolds();
   const dayStart = new Date(`${date}T00:00:00+05:30`);
+  if (Number.isNaN(dayStart.getTime())) return [];
   const dayEnd = new Date(dayStart.getTime() + 24 * 3600_000);
   const now = new Date();
 

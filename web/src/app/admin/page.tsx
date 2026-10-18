@@ -60,7 +60,7 @@ export default async function AdminDashboard() {
   const [pendingDrivers, sos, driverCash] = await Promise.all([
     db.driver.count({ where: { status: "PENDING" } }),
     db.sosAlert.findMany({ where: { resolvedAt: null }, include: { driver: { include: { user: true } } }, orderBy: { createdAt: "desc" } }),
-    db.booking.aggregate({ where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, paymentStatus: "PAID" }, _sum: { cashCollected: true }, _count: true }),
+    db.booking.aggregate({ where: { cashCollectedBy: { not: null }, cashHandedOverAt: null, cashCollected: { gt: 0 } }, _sum: { cashCollected: true }, _count: true }),
   ]);
 
   // Documents expiring within 30 days (or already expired)

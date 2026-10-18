@@ -134,7 +134,7 @@ export default function SeatSelection() {
         body: { tripId: trip.id, seatNos: selected, seatPassengers: selected.filter((n) => womenOnly.has(n)).map((seatNo) => ({ seatNo, female: true })) },
       });
       Alert.alert('Booking changed', `Your booking now is on ${fmtDateShort(trip.departAt)} at ${fmtTime(trip.departAt)}, seat ${selected.join(', ')}. Your QR ticket stays the same.`);
-      router.navigate({ pathname: '/booking/[id]', params: { id: changeFor! } });
+      router.dismissTo({ pathname: '/booking/[id]', params: { id: changeFor! } });
     } catch (e) {
       Alert.alert('Could not change', errorMessage(e));
       load();

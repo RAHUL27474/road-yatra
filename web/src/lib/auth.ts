@@ -33,12 +33,14 @@ export async function verifyToken<T = Record<string, unknown>>(token: string): P
 /** `app`: a Bearer token from a mobile app, which an app logout revokes (website cookies are not affected). */
 async function userFromToken(token: string | undefined | null, app = false): Promise<SessionUser | null> {
   if (!token) return null;
-  const payload = await verifyToken<{ sub?: string; typ?: string; tv?: number }>(token);
+  const payload = await verifyToken<{ sub?: string; typ?: string; tv?: number; sv?: number }>(token);
   if (!payload?.sub || payload.typ !== "session") return null;
   const user = await db.user.findUnique({ where: { id: payload.sub } });
   if (!user) return null;
   // App tokens issued before an app logout carry an older version and stop working.
   if (app && (payload.tv ?? 0) !== user.tokenVersion) return null;
+  // Website cookies end when the password changes or the office removes access.
+  if (!app && (payload.sv ?? 0) !== user.sessionVersion) return null;
   return { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role };
 }
 
@@ -55,8 +57,8 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 }
 
 export async function createSessionToken(userId: string) {
-  const user = await db.user.findUnique({ where: { id: userId }, select: { tokenVersion: true } });
-  return signToken({ sub: userId, typ: "session", tv: user?.tokenVersion ?? 0 });
+  const user = await db.user.findUnique({ where: { id: userId }, select: { tokenVersion: true, sessionVersion: true } });
+  return signToken({ sub: userId, typ: "session", tv: user?.tokenVersion ?? 0, sv: user?.sessionVersion ?? 0 });
 }
 
 /** App logout: every app (Bearer) token issued to this user so far stops working. Website sessions stay. */

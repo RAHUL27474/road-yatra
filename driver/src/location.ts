@@ -17,6 +17,15 @@ let lastSentAt = 0;
 let watcher: Location.LocationSubscription | null = null;
 let askedBackground = false;
 let active = false;
+// Start/stop run one at a time (a stop always lands after an earlier start), and a start abandons itself if a
+// stop was asked for while it waited on a permission prompt.
+let gen = 0;
+let lock: Promise<unknown> = Promise.resolve();
+function serial<T>(fn: () => Promise<T>): Promise<T> {
+  const run = lock.then(fn, fn);
+  lock = run.catch(() => {});
+  return run;
+}
 const listeners = new Set<(active: boolean) => void>();
 
 function setActive(v: boolean) {
@@ -79,8 +88,19 @@ function explainBackgroundLocation() {
 }
 
 /** Starts sharing (idempotent). Returns false if the driver refused location permission. */
-export async function startLocationSharing(): Promise<boolean> {
+export function startLocationSharing(): Promise<boolean> {
+  const my = gen;
+  return serial(() => startNow(my));
+}
+
+export function stopLocationSharing(): Promise<void> {
+  gen++;
+  return serial(stopNow);
+}
+
+async function startNow(my: number): Promise<boolean> {
   const fg = await Location.requestForegroundPermissionsAsync();
+  if (my !== gen) return false;
   if (fg.status !== 'granted') {
     setActive(false);
     return false;
@@ -102,6 +122,7 @@ export async function startLocationSharing(): Promise<boolean> {
       // Google Play requires this explanation, in the app, before the system "Allow all the time" prompt.
       if (await explainBackgroundLocation()) bg = await Location.requestBackgroundPermissionsAsync();
     }
+    if (my !== gen) return false; // trip ended / logged out while the driver was reading the prompt
     if (bg.status !== 'granted') return true; // foreground-only sharing
     await Location.startLocationUpdatesAsync(LOCATION_TASK, {
       accuracy: Location.Accuracy.High,
@@ -125,7 +146,7 @@ export async function startLocationSharing(): Promise<boolean> {
   return true;
 }
 
-export async function stopLocationSharing() {
+async function stopNow() {
   watcher?.remove();
   watcher = null;
   setActive(false);

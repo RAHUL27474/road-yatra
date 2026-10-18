@@ -17,7 +17,12 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
   const where: Prisma.BookingWhereInput = {};
   if (status !== "ALL") where.status = status;
   if (kind !== "ALL") where.kind = kind;
-  if (q) where.OR = [{ code: { contains: q.toUpperCase() } }, { passengerName: { contains: q } }, { passengerPhone: { contains: q } }];
+  if (q) {
+    // Postgres "contains" is case-sensitive; try the common spellings of a name.
+    const title = q.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    const names = [...new Set([q, q.toLowerCase(), q.toUpperCase(), title])].map((n) => ({ passengerName: { contains: n } }));
+    where.OR = [{ code: { contains: q.toUpperCase() } }, ...names, { passengerPhone: { contains: q } }];
+  }
   const [rows, drivers, settings] = await Promise.all([
     db.booking.findMany({ where, include: { ...bookingInclude, user: true }, orderBy: { createdAt: "desc" }, take: 200 }),
     db.driver.findMany({ where: { active: true, status: "APPROVED" }, include: { user: true } }),

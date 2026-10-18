@@ -17,7 +17,7 @@ const CITY_STATE: Record<string, [string, string]> = {
 
 export default async function InvoicePage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<{ t?: string }> }) {
   const [{ code }, { t }] = await Promise.all([params, searchParams]);
-  const access = await loadBookingForPage(code, t);
+  const access = await loadBookingForPage(code, t, ["pay", "view"]);
   if (!access || !access.booking.invoiceNo) notFound();
   const raw = access.booking;
   const b = serializeBooking(raw);

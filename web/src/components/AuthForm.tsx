@@ -11,7 +11,7 @@ import { apiFetch } from "@/lib/client";
 export default function AuthForm({ mode, otpEnabled, emailOtpEnabled }: { mode: "login" | "register"; otpEnabled: boolean; emailOtpEnabled: boolean }) {
   const params = useSearchParams();
   const next = params.get("next") || "/";
-  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  const safeNext = next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/";
   const [method, setMethod] = useState<"otp" | "password">(otpEnabled && mode === "login" ? "otp" : "password");
   const [form, setForm] = useState({ name: "", email: "", phone: "", login: "", password: "", otp: "" });
   // OTP login: "phone" = enter number, "code" = enter OTP. Sign-up: "phone" = the form, "code" = verify the OTP.

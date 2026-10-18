@@ -82,8 +82,13 @@ export default function BookingDetail() {
       return () => clearInterval(t);
     }, [user, load]),
   );
+  // Show the saved copy straight away (slow network at the pickup point), then the fresh one replaces it.
+  useEffect(() => {
+    cachedBooking(id).then((saved) => saved && setBooking((cur) => cur ?? saved));
+  }, [id]);
   useEffect(() => {
     if (!booking) return;
+    cacheBooking(booking); // also after a cancel / change made on this screen
     checkBookingUpdates([booking], true);
     syncTripReminders([booking], true);
   }, [booking]);
@@ -148,7 +153,7 @@ export default function BookingDetail() {
 
   const cancel = () => {
     let msg = `Booking ${b.code} will be cancelled.`;
-    if (b.paymentStatus === 'PAID' && b.cancellation) {
+    if ((b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIAL') && b.cancellation) {
       msg +=
         b.cancellation.charge > 0
           ? `\n\nCancellation charge ${inr(b.cancellation.charge)}, refund ${inr(b.cancellation.refundAmount)}.`
@@ -278,7 +283,7 @@ export default function BookingDetail() {
                 <Text style={type('sm', 'regular', colors.textMuted)}>
                   We are holding your {b.kind === 'SEAT' ? 'seats' : 'vehicle'} for {mins}:{String(secs).padStart(2, '0')} more. Complete the payment to confirm.
                 </Text>
-                <Button title={`Pay ${inr(b.totalAmount)}`} icon="card-outline" onPress={retryPayment} loading={busy} style={{ marginTop: spacing.md }} />
+                <Button title={b.paymentMode === 'ADVANCE' ? 'Pay advance' : `Pay ${inr(b.totalAmount)}`} icon="card-outline" onPress={retryPayment} loading={busy} style={{ marginTop: spacing.md }} />
                 <Button title="I've paid, check status" variant="ghost" onPress={load} style={{ marginTop: spacing.xs }} />
               </>
             ) : (
@@ -725,7 +730,7 @@ function ManageBooking({ booking: b, onChanged }: { booking: Booking; onChanged:
               );
             })}
           </View>
-          {b.paymentStatus === 'PAID' && b.cancellation ? (
+          {(b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIAL') && b.cancellation ? (
             <Text style={[type('xs', 'regular', colors.textMuted), { marginTop: spacing.sm }]}>{b.cancellation.refundPercent}% of those seats' fare is refunded.</Text>
           ) : null}
           <Button
