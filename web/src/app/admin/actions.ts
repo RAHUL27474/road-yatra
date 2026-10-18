@@ -391,8 +391,10 @@ export async function updateBooking(formData: FormData) {
     await cancelBooking(id, { by: "ADMIN", refundAmount: refund === "" ? undefined : Number(refund), note: note ?? "Cancelled by operator" });
   } else if (action === "complete") {
     await db.booking.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date() } });
-  } else if (action === "cash") {
-    await db.booking.update({ where: { id }, data: { paymentStatus: "PAID", paymentMode: b.paymentMode ?? "CASH", paidAt: new Date() } });
+  } else if (action === "cash" || action === "upi") {
+    // Paid at the office: cash, or a UPI payment the office saw in its account.
+    const mode = action === "upi" ? "UPI" : b.paymentMode === "ADVANCE" ? "ADVANCE" : (b.paymentMode ?? "CASH");
+    await db.booking.update({ where: { id }, data: { paymentStatus: "PAID", paymentMode: mode, paidAt: new Date() } });
     await assignInvoiceNo(id);
   } else if (action === "seatRefunded") {
     // Refund for seats cancelled from a booking that is still going: paid out by the office.
@@ -453,6 +455,10 @@ export async function saveSettings(formData: FormData) {
   await saveSetting("returnDiscountPercent", Math.min(50, Math.max(0, num(formData, "returnDiscountPercent"))));
   await saveSetting("freeChangeHours", Math.min(72, Math.max(0, num(formData, "freeChangeHours"))));
   await saveSetting("advancePerSeat", Math.max(0, Math.round(num(formData, "advancePerSeat"))));
+  const upiId = str(formData, "upiId").replace(/\s+/g, "").toLowerCase();
+  if (upiId && !/^[a-z0-9._-]{2,}@[a-z0-9.-]{2,}$/.test(upiId)) fail("/admin/settings", "UPI ID looks wrong. It should be like name@bank.");
+  await saveSetting("upiId", upiId);
+  await saveSetting("upiName", str(formData, "upiName"));
   revalidatePath("/admin/settings");
   redirect("/admin/settings?saved=1");
 }

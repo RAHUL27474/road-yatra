@@ -17,7 +17,8 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   await expireStaleHolds();
   const access = await loadBookingForPage(code, t);
   if (!access) notFound();
-  const b = serializeBooking(access.booking, (await getSettings()).cancellationSlabs);
+  const settings = await getSettings();
+  const b = serializeBooking(access.booking, settings.cancellationSlabs);
   const links = await bookingLinks(access.booking, b);
   const qrSvg = b.qrData ? await QRCode.toString(b.qrData, { type: "svg", margin: 1, width: 180 }) : null;
   const brand = process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels";
@@ -153,6 +154,20 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
           <span className="text-sm text-slate-500">{bookingTitle(b)}</span>
         </div>
         <BookingSummary b={b} />
+        {b.cashDue > 0 && b.status === "CONFIRMED" && settings.upiId && (
+          <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm">
+            <p className="font-semibold text-green-800">
+              Pay {inr(b.cashDue)} by UPI to <span className="font-mono">{settings.upiId}</span>
+            </p>
+            <p className="text-xs text-green-700">Use any UPI app with the note “{b.code}”, then show the success screen to the driver.</p>
+            <a
+              href={`upi://pay?${new URLSearchParams({ pa: settings.upiId, pn: settings.upiName, am: b.cashDue.toFixed(2), cu: "INR", tn: `Booking ${b.code}` })}`}
+              className="btn-primary mt-2 inline-block px-4 py-2 text-sm sm:hidden"
+            >
+              Open UPI app
+            </a>
+          </div>
+        )}
         {b.paymentStatus === "REFUND_PENDING" && (
           <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
             Your refund of {inr(b.refundAmount ?? 0)} is being processed and will reach your account in 5–7 working days.

@@ -38,6 +38,9 @@ export type Config = {
   advancePerSeat?: number;
   /** Office WhatsApp number for "Book on WhatsApp". */
   whatsapp?: string;
+  /** Office UPI ID: passengers can pay by UPI at boarding (empty = cash only). */
+  upiId?: string;
+  upiName?: string;
 };
 export type TripSummary = {
   id: string;

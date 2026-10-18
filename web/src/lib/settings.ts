@@ -10,6 +10,8 @@ export type Settings = {
   returnDiscountPercent: number; // off the fare of the return leg when the customer already booked the onward trip
   freeChangeHours: number; // a customer may change date or pickup once, up to this many hours before departure (0 = off)
   advancePerSeat: number; // with Razorpay: pay this much online to hold a seat, rest in cash (0 = off)
+  upiId: string; // office UPI ID (VPA) customers can pay by UPI at boarding, e.g. jaishreeshyam@sbi
+  upiName: string; // payee name shown in the UPI app
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -37,6 +39,8 @@ export const DEFAULT_SETTINGS: Settings = {
   returnDiscountPercent: 5,
   freeChangeHours: 2,
   advancePerSeat: 0,
+  upiId: "",
+  upiName: process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels",
 };
 
 export async function getSettings(): Promise<Settings> {
@@ -50,6 +54,8 @@ export async function getSettings(): Promise<Settings> {
     returnDiscountPercent: stored.returnDiscountPercent ?? DEFAULT_SETTINGS.returnDiscountPercent,
     freeChangeHours: stored.freeChangeHours ?? DEFAULT_SETTINGS.freeChangeHours,
     advancePerSeat: stored.advancePerSeat ?? DEFAULT_SETTINGS.advancePerSeat,
+    upiId: stored.upiId ?? DEFAULT_SETTINGS.upiId,
+    upiName: stored.upiName || DEFAULT_SETTINGS.upiName,
   };
 }
 

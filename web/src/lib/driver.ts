@@ -170,7 +170,11 @@ export async function markNoShow(driverId: string, bookingId: string) {
 }
 
 /** Driver confirms cash was received for a booking on their trip or rental. */
-export async function collectCash(driverId: string, bookingId: string) {
+/**
+ * Driver confirms the passenger paid: in cash (the driver holds it for the office) or by UPI straight to the
+ * office account (nothing for the driver to hand over).
+ */
+export async function collectCash(driverId: string, bookingId: string, mode: "CASH" | "UPI" = "CASH") {
   const b = await db.booking.findUnique({ where: { id: bookingId }, include: { trip: true } });
   const mine = b && (b.driverId === driverId || b.trip?.driverId === driverId);
   if (!b || !mine) throw new HttpError(404, "Booking not found in your duties.");
@@ -181,17 +185,17 @@ export async function collectCash(driverId: string, bookingId: string) {
     // After an online advance the booking keeps paymentMode ADVANCE; the driver only collects the balance.
     data: {
       paymentStatus: "PAID",
-      paymentMode: b.paymentMode === "ADVANCE" ? "ADVANCE" : "CASH",
+      paymentMode: b.paymentMode === "ADVANCE" ? "ADVANCE" : mode,
       // An advance keeps its own payment date; the cash part is dated by cashCollectedAt.
       ...(b.paymentMode === "ADVANCE" ? {} : { paidAt: new Date() }),
       cashCollectedBy: driverId,
-      cashCollected: due,
+      cashCollected: mode === "UPI" ? 0 : due,
       cashCollectedAt: new Date(),
       cashHandedOverAt: null,
     },
   });
   await assignInvoiceNo(b.id);
-  return { collected: due };
+  return { collected: due, mode };
 }
 
 export async function startTrip(driverId: string, tripId: string) {

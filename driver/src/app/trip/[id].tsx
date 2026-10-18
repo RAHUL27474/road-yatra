@@ -110,14 +110,21 @@ export default function TripScreen() {
     }
   };
 
-  const collectCash = (bookingId: string, name: string, amount: number) =>
-    confirm('Cash collected?', `Confirm you received ${inr(amount)} in cash from ${name}.`, 'Yes, collected', () =>
+  /** The passenger paid: cash to the driver, or UPI straight to the office account. */
+  const collectCash = (bookingId: string, name: string, amount: number) => {
+    const record = (mode: 'CASH' | 'UPI') =>
       act('cash' + bookingId, async () => {
-        const r = await postOrQueue<{ collected: number }>(`/api/driver/bookings/${bookingId}/collect-cash`, undefined, { kind: 'cash', bookingId }, `Cash ${inr(amount)} from ${name}`);
+        const how = mode === 'UPI' ? 'UPI' : 'cash';
+        const r = await postOrQueue<{ collected: number }>(`/api/driver/bookings/${bookingId}/collect-cash`, { mode }, { kind: 'cash', bookingId }, `${mode === 'UPI' ? 'UPI' : 'Cash'} ${inr(amount)} from ${name}`);
         haptic.success();
-        Alert.alert(r.queued ? 'Cash noted' : 'Payment recorded', r.queued ? `${inr(amount)} cash from ${name}.\n\n${SAVED_OFFLINE}` : `${inr(r.result.collected)} cash from ${name}.`);
-      }),
-    );
+        Alert.alert(r.queued ? 'Payment noted' : 'Payment recorded', r.queued ? `${inr(amount)} ${how} from ${name}.\n\n${SAVED_OFFLINE}` : `${inr(r.result.collected)} ${how} from ${name}.`);
+      });
+    Alert.alert('Payment received?', `${name} has to pay ${inr(amount)}. How did they pay?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'UPI (office account)', onPress: () => record('UPI') },
+      { text: 'Cash', onPress: () => record('CASH') },
+    ]);
+  };
 
   const board = async (body: { qr: string } | { bookingId: string; otp: string }) => {
     // The ticket QR is "RY:<code>:<otp>": find the passenger locally so an offline boarding shows on the list.
@@ -135,7 +142,7 @@ export default function TripScreen() {
     if (r.amountDue > 0)
       Alert.alert(`${r.name} boarded`, `${seatText(r.seatNos)}\n\nCollect ${inr(r.amountDue)} cash`, [
         { text: 'Later', style: 'cancel' },
-        { text: 'Cash collected', onPress: () => collectCash(r.bookingId, r.name, r.amountDue) },
+        { text: 'Payment received', onPress: () => collectCash(r.bookingId, r.name, r.amountDue) },
       ]);
     else Alert.alert(`${r.name} boarded`, `${seatText(r.seatNos)} · Paid`);
   };
@@ -368,7 +375,7 @@ export default function TripScreen() {
                       small
                       variant="success"
                       icon="cash"
-                      title={`Cash received · ${inr(p.amountDue)}`}
+                      title={`Payment received · ${inr(p.amountDue)}`}
                       style={{ marginTop: space.sm }}
                       loading={busy === 'cash' + p.bookingId}
                       onPress={() => collectCash(p.bookingId, p.name, p.amountDue)}

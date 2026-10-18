@@ -57,12 +57,23 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <h2 className="font-bold">Payments</h2>
         <label className="flex items-center gap-2 text-sm font-medium">
           <input type="checkbox" name="allowCash" defaultChecked={s.allowCash} className="h-4 w-4 accent-brand" />
-          Let customers choose &quot;Pay cash to driver&quot; (booking is confirmed without online payment)
+          Let customers choose &quot;Pay at boarding — cash or UPI&quot; (booking is confirmed without online payment)
         </label>
         <p className="text-sm text-slate-500">
           Online payments: {isDemoPayments() ? <b className="text-amber-700">not set up (add Razorpay keys)</b> : <b className="text-green-700">Razorpay connected</b>} · Mobile
           OTP: {otpAvailable("PHONE") && process.env.OTP_DEV_MODE !== "true" ? <b className="text-green-700">connected</b> : <b className="text-amber-700">not set up</b>}
         </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium">
+            Office UPI ID (customers pay by UPI at boarding)
+            <input name="upiId" defaultValue={s.upiId} placeholder="e.g. jaishreeshyam@sbi" className="input mt-1" />
+            <span className="text-xs font-normal text-slate-500">Shows a “Pay by UPI” button on the ticket. The driver marks “UPI received”. Leave empty to hide.</span>
+          </label>
+          <label className="text-sm font-medium">
+            Name shown in the UPI app
+            <input name="upiName" defaultValue={s.upiName} className="input mt-1" />
+          </label>
+        </div>
         <label className="block max-w-xs text-sm font-medium">
           Advance per seat (₹), paid online to hold a seat
           <input name="advancePerSeat" type="number" min={0} step={10} defaultValue={s.advancePerSeat} className="input mt-1" />

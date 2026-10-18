@@ -127,25 +127,33 @@ export default function RentalScreen() {
   };
 
   const collect = () =>
-    confirm('Cash collected?', `Confirm you received ${inr(r.amountDue)} in cash from ${r.customer.name}.`, 'Yes, collected', async () => {
-      setBusy(true);
-      try {
-        const c = await postOrQueue<{ collected: number }>(`/api/driver/bookings/${r.id}/collect-cash`, undefined, { kind: 'cash', bookingId: r.id }, `Cash ${inr(r.amountDue)} from ${r.customer.name}`);
-        haptic.success();
-        Alert.alert(
-          c.queued ? 'Cash noted' : 'Payment recorded',
-          c.queued
-            ? `${inr(r.amountDue)} cash from ${r.customer.name}.\n\nSaved on the phone — no internet. It will be sent automatically when the network is back.`
-            : `${inr(c.result.collected)} cash from ${r.customer.name}.`,
-        );
-        setResult((x) => (x ? { ...x, amountDue: 0 } : x));
-      } catch (e) {
-        showError(e);
-      } finally {
-        setBusy(false);
-        refresh();
-      }
-    });
+    Alert.alert('Payment received?', `${r.customer.name} has to pay ${inr(r.amountDue)}. How did they pay?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'UPI (office account)', onPress: () => record('UPI') },
+      { text: 'Cash', onPress: () => record('CASH') },
+    ]);
+
+  /** The customer paid: cash to the driver, or UPI straight to the office account. */
+  const record = async (mode: 'CASH' | 'UPI') => {
+    const how = mode === 'UPI' ? 'UPI' : 'cash';
+    setBusy(true);
+    try {
+      const c = await postOrQueue<{ collected: number }>(`/api/driver/bookings/${r.id}/collect-cash`, { mode }, { kind: 'cash', bookingId: r.id }, `${mode === 'UPI' ? 'UPI' : 'Cash'} ${inr(r.amountDue)} from ${r.customer.name}`);
+      haptic.success();
+      Alert.alert(
+        c.queued ? 'Payment noted' : 'Payment recorded',
+        c.queued
+          ? `${inr(r.amountDue)} ${how} from ${r.customer.name}.\n\nSaved on the phone — no internet. It will be sent automatically when the network is back.`
+          : `${inr(c.result.collected)} ${how} from ${r.customer.name}.`,
+      );
+      setResult((x) => (x ? { ...x, amountDue: 0 } : x));
+    } catch (e) {
+      showError(e);
+    } finally {
+      setBusy(false);
+      refresh();
+    }
+  };
 
   // Completed summary: the end-trip response if we have it, else the odometer readings on the booking.
   const kmDriven = result ? result.kmDriven : r.startOdometer != null && r.endOdometer != null ? r.endOdometer - r.startOdometer : null;
@@ -280,7 +288,7 @@ export default function RentalScreen() {
               </View>
               <Ionicons name="cash-outline" size={36} color={colors.warning} />
             </View>
-            <Button title="Cash received" icon="cash" variant="success" onPress={collect} loading={busy && !sheet} />
+            <Button title="Payment received (cash / UPI)" icon="cash" variant="success" onPress={collect} loading={busy && !sheet} />
           </Card>
         )}
 

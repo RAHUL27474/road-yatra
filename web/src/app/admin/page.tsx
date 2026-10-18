@@ -13,7 +13,8 @@ async function received(from: Date) {
   const [paid, advances, cash] = await Promise.all([
     // Paid in one go (online, or cash recorded by the office) — driver cash and advances are counted below.
     db.booking.findMany({
-      where: { paymentStatus: { in: ["PAID", "REFUND_PENDING", "REFUNDED"] }, paidAt: { gte: from }, cashCollectedAt: null, paymentMode: { not: "ADVANCE" } },
+      // Not driver cash (counted below by when the driver took it); UPI to the office counts here.
+      where: { paymentStatus: { in: ["PAID", "REFUND_PENDING", "REFUNDED"] }, paidAt: { gte: from }, cashCollected: 0, paymentMode: { not: "ADVANCE" } },
       select: { totalAmount: true },
     }),
     // Online advances, whether or not the driver has collected the balance yet (paidAt stays the advance date).

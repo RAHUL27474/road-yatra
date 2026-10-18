@@ -567,8 +567,8 @@ function PassengerForm({
                 <PayOption
                   on={mode === 'CASH'}
                   icon="cash-outline"
-                  title="Cash to driver"
-                  subtitle={`Booking confirmed now. Pay the driver when you ${isRental ? 'start the trip' : 'board'}.`}
+                  title="Pay at boarding — cash or UPI"
+                  subtitle={`Booking confirmed now. Pay ${config?.upiId ? 'in cash or by UPI' : 'in cash'} when you ${isRental ? 'start the trip' : 'board'}.`}
                   onPress={() => setPayment('CASH')}
                 />
               ) : null}

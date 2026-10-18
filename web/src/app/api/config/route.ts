@@ -26,5 +26,8 @@ export async function GET() {
     // Advance only makes sense with real online payments.
     advancePerSeat: onlinePaymentsAvailable() ? s.advancePerSeat : 0,
     whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || process.env.NEXT_PUBLIC_SUPPORT_PHONE || "",
+    // Pay by UPI at boarding (straight to the office account; the driver marks it received).
+    upiId: s.upiId,
+    upiName: s.upiName,
   });
 }

@@ -14,8 +14,8 @@ export default function PaymentChoice({ value, onChange, allowCash, allowOnline 
           <Banknote className="h-5 w-5" aria-hidden />
         </span>
         <span>
-          <span className="block font-semibold text-ink">Pay cash to driver</span>
-          <span className="text-xs text-slate-500">Your booking is confirmed now. Pay when you board.</span>
+          <span className="block font-semibold text-ink">Pay at boarding — cash or UPI</span>
+          <span className="text-xs text-slate-500">Your booking is confirmed now. Pay the driver in cash, or by UPI to our account, when you board.</span>
         </span>
       </div>
     );
@@ -26,7 +26,7 @@ export default function PaymentChoice({ value, onChange, allowCash, allowOnline 
         {(
           [
             ["ONLINE", CreditCard, "Pay online", "UPI, card, net banking"],
-            ["CASH", Banknote, "Cash to driver", "Pay when you board"],
+            ["CASH", Banknote, "Cash or UPI at boarding", "Pay when you board"],
           ] as const
         ).map(([id, Icon, title, sub]) => {
           const active = value === id;

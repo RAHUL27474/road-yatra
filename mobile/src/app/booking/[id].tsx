@@ -467,9 +467,12 @@ export default function BookingDetail() {
           {b.invoiceNo ? <Row label="Invoice no." value={b.invoiceNo} /> : null}
           <Row label="Booked on" value={fmtDateTime(b.createdAt)} />
           {cashDue ? (
-            <Notice tone="warning" icon="cash-outline" style={{ marginTop: spacing.sm }}>
-              {`Pay ${inr(cashLeft)} in cash to the driver`}
-            </Notice>
+            <>
+              <Notice tone="warning" icon="cash-outline" style={{ marginTop: spacing.sm }}>
+                {config?.upiId ? `Pay ${inr(cashLeft)} in cash or by UPI when you board` : `Pay ${inr(cashLeft)} in cash to the driver`}
+              </Notice>
+              {config?.upiId ? <PayByUpi booking={b} amount={cashLeft} upiId={config.upiId} upiName={config.upiName ?? ''} /> : null}
+            </>
           ) : null}
         </View>
 
@@ -584,6 +587,27 @@ function DriverHero({ booking: b }: { booking: Booking }) {
           Driver's name, photo and phone appear here as soon as the office assigns one — you also get a notification.
         </Text>
       )}
+    </View>
+  );
+}
+
+/**
+ * Opens the passenger's UPI app (GPay, PhonePe, Paytm, BHIM...) with the office UPI ID, amount and booking code
+ * filled in. The money goes straight to the office; the driver marks it "UPI received".
+ */
+function PayByUpi({ booking: b, amount, upiId, upiName }: { booking: Booking; amount: number; upiId: string; upiName: string }) {
+  const pay = () => {
+    const q = new URLSearchParams({ pa: upiId, pn: upiName, am: amount.toFixed(2), cu: 'INR', tn: `Booking ${b.code}` });
+    Linking.openURL(`upi://pay?${q.toString()}`).catch(() =>
+      Alert.alert('No UPI app found', `Pay ${inr(amount)} to UPI ID ${upiId} from any UPI app, with note "${b.code}".`),
+    );
+  };
+  return (
+    <View style={{ marginTop: spacing.sm, gap: 6 }}>
+      <Button title={`Pay ${inr(amount)} by UPI`} icon="phone-portrait-outline" variant="outline" size="md" onPress={pay} />
+      <Text style={[type('xs', 'regular', colors.textMuted), { textAlign: 'center' }]}>
+        To {upiId} · show the payment success screen to the driver
+      </Text>
     </View>
   );
 }

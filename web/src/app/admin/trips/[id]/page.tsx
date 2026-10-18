@@ -212,7 +212,8 @@ export default async function TripManifest({ params, searchParams }: { params: P
                     <form action={updateBooking}>
                       <input type="hidden" name="id" value={b.id} />
                       <input type="hidden" name="back" value={back} />
-                      <button name="action" value="cash" className="text-xs font-semibold text-brand">Mark paid</button>
+                      <button name="action" value="cash" className="mr-2 text-xs font-semibold text-brand">Cash</button>
+                      <button name="action" value="upi" className="text-xs font-semibold text-brand">UPI</button>
                     </form>
                   )}
                 </td>
