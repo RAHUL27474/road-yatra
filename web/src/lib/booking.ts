@@ -8,6 +8,7 @@ import { notify } from "./notify";
 import { fmtDateTime } from "./format";
 import { onlinePaymentsAvailable } from "./payment-mode";
 import { womenSeatInfo } from "./ladies";
+import { assertRunsOnRoute } from "./fleet";
 
 export const GST_RATE = 0.05; // 5% GST on passenger transport — confirm the right treatment with your CA
 export const HOLD_MINUTES = 10; // unpaid online bookings are released after this
@@ -119,6 +120,8 @@ export async function createSeatBooking(
   await checkCashAllowed(input);
   const trip = await db.trip.findUnique({ where: { id: input.tripId }, include: { vehicle: true, route: true } });
   if (!trip || trip.status !== "SCHEDULED") throw new HttpError(404, "This trip is not available for booking.");
+  // The office can still book a phone customer on it; online customers can't book a vehicle switched off here.
+  if (input.source !== "OFFLINE") await assertRunsOnRoute([trip.routeId], trip.vehicleId);
   if (trip.departAt <= new Date()) throw new HttpError(400, "This trip has already departed.");
 
   const seatNos = [...new Set(input.seatNos)].sort((a, b) => a - b);
@@ -190,6 +193,12 @@ export type RentalRequest = {
   startAt: Date;
   returnAt?: Date; // round trips only
 };
+
+/** Ids of a route and its return route (full cabs use either direction). */
+export async function routeIdsBetween(r: { fromCity: string; toCity: string }) {
+  const rows = await db.route.findMany({ where: { OR: [{ fromCity: r.fromCity, toCity: r.toCity }, { fromCity: r.toCity, toCity: r.fromCity }] }, select: { id: true } });
+  return rows.map((x) => x.id);
+}
 
 export async function findRoute(a: string, b: string) {
   return db.route.findFirst({
@@ -280,7 +289,10 @@ async function isVehicleFree(tx: Prisma.TransactionClient, vehicleId: string, st
 export async function quoteRental(req: RentalRequest) {
   await expireStaleHolds();
   const plan = await planRental(req);
-  const vehicles = await db.vehicle.findMany({ where: { active: true, allowRental: true }, orderBy: { seats: "asc" } });
+  const all = await db.vehicle.findMany({ where: { active: true, allowRental: true }, orderBy: { seats: "asc" } });
+  // Vehicles the office switched off on this route (either direction) aren't offered for it.
+  const offIds = plan.route ? new Set((await db.routeVehicleOff.findMany({ where: { routeId: { in: await routeIdsBetween(plan.route) } } })).map((o) => o.vehicleId)) : new Set<string>();
+  const vehicles = all.filter((v) => !offIds.has(v.id));
   const results = [];
   for (const v of vehicles) {
     const available = await isVehicleFree(db, v.id, plan.startAt, plan.endAt);
@@ -308,6 +320,7 @@ export async function createRentalBooking(
   const plan = await planRental(input, { allowPast: input.source === "OFFLINE" });
   const vehicle = await db.vehicle.findUnique({ where: { id: input.vehicleId } });
   if (!vehicle || !vehicle.active || !vehicle.allowRental) throw new HttpError(404, "This vehicle is not available.");
+  if (plan.route && input.source !== "OFFLINE") await assertRunsOnRoute(await routeIdsBetween(plan.route), vehicle.id);
   if (input.passengers > vehicle.seats) throw new HttpError(400, `This vehicle seats up to ${vehicle.seats} passengers.`);
   const price = priceRental(vehicle, input.rentalType, plan);
   const hasDrop = input.rentalType === "ONE_WAY" || input.rentalType === "ROUND_TRIP";

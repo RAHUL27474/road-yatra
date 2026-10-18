@@ -6,6 +6,7 @@ import { priceRental } from "@/lib/booking";
 import { fmtDate, fmtDuration, fmtTime, inr, ymd } from "@/lib/format";
 import { tomorrowMorning, whatsappLink } from "@/lib/media";
 import { routeFromSlug } from "@/lib/route-pages";
+import { isOffIn, offPairs } from "@/lib/fleet";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function RoutePage({ params }: Params) {
   const r = await routeFromSlug((await params).route);
   if (!r) notFound();
 
-  const [trips, vehicles, pickups, drops] = await Promise.all([
+  const [allTrips, allVehicles, pickups, drops] = await Promise.all([
     db.trip.findMany({
       where: { routeId: r.id, status: "SCHEDULED", departAt: { gt: new Date() } },
       include: { vehicle: true, _count: { select: { seats: true } } },
@@ -38,6 +39,11 @@ export default async function RoutePage({ params }: Params) {
     db.stop.findMany({ where: { city: r.fromCity, active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     db.stop.findMany({ where: { city: r.toCity, active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
   ]);
+  // Vehicles the office switched off on this route are not shown (Admin → Fleet on routes).
+  const off = await offPairs();
+  const reverse = await db.route.findFirst({ where: { fromCity: r.toCity, toCity: r.fromCity }, select: { id: true } });
+  const trips = allTrips.filter((t) => !isOffIn(off, r.id, t.vehicleId));
+  const vehicles = allVehicles.filter((v) => !isOffIn(off, r.id, v.id) && !(reverse && isOffIn(off, reverse.id, v.id)));
   const lowestSeat = trips.length ? Math.min(...trips.map((t) => t.fare)) : null;
   // One-way full-cab estimate per vehicle, priced exactly like the hire form (tolls included, GST extra).
   const start = new Date(Date.now() + 24 * 3600_000);

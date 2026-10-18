@@ -4,8 +4,8 @@ import { fmtDate, fmtTime, inr } from "@/lib/format";
 import Flash from "@/components/Flash";
 import { assignTripDriver, cancelTrip, scheduleTrips } from "../actions";
 
-export default async function TripsPage({ searchParams }: { searchParams: Promise<{ error?: string; created?: string; skipped?: string }> }) {
-  const { error, created, skipped } = await searchParams;
+export default async function TripsPage({ searchParams }: { searchParams: Promise<{ error?: string; created?: string; skipped?: string; routeId?: string; vehicleId?: string }> }) {
+  const { error, created, skipped, routeId, vehicleId } = await searchParams; // routeId/vehicleId: from Fleet on routes
   const [routes, vehicles, trips, drivers] = await Promise.all([
     db.route.findMany({ orderBy: [{ fromCity: "asc" }, { toCity: "asc" }] }),
     db.vehicle.findMany({ where: { active: true, allowSeatBooking: true } }),
@@ -25,7 +25,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
       <h1 className="page-title">Trips & schedule</h1>
       <Flash error={error} success={success} />
 
-      <form action={scheduleTrips} className="card space-y-3 p-4">
+      <form id="schedule" action={scheduleTrips} className="card space-y-3 scroll-mt-24 p-4">
         <h2 className="font-bold">Schedule seat trips</h2>
         {vehicles.length === 0 ? (
           <p className="text-sm text-amber-700">No active vehicle has &quot;Sell individual seats&quot; turned on. Enable it in Vehicles first.</p>
@@ -34,7 +34,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
             <div className="grid gap-3 sm:grid-cols-4">
               <div className="sm:col-span-2">
                 <label className="label">Route</label>
-                <select name="routeId" className="input" required>
+                <select name="routeId" className="input" required defaultValue={routeId}>
                   {routes.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.fromCity} → {r.toCity} ({r.distanceKm} km)
@@ -44,7 +44,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
               </div>
               <div className="sm:col-span-2">
                 <label className="label">Vehicle</label>
-                <select name="vehicleId" className="input" required>
+                <select name="vehicleId" className="input" required defaultValue={vehicleId}>
                   {vehicles.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name} · {v.regNumber} · {v.seats} seats

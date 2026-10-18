@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { expireStaleHolds, getTakenSeats, publicVehicle } from "./booking";
 import { womenSeatInfo } from "./ladies";
+import { isOffIn, offPairs } from "./fleet";
 
 /** Scheduled trips on a route for one IST calendar day (date = YYYY-MM-DD). */
 export async function searchTrips(from: string, to: string, date: string) {
@@ -19,8 +20,9 @@ export async function searchTrips(from: string, to: string, date: string) {
     include: { route: true, vehicle: true, _count: { select: { seats: true } } },
     orderBy: { departAt: "asc" },
   });
+  const off = await offPairs();
 
-  return trips.map((t) => ({
+  return trips.filter((t) => !isOffIn(off, t.routeId, t.vehicleId)).map((t) => ({
     id: t.id,
     fromCity: t.route.fromCity,
     toCity: t.route.toCity,

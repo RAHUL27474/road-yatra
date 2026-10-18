@@ -104,6 +104,17 @@ model Vehicle {
   location VehicleLocation?
 }
 
+// A vehicle switched OFF on a route by the office (Admin → Fleet on routes). No row = it runs there.
+// Off: its shared trips on that route are hidden from search and can't be booked, and it isn't offered
+// for full-cab hire on that route. Existing bookings are kept.
+model RouteVehicleOff {
+  routeId   String
+  vehicleId String
+  createdAt DateTime @default(now())
+
+  @@id([routeId, vehicleId])
+}
+
 // A known city pair. Used for seat trips and to calculate rental distance.
 model Route {
   id            String @id @default(cuid())

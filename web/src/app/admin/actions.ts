@@ -457,6 +457,19 @@ export async function saveSettings(formData: FormData) {
   redirect("/admin/settings?saved=1");
 }
 
+// ---------- Fleet on routes ----------
+
+/** Switches a vehicle on/off on one route (see RouteVehicleOff). */
+export async function toggleRouteVehicle(formData: FormData) {
+  await requireAdmin();
+  const routeId = str(formData, "routeId");
+  const vehicleId = str(formData, "vehicleId");
+  const where = { routeId_vehicleId: { routeId, vehicleId } };
+  if (await db.routeVehicleOff.findUnique({ where })) await db.routeVehicleOff.delete({ where });
+  else await db.routeVehicleOff.create({ data: { routeId, vehicleId } });
+  revalidatePath("/admin/fleet");
+}
+
 // ---------- Feedback ----------
 
 export async function markFeedbackHandled(formData: FormData) {
