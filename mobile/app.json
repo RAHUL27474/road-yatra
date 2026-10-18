@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "in.roadyatra.app"
+      "package": "in.roadyatra.app",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"

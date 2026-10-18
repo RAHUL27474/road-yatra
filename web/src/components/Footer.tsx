@@ -31,6 +31,7 @@ export default async function Footer() {
     ["/#faq", "Help & FAQ"],
     ["/login", "Login / Sign up"],
     ["/privacy", "Privacy policy"],
+    ["/delete-account", "Delete account"],
     ["/terms", "Terms & cancellation"],
   ];
 
