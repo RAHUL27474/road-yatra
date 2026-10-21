@@ -41,6 +41,8 @@ export type Config = {
   /** Office UPI ID: passengers can pay by UPI at boarding (empty = cash only). */
   upiId?: string;
   upiName?: string;
+  /** Android versionCodes: newer build on Play (latest) and oldest that still works (min). 0 = no prompt. */
+  appUpdate?: { latest: number; min: number };
 };
 export type TripSummary = {
   id: string;

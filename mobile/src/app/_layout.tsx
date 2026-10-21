@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from '../auth';
 import '../background'; // registers the background booking check at startup
 import { useNotificationRouting } from '../notifications';
 import { colors } from '../theme';
+import { checkForUpdate } from '../update';
 
 // Keep the native splash up until the fonts are ready (called at module scope, as the docs recommend).
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -28,7 +29,9 @@ export default function RootLayout() {
   const ready = fontsLoaded || !!fontError;
 
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync().catch(() => {});
+    if (!ready) return;
+    SplashScreen.hideAsync().catch(() => {});
+    checkForUpdate();
   }, [ready]);
 
   // Fonts failing to load is not fatal: the app falls back to the system font.

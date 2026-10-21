@@ -29,5 +29,7 @@ export async function GET() {
     // Pay by UPI at boarding (straight to the office account; the driver marks it received).
     upiId: s.upiId,
     upiName: s.upiName,
+    // Customer app update prompt (Android versionCodes). Raise "latest" after each Play release.
+    appUpdate: { latest: Number(process.env.CUSTOMER_APP_LATEST_VERSION) || 0, min: Number(process.env.CUSTOMER_APP_MIN_VERSION) || 0 },
   });
 }

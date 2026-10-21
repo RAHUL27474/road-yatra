@@ -11,7 +11,7 @@ import { checkBookingUpdates, syncTripReminders } from '../../notifications';
 import { supportPhone } from '../../brand';
 import { fmtDate, fmtDateTime, fmtDuration, fmtTime, inr, RENTAL_TYPE, VEHICLE_TYPE } from '../../format';
 import { VehicleArt } from '../../illustrations';
-import { openPage, openPayment, reachableUrl } from '../../store';
+import { openPage, openPayment, openPlayStore, reachableUrl } from '../../store';
 import { API_URL } from '../../api';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
 import { Button, EmptyState, ErrorBanner, hapticTap, Header, Input, IonName, isOnTrip, Notice, Row, Screen, Skeleton, statusInfo, Tone } from '../../ui';
@@ -789,7 +789,13 @@ function RateTrip({ booking: b, onRated }: { booking: Booking; onRated: (b: Book
     try {
       onRated((await api<{ booking: Booking }>(`/api/bookings/${b.id}/rate`, { body: { rating: stars, ...(comment.trim() ? { comment: comment.trim() } : {}) } })).booking);
       hapticTap();
-      Alert.alert('Thank you!', 'Your rating helps us keep every trip safe and comfortable.');
+      // Happy travellers are asked to rate the app on Google Play too.
+      if (stars >= 4) {
+        Alert.alert('Thank you!', 'Glad you enjoyed the trip. Would you rate our app on Google Play? It helps other travellers find us.', [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Rate on Play', onPress: () => openPlayStore().catch(() => {}) },
+        ]);
+      } else Alert.alert('Thank you!', 'Your rating helps us keep every trip safe and comfortable.');
     } catch (e) {
       Alert.alert('Could not send rating', errorMessage(e));
     } finally {

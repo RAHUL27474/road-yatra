@@ -37,3 +37,14 @@ export async function openPayment(rawUrl: string) {
 export async function openPage(rawUrl: string) {
   await WebBrowser.openBrowserAsync(reachableUrl(rawUrl));
 }
+
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=in.roadyatra.app';
+
+/** Opens this app's Play Store page (the Play Store app if installed, else the website). */
+export async function openPlayStore() {
+  try {
+    await Linking.openURL('market://details?id=in.roadyatra.app');
+  } catch {
+    await Linking.openURL(PLAY_STORE_URL);
+  }
+}

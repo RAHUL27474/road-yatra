@@ -80,6 +80,9 @@ async function sendSms(to: string, event: NotifyEvent, vars: string[], body: str
 export const whatsappConfigured = (event: NotifyEvent) =>
   !!process.env.WHATSAPP_TOKEN && !!process.env.WHATSAPP_PHONE_NUMBER_ID && !!process.env[`WHATSAPP_TEMPLATE_${event}`];
 
+/** Template language: WHATSAPP_LANGUAGE_<EVENT> (e.g. "en_US" for one template) or WHATSAPP_LANGUAGE for all. */
+const templateLanguage = (event: NotifyEvent) => process.env[`WHATSAPP_LANGUAGE_${event}`] || process.env.WHATSAPP_LANGUAGE || "en";
+
 /** Sends a WhatsApp template message. Resolves true only if Meta accepted it. */
 export async function sendWhatsApp(to: string, event: NotifyEvent, vars: string[], body: string): Promise<boolean> {
   if (!whatsappConfigured(event)) {
@@ -97,7 +100,7 @@ export async function sendWhatsApp(to: string, event: NotifyEvent, vars: string[
         messaging_product: "whatsapp",
         to: indian(to),
         type: "template",
-        template: { name: process.env[`WHATSAPP_TEMPLATE_${event}`], language: { code: process.env.WHATSAPP_LANGUAGE || "en" }, components },
+        template: { name: process.env[`WHATSAPP_TEMPLATE_${event}`], language: { code: templateLanguage(event) }, components },
       }),
     });
     // Never store the OTP itself in the message log.

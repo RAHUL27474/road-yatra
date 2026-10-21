@@ -5,12 +5,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL, Config, errorMessage, getConfig } from '../../api';
 import { useAuth } from '../../auth';
 import { BRAND, Devotional, Emblem, supportPhone, telUrl } from '../../brand';
-import { openPage } from '../../store';
+import { openPage, openPlayStore, PLAY_STORE_URL } from '../../store';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
 import { Button, Input, ListRow, Loading, Notice, Screen } from '../../ui';
 
@@ -83,6 +83,8 @@ export default function Account() {
   const callOffice = () => Linking.openURL(telUrl(BRAND.phone)).catch(() => {});
   const whatsapp = () => Linking.openURL(BRAND.whatsapp).catch(() => {});
   const version = Constants.expoConfig?.version ?? '1.0.0';
+  const shareApp = () =>
+    Share.share({ message: `Book shared taxi seats and full cabs with ${BRAND.name}. Get the app: ${PLAY_STORE_URL}` }).catch(() => {});
 
   return (
     <Screen>
@@ -182,6 +184,8 @@ export default function Account() {
               onPress={config ? () => Alert.alert('Cancellation policy', cancellationPolicy(config)) : undefined}
             />
             <ListRow icon="star-outline" title="Give feedback" subtitle="Rate us in one tap" tone="warning" onPress={() => router.push('/feedback')} />
+            <ListRow icon="logo-google-playstore" title="Rate us on Google Play" subtitle="Help other travellers find us" tone="success" onPress={() => openPlayStore().catch(() => {})} />
+            <ListRow icon="share-social-outline" title="Share the app" subtitle="Send it to family and friends" tone="brand" onPress={shareApp} />
             <ListRow icon="document-text-outline" title="Terms & cancellation" tone="brand" onPress={() => openPage(`${API_URL}/terms`)} />
             <ListRow icon="lock-closed-outline" title="Privacy policy" tone="brand" onPress={() => openPage(`${API_URL}/privacy`)} />
             <ListRow
