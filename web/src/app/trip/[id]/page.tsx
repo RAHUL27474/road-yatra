@@ -26,7 +26,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
     <div>
       <div className="bg-gradient-to-r from-brand-darker via-brand-dark to-brand text-white">
         <div className="container-x py-5">
-          <Link href={backHref} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-100 hover:text-white">
+          <Link href={backHref} className="inline-flex items-center gap-1 text-sm font-semibold text-slate-300 hover:text-white">
             <ChevronLeft className="h-4 w-4" aria-hidden /> Back to departures
           </Link>
           <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -36,7 +36,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                 <h1 className="text-xl font-extrabold sm:text-2xl">
                   {trip.fromCity} → {trip.toCity}
                 </h1>
-                <p className="text-sm text-blue-100">
+                <p className="text-sm text-slate-300">
                   {fmtDate(trip.departAt)} · {trip.vehicle.name} ({VEHICLE_TYPES[trip.vehicle.type] ?? trip.vehicle.type})
                 </p>
               </div>
@@ -44,19 +44,19 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
             <div className="flex items-center gap-4 rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/20">
               <div>
                 <p className="text-xl font-extrabold tabular-nums">{fmtTime(trip.departAt)}</p>
-                <p className="text-xs text-blue-100">{trip.fromCity}</p>
+                <p className="text-xs text-slate-300">{trip.fromCity}</p>
               </div>
-              <div className="flex flex-col items-center px-2 text-xs text-blue-100">
+              <div className="flex flex-col items-center px-2 text-xs text-slate-300">
                 <Clock className="h-3.5 w-3.5" aria-hidden />
                 {fmtDuration(duration)}
               </div>
               <div className="text-right">
                 <p className="text-xl font-extrabold tabular-nums">{fmtTime(trip.arriveAt)}</p>
-                <p className="text-xs text-blue-100">{trip.toCity}</p>
+                <p className="text-xs text-slate-300">{trip.toCity}</p>
               </div>
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-blue-100 [&_.chip]:bg-white/15 [&_.chip]:text-white [&_svg]:text-white">
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-300 [&_.chip]:bg-white/15 [&_.chip]:text-white [&_svg]:text-white">
             <Amenities items={trip.vehicle.amenities} />
             {trip.boardingPoint && <span>{trip.boardingPoint}</span>}
           </div>

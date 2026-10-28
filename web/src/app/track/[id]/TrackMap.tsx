@@ -8,7 +8,7 @@ import type { Track } from "./TrackView";
 const ICONS = {
   pickup: '<circle cx="12" cy="12" r="5" fill="white"/>',
   drop: '<path d="M8 5v14M8 5h9l-2 3 2 3H8" stroke="white" stroke-width="2" fill="none" stroke-linejoin="round"/>',
-  car: '<path d="M5 15l1.5-5A2 2 0 0 1 8.4 8.6h7.2a2 2 0 0 1 1.9 1.4L19 15v3h-2v-1H7v1H5z" fill="white"/><circle cx="8" cy="15" r="1.2" fill="#0b3d91"/><circle cx="16" cy="15" r="1.2" fill="#0b3d91"/>',
+  car: '<path d="M5 15l1.5-5A2 2 0 0 1 8.4 8.6h7.2a2 2 0 0 1 1.9 1.4L19 15v3h-2v-1H7v1H5z" fill="white"/><circle cx="8" cy="15" r="1.2" fill="#1e4fd8"/><circle cx="16" cy="15" r="1.2" fill="#1e4fd8"/>',
 };
 const pin = (kind: keyof typeof ICONS, bg: string, size = 34) =>
   L.divIcon({
@@ -52,7 +52,7 @@ export default function TrackMap({ data }: { data: Track }) {
       points.push([data.drop.lat, data.drop.lng]);
     }
     if (data.location) {
-      L.marker([data.location.lat, data.location.lng], { icon: pin("car", "#0b3d91", 40), zIndexOffset: 1000 }).bindTooltip(data.vehicle?.number ?? "Vehicle").addTo(layer.current);
+      L.marker([data.location.lat, data.location.lng], { icon: pin("car", "#1e4fd8", 40), zIndexOffset: 1000 }).bindTooltip(data.vehicle?.number ?? "Vehicle").addTo(layer.current);
       points.push([data.location.lat, data.location.lng]);
     }
     // Fit everything once; after that, follow the vehicle without fighting the user's zoom.

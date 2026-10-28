@@ -391,10 +391,10 @@ function SeatTile({ n, size, state, onPress }: { n: number; size: number; state:
 function Legend({ kind, label }: { kind: SeatState; label: string }) {
   return (
     <View style={st.legendChip}>
-      <View style={{ width: 16, height: 18 }}>
-        <SeatShape w={16} h={18} state={kind} />
+      <View style={{ width: 14, height: 16 }}>
+        <SeatShape w={14} h={16} state={kind} />
       </View>
-      <Text style={type('xs', 'semibold', colors.text)}>{label}</Text>
+      <Text style={type('xs', 'medium', colors.textMuted)}>{label}</Text>
     </View>
   );
 }
@@ -414,22 +414,23 @@ function InfoLine({ icon, color, label, text }: { icon: 'radio-button-on' | 'loc
 }
 
 const st = StyleSheet.create({
-  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg, ...shadowSoft },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
   miniLine: { flex: 1, maxWidth: 28, height: 1.5, backgroundColor: colors.border },
   amenities: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   amenity: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.brandLight, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
-  legend: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginBottom: spacing.lg, flexWrap: 'wrap' },
-  legendChip: {
+  // One quiet row (redBus style): small seat swatch + label, no pill borders.
+  legend: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    minHeight: 30,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    columnGap: spacing.lg,
+    rowGap: spacing.sm,
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
+  legendChip: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   body: {
     borderWidth: 2,
     borderColor: '#D5DEE9',

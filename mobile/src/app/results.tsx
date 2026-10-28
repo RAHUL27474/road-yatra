@@ -2,15 +2,32 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api, errorMessage, TripSummary } from '../api';
 import { dayDiff, fmtDuration, fmtTime, fmtYmdShort, inr, nextDays, VEHICLE_TYPE } from '../format';
 import { VehicleArt } from '../illustrations';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../theme';
-import { amenityIcon, Button, EmptyState, ErrorBanner, hapticSelect, Header, Screen, Skeleton } from '../ui';
+import { amenityIcon, Button, EmptyState, ErrorBanner, hapticSelect, Header, HeaderButton, Screen, Skeleton } from '../ui';
 
 type Sort = 'early' | 'cheap';
 const PRICE_DAYS = 14;
+
+/** Departure-time filters (IST hours, end exclusive), as on redBus. */
+type Slot = 'morning' | 'afternoon' | 'evening' | 'night';
+const SLOTS: { key: Slot; label: string; icon: 'partly-sunny-outline' | 'sunny-outline' | 'cloudy-night-outline' | 'moon-outline'; from: number; to: number }[] = [
+  { key: 'morning', label: 'Morning', icon: 'partly-sunny-outline', from: 6, to: 12 },
+  { key: 'afternoon', label: 'Afternoon', icon: 'sunny-outline', from: 12, to: 17 },
+  { key: 'evening', label: 'Evening', icon: 'cloudy-night-outline', from: 17, to: 21 },
+  { key: 'night', label: 'Night', icon: 'moon-outline', from: 21, to: 30 },
+];
+const istHour = (iso: string) => new Date(new Date(iso).getTime() + 5.5 * 3_600_000).getUTCHours();
+const inSlot = (iso: string, s: Slot) => {
+  const slot = SLOTS.find((x) => x.key === s)!;
+  const h = istHour(iso);
+  // Night runs 21:00-06:00, so early hours count as 24+.
+  const hh = h < 6 ? h + 24 : h;
+  return hh >= slot.from && hh < slot.to;
+};
 
 /** Lowest open fare per day for a route (null = no trips), cached for the session. */
 const priceCache = new Map<string, number | null>();
@@ -50,6 +67,7 @@ export default function Results() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [sort, setSort] = useState<Sort>('early');
+  const [slot, setSlot] = useState<Slot | null>(null);
   const priceOf = useDayPrices(from, to, days);
 
   const load = useCallback(async () => {
@@ -78,7 +96,7 @@ export default function Results() {
 
   const sorted = useMemo(() => {
     if (!trips) return null;
-    const list = [...trips];
+    const list = slot ? trips.filter((t) => inSlot(t.departAt, slot)) : [...trips];
     // Sold-out trips always go last.
     list.sort(
       (a, b) =>
@@ -87,7 +105,7 @@ export default function Results() {
         a.departAt.localeCompare(b.departAt),
     );
     return list;
-  }, [trips, sort]);
+  }, [trips, sort, slot]);
 
   const failed = !!error && !trips?.length;
   const count = failed ? 'Could not load trips' : trips ? `${trips.length} trip${trips.length === 1 ? '' : 's'}` : 'Searching…';
@@ -98,12 +116,7 @@ export default function Results() {
       <Header
         title={change ? `Change date · ${from} → ${to}` : `${from} → ${to}`}
         subtitle={`${fmtYmdShort(date)} · ${count}`}
-        right={
-          <Pressable onPress={modify} hitSlop={6} style={({ pressed }) => [st.modify, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Modify search">
-            <Ionicons name="create-outline" size={16} color={colors.white} />
-            <Text style={type('xs', 'bold', colors.white)}>Modify</Text>
-          </Pressable>
-        }
+        right={<HeaderButton icon="create-outline" label="Modify" onPress={modify} accessibilityLabel="Modify search" />}
       />
       <DateStrip days={days} value={date} onChange={changeDate} priceOf={priceOf} />
       {trips === null || trips.length ? (
@@ -113,6 +126,33 @@ export default function Results() {
           </Text>
           <SortPill label="Earliest" icon="time-outline" on={sort === 'early'} onPress={() => setSort('early')} />
           <SortPill label="Cheapest" icon="pricetag-outline" on={sort === 'cheap'} onPress={() => setSort('cheap')} />
+        </View>
+      ) : null}
+      {trips && trips.length > 1 ? (
+        <View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.slotRow}>
+            {SLOTS.map((s) => {
+              const on = slot === s.key;
+              const n = trips.filter((t) => inSlot(t.departAt, s.key)).length;
+              return (
+                <Pressable
+                  key={s.key}
+                  disabled={!n && !on}
+                  onPress={() => {
+                    hapticSelect();
+                    setSlot(on ? null : s.key);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on, disabled: !n && !on }}
+                  style={({ pressed }) => [st.slot, on && st.slotOn, !n && !on && { opacity: 0.45 }, pressed && { opacity: 0.75 }]}
+                >
+                  <Ionicons name={s.icon} size={15} color={on ? colors.brand : colors.textMuted} />
+                  <Text style={type('xs', 'bold', on ? colors.brand : colors.text)}>{s.label}</Text>
+                  <Text style={[type('xs', 'semibold', on ? colors.brand : colors.textSubtle), tabular]}>{n}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
       ) : null}
       {sorted === null ? (
@@ -134,7 +174,14 @@ export default function Results() {
           }}
           ListHeaderComponent={failed ? null : <ErrorBanner message={error} onRetry={load} />}
           ListEmptyComponent={
-            failed ? (
+            slot && trips?.length ? (
+              <EmptyState
+                art="noTrips"
+                title="No trips at this time"
+                text="Clear the time filter to see every trip on this date."
+                action={<Button title="Show all trips" variant="outline" icon="close" onPress={() => setSlot(null)} />}
+              />
+            ) : failed ? (
               <EmptyState
                 art="error"
                 title="Couldn't load trips"
@@ -408,6 +455,19 @@ const st = StyleSheet.create({
     backgroundColor: colors.card,
   },
   pillOn: { backgroundColor: colors.text, borderColor: colors.text },
+  slotRow: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  slot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    minHeight: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  slotOn: { borderColor: colors.brand, backgroundColor: colors.brandLight },
   card: { backgroundColor: colors.card, borderRadius: radius.card, overflow: 'hidden', ...shadowSoft },
   cardBody: { padding: spacing.lg },
   duration: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.sm, minWidth: 56 },

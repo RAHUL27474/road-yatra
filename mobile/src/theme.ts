@@ -1,44 +1,47 @@
 // Jai Shree Shyam Tour & Travels design tokens (same palette as the website). Shared design language with the driver app — keep the two in sync.
 import { Platform, TextStyle, ViewStyle } from 'react-native';
 
+// Brand palette: royal blue (brand, headers, selection) + orange (the one action colour), neutral greys.
 export const colors = {
-  brand: '#1E3A8A',
-  brandDark: '#0B3D91',
-  brandLight: '#E8EEFB',
-  /** Saffron: secondary highlights (promo labels, small CTAs). */
-  accent: '#F57C00',
-  accentLight: '#FFF3E0',
-  /** Primary CTA gradient: devotional red into saffron. */
-  accentGradient: ['#D32F2F', '#F57C00'] as const,
-  brandGradient: ['#1E3A8A', '#0B3D91'] as const,
-  /** Golden yellow: the devotional line, emblem ring and small highlights. */
-  gold: '#FFC107',
-  goldLight: '#FFF8E1',
-  success: '#16A34A',
-  successLight: '#DCFCE7',
-  warning: '#D97706',
-  warningLight: '#FEF3C7',
+  /** Royal blue: selected states, links, icons. */
+  brand: '#1E4FD8',
+  brandDark: '#173FAE',
+  brandLight: '#EAF1FF',
+  /** Orange: primary buttons and key highlights (the sun in the logo). */
+  accent: '#F26A1B',
+  accentLight: '#FFF1E8',
+  /** Kept for existing call sites; primary buttons are a solid orange fill. */
+  accentGradient: ['#F26A1B', '#F26A1B'] as const,
+  /** Home / account / login hero: deep blue, same as the logo's background. */
+  brandGradient: ['#0F2A75', '#1E4FD8'] as const,
+  /** Gold sun from the logo: small highlights. */
+  gold: '#F5A524',
+  goldLight: '#FFF6E5',
+  success: '#15803D',
+  successLight: '#E8F6EE',
+  warning: '#B45309',
+  warningLight: '#FEF4E2',
   danger: '#DC2626',
-  dangerLight: '#FEE2E2',
-  text: '#0F172A',
-  textMuted: '#64748B',
-  textSubtle: '#94A3B8',
-  border: '#E2E8F0',
-  background: '#F1F5F9',
-  surface: '#F8FAFC',
+  dangerLight: '#FDECEC',
+  text: '#111827',
+  textMuted: '#6B7280',
+  textSubtle: '#9CA3AF',
+  border: '#E5E7EB',
+  background: '#F4F7FC',
+  surface: '#F9FAFB',
   card: '#FFFFFF',
   white: '#FFFFFF',
-  onBrandMuted: '#C9D6F2',
-  seatTaken: '#E2E8F0',
+  onBrandMuted: '#BFD0F5',
+  seatTaken: '#E5E7EB',
   /** Brand-tinted ripple / focus ring. */
-  brandRipple: 'rgba(30,58,138,0.06)',
-  brandRing: 'rgba(30,58,138,0.16)',
-  overlay: 'rgba(15, 23, 42, 0.45)',
+  brandRipple: 'rgba(30,79,216,0.06)',
+  brandRing: 'rgba(30,79,216,0.16)',
+  overlay: 'rgba(17, 24, 39, 0.5)',
 } as const;
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 } as const;
 
-export const radius = { input: 8, card: 14, pill: 999 } as const;
+export const radius = { input: 12, card: 16, pill: 999 } as const;
 
 /** Inter font family names, loaded in the root layout. Android needs one family per weight. */
 export const fonts = {
@@ -64,14 +67,15 @@ export const type = (size: keyof typeof fontSize = 'sm', weight: FontWeight = 'r
 /** Fixed-width digits so times and prices line up. */
 export const tabular: TextStyle = { fontVariant: ['tabular-nums'] };
 
+// Shadows stay barely-there; cards get their edge from a hairline border (see ui.card) instead.
 export const shadow: ViewStyle = Platform.select<ViewStyle>({
-  ios: { shadowColor: '#0F172A', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
-  default: { elevation: 3, shadowColor: '#0F172A' },
+  ios: { shadowColor: '#111827', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } },
+  default: { elevation: 2, shadowColor: 'rgba(17,24,39,0.35)' },
 })!;
 
 export const shadowSoft: ViewStyle = Platform.select<ViewStyle>({
-  ios: { shadowColor: '#0F172A', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
-  default: { elevation: 2, shadowColor: '#0F172A' },
+  ios: { shadowColor: '#111827', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },
+  default: { elevation: 1, shadowColor: 'rgba(17,24,39,0.3)' },
 })!;
 
 export const theme = { colors, spacing, radius, fonts, fontSize, shadow, shadowSoft, type, tabular };

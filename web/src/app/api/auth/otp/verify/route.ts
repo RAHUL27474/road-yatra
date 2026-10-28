@@ -22,8 +22,11 @@ export const POST = handle(async (req: Request) => {
   let user = channel === "PHONE" ? await db.user.findUnique({ where: { phone } }) : null;
   // Admin accounts log in with their password only (an OTP shown in test mode must never open the admin panel).
   if (user?.role === "ADMIN") throw new HttpError(403, "Please log in with your password.");
-  // New customers must give their name; ask before using up the OTP.
-  if (!user && !name) return ok({ needsName: true });
+  // New customers must give their name; check the OTP first (a wrong one is reported now), but ask before using it up.
+  if (!user && !name) {
+    await verifyOtp(signupTarget(channel, phone, email), otp, { keep: true });
+    return ok({ needsName: true });
+  }
   const { delivered } = await verifyOtp(signupTarget(channel, phone, email), otp);
   const phoneVerified = channel === "PHONE" && delivered;
   user ??= await db.user.create({ data: { phone, name: name!, email: channel === "EMAIL" ? email : undefined, phoneVerified } });

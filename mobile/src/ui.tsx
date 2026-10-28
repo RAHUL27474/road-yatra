@@ -2,7 +2,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ComponentProps, ReactNode, useEffect, useState } from 'react';
@@ -26,7 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BookingStatus, TripStatus, VehicleType } from './api';
 import { inr } from './format';
 import { Illustration, IllustrationKind } from './illustrations';
-import { colors, fonts, radius, shadow, shadowSoft, spacing, tabular, type } from './theme';
+import { colors, fonts, radius, shadowSoft, spacing, tabular, type } from './theme';
 
 export type IonName = ComponentProps<typeof Ionicons>['name'];
 export type MciName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -130,7 +129,26 @@ const goBack = () => {
   else router.replace('/');
 };
 
-/** Gradient brand header with a back button and title. `large` gives the tall Home-style header. */
+/** Compact action for a Header's `right` slot: outlined pill with an icon and optional label. */
+export function HeaderButton({ icon, label, onPress, accessibilityLabel }: { icon: IonName; label?: string; onPress: () => void; accessibilityLabel?: string }) {
+  return (
+    <Pressable
+      onPress={() => {
+        hapticTap();
+        onPress();
+      }}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      style={({ pressed }) => [ui.headerAction, !label && { width: 40, paddingHorizontal: 0 }, pressed && { backgroundColor: colors.background }]}
+    >
+      <Ionicons name={icon} size={label ? 16 : 20} color={colors.text} />
+      {label ? <Text style={type('xs', 'bold', colors.text)}>{label}</Text> : null}
+    </Pressable>
+  );
+}
+
+/** Clean white app bar (back, title, subtitle, actions) with a hairline divider. `large` gives a taller title. */
 export function Header({
   title,
   subtitle,
@@ -154,37 +172,43 @@ export function Header({
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <LinearGradient
-      colors={colors.brandGradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ paddingTop: insets.top + (large ? spacing.lg : spacing.sm), paddingBottom: (large ? spacing.xxl : spacing.md) + overlap }}
+    <View
+      style={[
+        ui.header,
+        { paddingTop: insets.top + (large ? spacing.lg : spacing.xs), paddingBottom: (large ? spacing.xl : spacing.sm) + overlap },
+      ]}
     >
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       {title || back || right ? (
         <View style={ui.headerRow}>
           {back ? (
-            <Pressable onPress={onBack ?? goBack} hitSlop={8} style={ui.headerBtn} accessibilityRole="button" accessibilityLabel="Back">
-              <Ionicons name="arrow-back" size={22} color={colors.white} />
+            <Pressable
+              onPress={onBack ?? goBack}
+              hitSlop={8}
+              style={({ pressed }) => [ui.headerBtn, pressed && { backgroundColor: colors.background }]}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <Ionicons name="arrow-back" size={22} color={colors.text} />
             </Pressable>
           ) : null}
           <View style={{ flex: 1, paddingLeft: back ? spacing.xs : spacing.lg }}>
             {title ? (
-              <Text style={large ? type('xxl', 'extrabold', colors.white) : type('lg', 'bold', colors.white)} numberOfLines={1}>
+              <Text style={[large ? type('xxl', 'extrabold') : type('lg', 'bold'), { letterSpacing: -0.2 }]} numberOfLines={1}>
                 {title}
               </Text>
             ) : null}
             {subtitle ? (
-              <Text style={[type('xs', 'medium', colors.onBrandMuted), { marginTop: 1 }]} numberOfLines={1}>
+              <Text style={[type('xs', 'medium', colors.textMuted), { marginTop: 1 }]} numberOfLines={1}>
                 {subtitle}
               </Text>
             ) : null}
           </View>
-          {right ? <View style={{ paddingRight: spacing.sm }}>{right}</View> : <View style={{ width: spacing.sm }} />}
+          {right ? <View style={{ paddingRight: spacing.md }}>{right}</View> : <View style={{ width: spacing.sm }} />}
         </View>
       ) : null}
       {children}
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -397,9 +421,9 @@ export function Button({
       : variant === 'dangerOutline'
         ? colors.danger
         : colors.brand;
-  const bg = variant === 'secondary' ? colors.brand : variant === 'danger' ? colors.danger : 'transparent';
+  const bg = variant === 'primary' ? colors.accent : variant === 'secondary' ? colors.brand : variant === 'danger' ? colors.danger : 'transparent';
   const border =
-    variant === 'outline' ? { borderWidth: 1.5, borderColor: colors.brand } : variant === 'dangerOutline' ? { borderWidth: 1.5, borderColor: colors.danger } : null;
+    variant === 'outline' ? { borderWidth: 1, borderColor: colors.brand } : variant === 'dangerOutline' ? { borderWidth: 1, borderColor: colors.danger } : null;
   const content = loading ? (
     <ActivityIndicator color={fg} />
   ) : (
@@ -421,18 +445,11 @@ export function Button({
       accessibilityState={{ disabled: !!off, busy: !!loading }}
       style={({ pressed }) => [
         { height, borderRadius: size === 'lg' ? 12 : 10, overflow: 'hidden', alignSelf: fullWidth ? 'stretch' : 'auto' },
-        { opacity: off ? 0.5 : pressed ? 0.88 : 1 },
-        variant === 'primary' && !off && shadowSoft,
+        { opacity: off ? 0.45 : pressed ? 0.88 : 1 },
         style,
       ]}
     >
-      {variant === 'primary' ? (
-        <LinearGradient colors={colors.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={ui.btnInner}>
-          {content}
-        </LinearGradient>
-      ) : (
-        <View style={[ui.btnInner, { backgroundColor: bg, borderRadius: size === 'lg' ? 12 : 10 }, border]}>{content}</View>
-      )}
+      <View style={[ui.btnInner, { backgroundColor: bg, borderRadius: size === 'lg' ? 12 : 10 }, border]}>{content}</View>
     </Pressable>
   );
 }
@@ -752,16 +769,21 @@ export function ListRow({
   tone?: Tone;
   last?: boolean;
 }) {
-  const t = TONES[tone];
+  // One icon colour for every row (only destructive rows turn red): calmer than a rainbow of tinted circles.
+  const fg = tone === 'danger' ? colors.danger : colors.text;
   return (
     <Pressable
       onPress={onPress}
       disabled={!onPress}
       style={({ pressed }) => [ui.listRow, !last && ui.listRowBorder, pressed && { backgroundColor: colors.background }]}
     >
-      {icon || mci ? <IconCircle name={icon} mci={mci} size={38} color={t.fg} bg={t.bg} /> : null}
+      {icon || mci ? (
+        <View style={ui.listIcon}>
+          {mci ? <MaterialCommunityIcons name={mci} size={21} color={fg} /> : <Ionicons name={icon ?? 'ellipse'} size={21} color={fg} />}
+        </View>
+      ) : null}
       <View style={{ flex: 1 }}>
-        <Text style={type('md', 'semibold')} numberOfLines={1}>
+        <Text style={type('md', 'semibold', tone === 'danger' ? colors.danger : colors.text)} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (
@@ -900,9 +922,22 @@ export function BottomBar({
 // ---------------------------------------------------------------- styles
 
 export const ui = StyleSheet.create({
-  card: { backgroundColor: colors.card, borderRadius: radius.card, ...shadow },
-  headerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingHorizontal: spacing.xs },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.border, ...shadowSoft },
+  header: { backgroundColor: colors.card, borderBottomWidth: StyleSheet.hairlineWidth * 2, borderBottomColor: colors.border },
+  headerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: spacing.xs },
   headerBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  headerAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    height: 36,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
   headerBtnDark: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginRight: -10 },
   btnInner: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 6 },
@@ -965,8 +1000,9 @@ export const ui = StyleSheet.create({
   segBtn: { flex: 1, flexDirection: 'row', gap: 6, minHeight: 44, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.sm },
   segOn: { backgroundColor: colors.card, ...shadowSoft },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, alignSelf: 'flex-start' },
-  listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 64, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 60, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   listRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth * 2, borderBottomColor: colors.border },
+  listIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   amenityPill: {
     flexDirection: 'row',
     alignItems: 'center',

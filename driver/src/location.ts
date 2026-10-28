@@ -135,7 +135,7 @@ async function startNow(my: number): Promise<boolean> {
       foregroundService: {
         notificationTitle: 'Sharing trip location',
         notificationBody: 'JSS Travels is sharing the vehicle location with passengers during your trip.',
-        notificationColor: '#1E3A8A',
+        notificationColor: '#1E4FD8',
         killServiceOnDestroy: false,
       },
     });

@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BRAND, Devotional, Emblem, RouteMotif } from './brand';
+import { BRAND, Emblem } from './brand';
 import { colors, fonts, radius, shadow, spacing, type } from './theme';
 
 /** Branded frame for the login / register screens: gradient top with the logo, then a card form. */
@@ -23,24 +23,21 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
           colors={colors.brandGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingTop: insets.top + spacing.sm, paddingBottom: 64, paddingHorizontal: spacing.xl }}
+          style={{ paddingTop: insets.top + spacing.sm, paddingBottom: 56, paddingHorizontal: spacing.xl }}
         >
-          <View style={st.decor} />
           <Pressable onPress={close} hitSlop={8} style={st.close} accessibilityLabel="Close">
             <Ionicons name="close" size={24} color={colors.white} />
           </Pressable>
-          <View style={{ alignItems: 'center', marginTop: spacing.xs }}>
-            <Devotional size={13} style={{ marginBottom: spacing.sm }} />
+          {/* Compact brand row (logo + name) keeps the form above the keyboard on small phones. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm }}>
             <View style={st.logo}>
-              <Emblem size={76} />
+              <Emblem size={48} ring />
             </View>
-            <Text style={[type('xxl', 'extrabold', colors.white), { marginTop: spacing.md, letterSpacing: -0.5, textAlign: 'center' }]} numberOfLines={1} adjustsFontSizeToFit>
-              {BRAND.wordmark}
-            </Text>
-            <Text style={[type('xs', 'bold', colors.gold), { letterSpacing: 2, marginTop: 1 }]}>{BRAND.wordmarkSub.toUpperCase()}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
-              <RouteMotif width={40} />
-              <Text style={type('sm', 'medium', colors.onBrandMuted)}>{BRAND.tagline}</Text>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[type('xl', 'extrabold', colors.white), { letterSpacing: -0.3 }]} numberOfLines={1} adjustsFontSizeToFit>
+                {BRAND.wordmark}
+              </Text>
+              <Text style={[type('xs', 'bold', colors.gold), { letterSpacing: 2 }]}>{BRAND.wordmarkSub.toUpperCase()}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -91,10 +88,9 @@ export function OtpInput({ value, onChange, onSubmit, length = 6 }: { value: str
 }
 
 const st = StyleSheet.create({
-  decor: { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(255,255,255,0.06)', top: -80, right: -80 },
   close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginLeft: -spacing.sm },
-  logo: { borderRadius: 38, ...shadow },
-  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.xl, ...shadow },
+  logo: { borderRadius: 24 },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadow },
   otpBox: {
     flex: 1,
     maxWidth: 52,

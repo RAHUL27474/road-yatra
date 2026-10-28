@@ -1,4 +1,4 @@
-// Jai Shree Shyam Tour & Travels brand for the driver app: business facts, round emblem, devotional line.
+// Jai Shree Shyam Tour & Travels brand for the driver app: business facts, logo mark, devotional line.
 import { Image, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { colors } from './theme';
 
@@ -13,19 +13,17 @@ export const BRAND = {
   phone: '+91 99976 81790',
 } as const;
 
-const EMBLEM = require('../assets/images/emblem.png');
+const LOGO_MARK = require('../assets/images/logo-mark.png');
 
-/** Round Khatu Shyam ji emblem with a gold ring. */
-export function Emblem({ size = 48, style }: { size?: number; style?: StyleProp<ViewStyle> }) {
-  const border = Math.max(2, Math.round(size * 0.05));
-  const inner = size - border * 2;
+/** The logo mark (an "S" drawn as a road with a gold sun), same as the customer app and website. */
+export function LogoMark({ size = 48, style }: { size?: number; style?: StyleProp<ViewStyle> }) {
   return (
     <View
-      style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.gold, padding: border, overflow: 'hidden' }, style]}
+      style={[{ width: size, height: size, borderRadius: size * 0.24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' }, style]}
       accessibilityRole="image"
       accessibilityLabel={BRAND.name}
     >
-      <Image source={EMBLEM} style={{ width: inner, height: inner, borderRadius: inner / 2 }} />
+      <Image source={LOGO_MARK} style={{ width: '100%', height: '100%' }} />
     </View>
   );
 }

@@ -25,7 +25,7 @@ const BANNER: Record<Tone, readonly [string, string]> = {
   success: ['#16A34A', '#128A3E'],
   warning: ['#E08A0B', '#C2700A'],
   danger: ['#DC2626', '#B91C1C'],
-  brand: ['#1E3A8A', '#0B3D91'],
+  brand: ['#1E4FD8', '#173FAE'],
   neutral: ['#64748B', '#475569'],
 };
 
@@ -552,13 +552,14 @@ function DriverHero({ booking: b }: { booking: Booking }) {
               {b.vehicle.name}
             </Text>
           ) : null}
+          {/* Plate under the name (Uber/Ola style) so long names are never cut short. */}
+          {b.vehicleNumber ? (
+            <View style={[st.plate, { alignSelf: 'flex-start', marginTop: 6 }]} accessibilityLabel={`Vehicle number ${b.vehicleNumber}`}>
+              <Text style={st.plateIn}>IND</Text>
+              <Text style={st.plateText}>{b.vehicleNumber}</Text>
+            </View>
+          ) : null}
         </View>
-        {b.vehicleNumber ? (
-          <View style={st.plate} accessibilityLabel={`Vehicle number ${b.vehicleNumber}`}>
-            <Text style={st.plateIn}>IND</Text>
-            <Text style={st.plateText}>{b.vehicleNumber}</Text>
-          </View>
-        ) : null}
       </View>
       {d ? (
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
@@ -567,7 +568,7 @@ function DriverHero({ booking: b }: { booking: Booking }) {
               hapticTap();
               call(d.phone);
             }}
-            style={({ pressed }) => [st.heroBtn, { backgroundColor: colors.success }, pressed && { opacity: 0.85 }]}
+            style={({ pressed }) => [st.heroBtn, { backgroundColor: colors.brand }, pressed && { opacity: 0.85 }]}
             accessibilityRole="button"
             accessibilityLabel={`Call driver ${d.phone}`}
           >
@@ -579,12 +580,12 @@ function DriverHero({ booking: b }: { booking: Booking }) {
               hapticTap();
               whatsApp(d.phone);
             }}
-            style={({ pressed }) => [st.heroBtn, { backgroundColor: '#25D366' }, pressed && { opacity: 0.85 }]}
+            style={({ pressed }) => [st.heroBtn, { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }, pressed && { backgroundColor: colors.background }]}
             accessibilityRole="button"
             accessibilityLabel={`WhatsApp driver ${d.name}`}
           >
-            <Ionicons name="logo-whatsapp" size={18} color={colors.white} />
-            <Text style={type('sm', 'bold', colors.white)}>WhatsApp</Text>
+            <Ionicons name="logo-whatsapp" size={18} color="#128C7E" />
+            <Text style={type('sm', 'bold', colors.text)}>WhatsApp</Text>
           </Pressable>
         </View>
       ) : (

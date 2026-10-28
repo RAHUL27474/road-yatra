@@ -26,7 +26,7 @@ export default function Loading() {
                 </div>
                 <div className="hidden w-32 space-y-3 md:block">
                   <div className="h-7 animate-pulse rounded bg-slate-200" />
-                  <div className="h-10 animate-pulse rounded-xl bg-orange-100" />
+                  <div className="h-10 animate-pulse rounded-xl bg-accent-light" />
                 </div>
               </div>
             ))}

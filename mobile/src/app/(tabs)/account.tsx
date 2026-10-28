@@ -9,7 +9,7 @@ import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL, Config, errorMessage, getConfig } from '../../api';
 import { useAuth } from '../../auth';
-import { BRAND, Devotional, Emblem, supportPhone, telUrl } from '../../brand';
+import { BRAND, Emblem, supportPhone, telUrl } from '../../brand';
 import { openPage, openPlayStore, PLAY_STORE_URL } from '../../store';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
 import { Button, Input, ListRow, Loading, Notice, Screen } from '../../ui';
@@ -96,7 +96,6 @@ export default function Account() {
           end={{ x: 1, y: 1 }}
           style={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.lg, paddingBottom: 56 }}
         >
-          <View style={st.decor} />
           <Text style={type('lg', 'bold', colors.white)}>Account</Text>
           {user ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.lg }}>
@@ -104,9 +103,16 @@ export default function Account() {
                 <Text style={type('xl', 'extrabold', colors.brand)}>{initials(user.name)}</Text>
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={type('xl', 'extrabold', colors.white)} numberOfLines={1}>
-                  {user.name}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Text style={[type('xl', 'extrabold', colors.white), { flexShrink: 1 }]} numberOfLines={1}>
+                    {user.name}
+                  </Text>
+                  {user.role === 'ADMIN' ? (
+                    <View style={st.roleBadge}>
+                      <Text style={type('xs', 'bold', colors.brandDark)}>ADMIN</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text style={[type('sm', 'medium', colors.onBrandMuted), tabular]} numberOfLines={1}>
                   +91 {user.phone}
                   {user.email ? ` · ${user.email}` : ''}
@@ -130,7 +136,6 @@ export default function Account() {
           ) : (
             <View style={[st.card, { alignItems: 'center', padding: spacing.xl }]}>
               <Emblem size={64} />
-              <Devotional size={12} color={colors.accent} style={{ marginTop: spacing.md }} />
               <Text style={[type('lg', 'bold'), { textAlign: 'center' }]}>Welcome to {BRAND.name}</Text>
               <Text style={[type('sm', 'regular', colors.textMuted), { textAlign: 'center', marginTop: 4, marginBottom: spacing.lg }]}>
                 Log in to book seats, hire a cab and keep your tickets in one place.
@@ -161,38 +166,53 @@ export default function Account() {
             </View>
           ) : null}
 
+          {user?.role === 'ADMIN' ? (
+            <>
+              <Text style={st.group}>OFFICE</Text>
+              <View style={[st.card, { padding: 0, overflow: 'hidden' }]}>
+                <ListRow
+                  icon="speedometer-outline"
+                  title="Office dashboard"
+                  subtitle="Collections, today's trips, SOS and alerts"
+                  tone="brand"
+                  onPress={() => router.push('/admin')}
+                />
+                <ListRow icon="ticket-outline" title="Bookings" subtitle="Search, payments, refunds, drivers" tone="brand" onPress={() => router.push('/admin/bookings')} />
+                <ListRow icon="call-outline" title="New phone booking" subtitle="Seats or a full cab for a caller" tone="success" onPress={() => router.push('/admin/new-booking')} />
+                <ListRow icon="calendar-outline" title="Trips & schedule" subtitle="Departures, seat blocks, manifests" tone="warning" onPress={() => router.push('/admin/trips')} />
+                <ListRow icon="bar-chart-outline" title="Reports" subtitle="Sales, GST, occupancy · CSV" tone="neutral" onPress={() => router.push('/admin/reports')} last />
+              </View>
+            </>
+          ) : null}
+
           {user?.role === 'DRIVER' ? (
             <Notice tone="warning" icon="car-sport-outline">
               This is a driver account. Please use the JSS Travels Driver app for your duties.
             </Notice>
           ) : null}
 
-          <Text style={st.group}>HELP & INFORMATION</Text>
+          <Text style={st.group}>SUPPORT</Text>
           <View style={[st.card, { padding: 0, overflow: 'hidden' }]}>
-            <ListRow
-              icon="call-outline"
-              title="Help & support"
-              subtitle={`Call us on ${phone} · 24×7`}
-              tone="success"
-              onPress={call}
-            />
+            <ListRow icon="call-outline" title="Help & support" subtitle={`Call us on ${phone} · 24×7`} onPress={call} />
             <ListRow
               icon="shield-checkmark-outline"
               title="Cancellation policy"
               subtitle={config ? 'Refunds and charges' : undefined}
-              tone="warning"
               onPress={config ? () => Alert.alert('Cancellation policy', cancellationPolicy(config)) : undefined}
             />
-            <ListRow icon="star-outline" title="Give feedback" subtitle="Rate us in one tap" tone="warning" onPress={() => router.push('/feedback')} />
-            <ListRow icon="logo-google-playstore" title="Rate us on Google Play" subtitle="Help other travellers find us" tone="success" onPress={() => openPlayStore().catch(() => {})} />
-            <ListRow icon="share-social-outline" title="Share the app" subtitle="Send it to family and friends" tone="brand" onPress={shareApp} />
-            <ListRow icon="document-text-outline" title="Terms & cancellation" tone="brand" onPress={() => openPage(`${API_URL}/terms`)} />
-            <ListRow icon="lock-closed-outline" title="Privacy policy" tone="brand" onPress={() => openPage(`${API_URL}/privacy`)} />
+            <ListRow icon="document-text-outline" title="Terms & conditions" onPress={() => openPage(`${API_URL}/terms`)} />
+            <ListRow icon="lock-closed-outline" title="Privacy policy" last onPress={() => openPage(`${API_URL}/privacy`)} />
+          </View>
+
+          <Text style={st.group}>MORE</Text>
+          <View style={[st.card, { padding: 0, overflow: 'hidden' }]}>
+            <ListRow icon="star-outline" title="Give feedback" subtitle="Rate us in one tap" onPress={() => router.push('/feedback')} />
+            <ListRow icon="logo-google-playstore" title="Rate us on Google Play" subtitle="Help other travellers find us" onPress={() => openPlayStore().catch(() => {})} />
+            <ListRow icon="share-social-outline" title="Share the app" subtitle="Send it to family and friends" onPress={shareApp} />
             <ListRow
               icon="information-circle-outline"
               title="App information"
               subtitle={`Version ${version}`}
-              tone="neutral"
               last
               onPress={() => Alert.alert(BRAND.short, `${BRAND.name}\nShared taxi seats and full cab hire.\n\nVersion ${version}`)}
             />
@@ -213,7 +233,6 @@ export default function Account() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
               <Emblem size={52} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Devotional size={11} color={colors.accent} />
                 <Text style={type('md', 'extrabold', colors.brandDark)} numberOfLines={2}>
                   {BRAND.name}
                 </Text>
@@ -316,9 +335,10 @@ function QuickAction({ icon, label, onPress }: { icon: 'ticket-outline' | 'searc
 }
 
 const st = StyleSheet.create({
-  decor: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.06)', top: -80, right: -60 },
+
+  roleBadge: { backgroundColor: colors.gold, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg, ...shadowSoft },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
   stats: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.card, paddingHorizontal: spacing.sm, ...shadowSoft },
   statSep: { width: 1, height: 36, backgroundColor: colors.border },
   qaIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' },

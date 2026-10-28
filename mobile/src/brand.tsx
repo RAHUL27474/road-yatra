@@ -1,6 +1,6 @@
-// Jai Shree Shyam Tour & Travels brand: business facts, the round Khatu Shyam ji emblem and the wordmark.
-import { Image, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+// Jai Shree Shyam Tour & Travels brand: business facts, the logo mark (a road running to a rising sun) and the wordmark.
+import { StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { colors, fonts } from './theme';
 
 /** Business facts shown in the app. Keep in sync with the website. */
@@ -27,26 +27,38 @@ export const BRAND = {
 export const supportPhone = (configured?: string | null) => configured || BRAND.phone;
 export const telUrl = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`;
 
-const EMBLEM = require('../assets/images/emblem.png');
+/** The "S" road from the logo: an S (for Shyam) drawn as a road with a dashed centre line. */
+const S_ROAD = 'M64 28 C56 20 34 21 34 35 C34 50 66 47 66 63 C66 80 42 82 32 73';
 
-/** Round Khatu Shyam ji emblem with a thin gold ring. */
-export function Emblem({ size = 40, ring = true, style }: { size?: number; ring?: boolean; style?: StyleProp<ViewStyle> }) {
-  const border = ring ? Math.max(1.5, Math.round(size * 0.05)) : 0;
+/**
+ * The logo mark: a navy rounded square holding an "S" drawn as a road, with the saffron sun at its end.
+ * Same drawing as assets/brand/mark.svg, the app icon and the website logo.
+ * `ring` adds a hairline light edge so the mark stands out on the navy headers.
+ */
+export function Emblem({ size = 40, ring = false, style }: { size?: number; ring?: boolean; style?: StyleProp<ViewStyle> }) {
   return (
     <View
-      style={[
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.gold, padding: border, overflow: 'hidden' },
-        style,
-      ]}
+      style={[{ width: size, height: size, borderRadius: size * 0.24 }, ring && { borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }, style]}
       accessibilityRole="image"
       accessibilityLabel={BRAND.name}
     >
-      <Image source={EMBLEM} style={{ width: size - border * 2, height: size - border * 2, borderRadius: (size - border * 2) / 2 }} />
+      <Svg width="100%" height="100%" viewBox="0 0 100 100">
+        <Defs>
+          <LinearGradient id="markBg" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#2563EB" />
+            <Stop offset="1" stopColor="#0F2A75" />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100" height="100" rx="24" fill="url(#markBg)" />
+        <Circle cx="74" cy="24" r="8.5" fill={colors.gold} />
+        <Path d={S_ROAD} fill="none" stroke="#FFFFFF" strokeWidth={14.5} strokeLinecap="round" />
+        <Path d={S_ROAD} fill="none" stroke="#0F2A75" strokeWidth={2.4} strokeDasharray="5 5" strokeLinecap="round" />
+      </Svg>
     </View>
   );
 }
 
-/** Kept for existing call sites: the brand mark is now the emblem. */
+/** Kept for existing call sites: the brand mark. */
 export function LogoMark({ size = 40 }: { size?: number; tone?: 'brand' | 'light' }) {
   return <Emblem size={size} />;
 }
@@ -89,7 +101,7 @@ export function Logo({
   const fs = Math.round(size * 0.5);
   return (
     <View style={[{ flexDirection: 'row', alignItems: 'center', gap: Math.round(size * 0.3) }, style]}>
-      <Emblem size={size} />
+      <Emblem size={size} ring={light} />
       <View style={{ flexShrink: 1 }}>
         {devotional ? <Devotional size={11} color={light ? colors.gold : colors.accent} style={{ marginBottom: -1 }} /> : null}
         <Text

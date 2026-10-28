@@ -43,7 +43,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </p>
         <div className="max-w-md space-y-2">
           {slabs.map((slab, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm">
+            <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
               If cancelled at least
               <input name={`slabHours${i}`} type="number" min={0} step="0.5" defaultValue={slab?.minHoursBefore ?? ""} className="input w-20 py-1" />
               hours before → refund

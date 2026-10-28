@@ -8,7 +8,7 @@ import { fmtDateShort, fmtTime, inr, RENTAL_TYPE, VEHICLE_TYPE } from '../format
 import { VehicleArt } from '../illustrations';
 import { useQuote, useRentalRequest } from '../rental';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../theme';
-import { amenityIcon, Button, EmptyState, ErrorBanner, Header, IonName, Row, Screen, Skeleton } from '../ui';
+import { amenityIcon, Button, EmptyState, ErrorBanner, Header, HeaderButton, IonName, Row, Screen, Skeleton } from '../ui';
 
 export default function RentalResults() {
   const req = useRentalRequest();
@@ -20,12 +20,7 @@ export default function RentalResults() {
     <Header
       title={route}
       subtitle={`${RENTAL_TYPE[req.rentalType] ?? 'Hire'} · ${fmtDateShort(req.startAt)}, ${fmtTime(req.startAt)}`}
-      right={
-        <Pressable onPress={modify} hitSlop={6} style={({ pressed }) => [st.modify, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Modify search">
-          <Ionicons name="create-outline" size={16} color={colors.white} />
-          <Text style={type('xs', 'bold', colors.white)}>Modify</Text>
-        </Pressable>
-      }
+      right={<HeaderButton icon="create-outline" label="Modify" onPress={modify} accessibilityLabel="Modify search" />}
     />
   );
 

@@ -68,7 +68,7 @@ export default function HeaderBar({ brand, supportPhone, user }: Props) {
           {user ? (
             <>
               {user.isAdmin && (
-                <Link href="/admin" className="btn bg-ink px-3 py-2 text-white hover:bg-slate-700">
+                <Link href="/admin" className="btn-primary px-3 py-2">
                   <LayoutDashboard className="h-4 w-4" aria-hidden /> Admin
                 </Link>
               )}

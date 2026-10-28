@@ -65,7 +65,7 @@ export default function PayPanel({ bookingId, payToken, amount, expiresAt, demo,
         name: process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels",
         description: `Booking ${start.code}`,
         prefill,
-        theme: { color: "#0b3d91" },
+        theme: { color: "#1e4fd8" },
         handler: (r: Record<string, string>) => confirm(r).catch((e) => setError(e.message)),
         modal: { ondismiss: () => setBusy(false) },
       });

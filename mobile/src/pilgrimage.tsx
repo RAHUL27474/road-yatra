@@ -4,7 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BRAND } from './brand';
-import { colors, radius, shadowSoft, spacing, type } from './theme';
+import { colors, radius, spacing, type } from './theme';
 import { hapticTap } from './ui';
 
 const WHATSAPP_GREEN = '#25D366';
@@ -53,7 +53,7 @@ const YATRAS: Yatra[] = [
 export function PilgrimageSection({ phone }: { phone?: string }) {
   return (
     <View>
-      <Text style={[type('lg', 'extrabold'), { marginBottom: spacing.sm }]}>Pilgrimage trips</Text>
+      <Text style={[type('lg', 'bold'), { marginTop: spacing.xxl, marginBottom: spacing.md }]}>Pilgrimage trips</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingRight: spacing.lg }}>
         {YATRAS.map((y) => (
           <Pressable
@@ -66,8 +66,8 @@ export function PilgrimageSection({ phone }: { phone?: string }) {
             accessibilityRole="button"
             accessibilityLabel={`${y.name} trip enquiry`}
           >
-            <View style={[st.yatraIcon, { backgroundColor: `${y.tint}1A` }]}>
-              <MaterialCommunityIcons name={y.icon} size={24} color={y.tint} />
+            <View style={st.yatraIcon}>
+              <MaterialCommunityIcons name={y.icon} size={24} color={colors.brand} />
             </View>
             <Text style={type('sm', 'extrabold')} numberOfLines={1}>
               {y.name}
@@ -75,7 +75,7 @@ export function PilgrimageSection({ phone }: { phone?: string }) {
             <Text style={type('xs', 'regular', colors.textMuted)} numberOfLines={1}>
               {y.place}
             </Text>
-            <Text style={[type('xs', 'semibold', y.tint), { marginTop: 4 }]} numberOfLines={1}>
+            <Text style={[type('xs', 'semibold', colors.brand), { marginTop: 4 }]} numberOfLines={1}>
               {y.note}
             </Text>
             <View style={st.yatraCta}>
@@ -90,9 +90,9 @@ export function PilgrimageSection({ phone }: { phone?: string }) {
 }
 
 const st = StyleSheet.create({
-  wa: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg, ...shadowSoft },
+  wa: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md, backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
   waIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: WHATSAPP_GREEN, alignItems: 'center', justifyContent: 'center' },
-  yatra: { width: 168, backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.md, ...shadowSoft },
-  yatraIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
+  yatra: { width: 168, backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
+  yatraIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
   yatraCta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
 });

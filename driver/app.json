@@ -19,7 +19,7 @@
     "android": {
       "package": "in.roadyatra.driver",
       "adaptiveIcon": {
-        "backgroundColor": "#1E3A8A",
+        "backgroundColor": "#0F2A75",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -75,18 +75,18 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#1E3A8A"
+          "backgroundColor": "#0F2A75"
         }
       ],
       "expo-background-task",
       [
         "expo-notifications",
         {
-          "color": "#1E3A8A"
+          "color": "#1E4FD8"
         }
       ]
     ],
-    "primaryColor": "#1E3A8A",
+    "primaryColor": "#1E4FD8",
     "extra": {
       "router": {},
       "eas": {

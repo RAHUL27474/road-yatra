@@ -13,10 +13,11 @@ import { DateTimeField } from '../../DateTimeField';
 import { cityRegion, fmtDuration, fmtYmdShort, inr, nextDays, relativeDay, ymdIST } from '../../format';
 import { VehicleArt } from '../../illustrations';
 import { rentalCache } from '../../store';
-import { PilgrimageSection, WhatsAppBookCard } from '../../pilgrimage';
+import { openWhatsApp, PilgrimageSection, WhatsAppBookCard } from '../../pilgrimage';
 import { OurDrivers } from '../../OurDrivers';
+import { loadRecentSearches, RecentSearch, saveRecentSearch } from '../../recent';
 import { colors, radius, shadow, shadowSoft, spacing, tabular, type } from '../../theme';
-import { Button, Card, Chip, ErrorBanner, hapticSelect, hapticTap, IonName, Notice, OptionSheet, Skeleton } from '../../ui';
+import { Button, Card, Chip, ErrorBanner, hapticSelect, hapticTap, IonName, MciName, Notice, OptionSheet, Skeleton } from '../../ui';
 
 const RENTAL_TYPES: { key: RentalType; label: string; icon: IonName }[] = [
   { key: 'ONE_WAY', label: 'One way', icon: 'arrow-forward' },
@@ -80,7 +81,18 @@ export default function Home() {
   const [config, setConfig] = useState<Config | null>(null);
   const [routes, setRoutes] = useState<RouteInfo[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [recents, setRecents] = useState<RecentSearch[]>([]);
+  // Service tiles open the Full cab tab on a given type; the key remounts the form with it.
+  const [hireType, setHireType] = useState<{ type: RentalType; key: number }>({ type: 'ONE_WAY', key: 0 });
   const tomorrow = useMemo(() => nextDays(2)[1].ymd, []);
+  const today = useMemo(() => nextDays(1)[0].ymd, []);
+
+  useEffect(() => {
+    loadRecentSearches().then(setRecents);
+  }, []);
+  const onSearched = (s: RecentSearch) => {
+    saveRecentSearch(s).then(setRecents);
+  };
 
   const loadCities = useCallback(async () => {
     try {
@@ -131,9 +143,15 @@ export default function Home() {
   const hasDefaultRoute = cities.includes(DEFAULT_FROM) && cities.includes(DEFAULT_TO);
   const phone = supportPhone(config?.supportPhone);
   const callSupport = () => Linking.openURL(telUrl(phone)).catch(() => {});
-  const openHire = () => {
+  const openHire = (type?: RentalType) => {
     hapticTap();
+    if (type) setHireType((h) => ({ type, key: h.key + 1 }));
     setTab('hire');
+    scroll.current?.scrollTo({ y: 0, animated: true });
+  };
+  const openSeats = () => {
+    hapticTap();
+    setTab('seats');
     scroll.current?.scrollTo({ y: 0, animated: true });
   };
   const firstName = user?.name.split(/\s+/)[0];
@@ -154,10 +172,8 @@ export default function Home() {
           end={{ x: 1, y: 1 }}
           style={{ paddingTop: insets.top + spacing.md, paddingBottom: OVERLAP + spacing.lg, paddingHorizontal: spacing.lg }}
         >
-          <View style={st.decor1} />
-          <View style={st.decor2} />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Logo light devotional size={42} style={{ flex: 1, marginRight: spacing.sm }} />
+            <Logo light size={40} style={{ flex: 1, marginRight: spacing.sm }} />
             <Pressable
                 onPress={callSupport}
                 hitSlop={6}
@@ -185,30 +201,112 @@ export default function Home() {
             </View>
             <View style={{ padding: spacing.lg, paddingTop: spacing.sm }}>
               <ErrorBanner message={citiesError} onRetry={loadCities} style={{ marginTop: spacing.sm, marginBottom: spacing.xs }} />
-              {tab === 'seats' ? <SeatSearch cities={cities} hasDefaultRoute={hasDefaultRoute} /> : <HireSearch cities={cities} />}
+              {tab === 'seats' ? (
+                <SeatSearch cities={cities} hasDefaultRoute={hasDefaultRoute} onSearched={onSearched} />
+              ) : (
+                <HireSearch key={hireType.key} cities={cities} initialType={hireType.type} />
+              )}
             </View>
           </View>
 
-          <SectionHeader title="Why travel with us" />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
-            style={{ marginHorizontal: -spacing.lg }}
-          >
-            <WhyTile icon="shield-checkmark" tint={colors.success} bg={colors.successLight} title="Verified drivers" text="Licence-checked and approved" />
-            <WhyTile icon="navigate" tint={colors.brand} bg={colors.brandLight} title="Live tracking" text="Share your trip with family" />
-            <WhyTile icon="grid" tint="#7C3AED" bg="#EDE9FE" title="Pick your seat" text="Choose the exact seat you like" />
-            <WhyTile
-              icon="wallet"
-              tint={colors.accent}
-              bg={colors.accentLight}
-              title="Pay your way"
-              text={config?.allowCash ? 'UPI, card or cash to driver' : 'UPI, cards and net banking'}
+          {user?.role === 'ADMIN' ? (
+            <Pressable
+              onPress={() => {
+                hapticTap();
+                router.push('/admin');
+              }}
+              style={({ pressed }) => [st.adminCard, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open the office dashboard"
+            >
+              <LinearGradient colors={['#0F172A', '#1E293B']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.adminInner}>
+                <View style={st.adminIcon}>
+                  <Ionicons name="speedometer" size={22} color={colors.gold} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={type('md', 'bold', colors.white)}>Office dashboard</Text>
+                  <Text style={type('xs', 'regular', '#CBD5E1')} numberOfLines={1}>
+                    Bookings, trips, drivers, fleet and reports
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
+              </LinearGradient>
+            </Pressable>
+          ) : null}
+
+          {tab === 'seats' && recents.length ? (
+            <>
+              <SectionHeader title="Recent searches" />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg }}
+                style={{ marginHorizontal: -spacing.lg }}
+              >
+                {recents.map((r) => {
+                  // An old date moves up to today so the search still finds trips.
+                  const date = r.date < today ? today : r.date;
+                  return (
+                    <Pressable
+                      key={`${r.from}-${r.to}`}
+                      onPress={() => {
+                        hapticTap();
+                        onSearched({ ...r, date });
+                        router.push({ pathname: '/results', params: { from: r.from, to: r.to, date } });
+                      }}
+                      style={({ pressed }) => [st.recent, pressed && { opacity: 0.8 }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Search ${r.from} to ${r.to} on ${fmtYmdShort(date)}`}
+                    >
+                      <View style={st.recentIcon}>
+                        <Ionicons name="time-outline" size={16} color={colors.brand} />
+                      </View>
+                      <View style={{ minWidth: 0 }}>
+                        <Text style={type('sm', 'bold')} numberOfLines={1}>
+                          {r.from} → {r.to}
+                        </Text>
+                        <Text style={type('xs', 'medium', colors.textMuted)} numberOfLines={1}>
+                          {fmtYmdShort(date)}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </>
+          ) : null}
+
+          <SectionHeader title="Our services" />
+          <View style={st.services}>
+            <ServiceTile mci="seat-passenger" label="Shared seat" sub="from ₹800" onPress={openSeats} />
+            <ServiceTile mci="car-side" label="One-way cab" sub="Any city" onPress={() => openHire('ONE_WAY')} />
+            <ServiceTile mci="swap-horizontal" label="Round trip" sub="Driver waits" onPress={() => openHire('ROUND_TRIP')} />
+            <ServiceTile mci="airplane" label="Airport" sub="Pickup / drop" onPress={() => openHire('AIRPORT')} />
+            <ServiceTile mci="city-variant-outline" label="Local hire" sub="8 hr · 80 km" onPress={() => openHire('LOCAL')} />
+            <ServiceTile
+              mci="whatsapp"
+              label="WhatsApp"
+              sub="Chat to book"
+              tint="#128C7E"
+              bg="#E7F7EF"
+              onPress={() => openWhatsApp('Namaste, I want to book a trip.\nFrom: \nTo: \nDate: \nSeats / people: ', config?.whatsapp)}
             />
-            <WhyTile icon="moon" tint={colors.brand} bg={colors.goldLight} title="24×7 service" text="Day and night, one way or round trip" />
-            <WhyTile icon="receipt" tint={colors.warning} bg={colors.warningLight} title="Clear fares" text="GST invoice with every trip" />
-          </ScrollView>
+          </View>
+
+          {config?.returnDiscountPercent ? (
+            <View style={st.offer}>
+              <View style={st.offerBadge}>
+                <Text style={[type('lg', 'extrabold', colors.white), tabular]}>{config.returnDiscountPercent}%</Text>
+                <Text style={type('xs', 'bold', colors.white)}>OFF</Text>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={type('md', 'bold')}>Return trip discount</Text>
+                <Text style={type('xs', 'regular', colors.textMuted)} numberOfLines={2}>
+                  Book your return journey after a trip with us and save {config.returnDiscountPercent}% on the fare.
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           {hasDefaultRoute || routes === null ? (
             <>
@@ -232,18 +330,18 @@ export default function Home() {
                         onPress={() => router.push({ pathname: '/results', params: { from: r.from, to: r.to, date: tomorrow } })}
                       />
                     ))}
-                {routes !== null ? <HillStationsCard onPress={openHire} /> : null}
+                {routes !== null ? <HillStationsCard onPress={() => openHire()} /> : null}
               </View>
             </>
           ) : null}
 
           <Pressable
-            onPress={openHire}
+            onPress={() => openHire()}
             style={({ pressed }) => [st.promo, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
             accessibilityRole="button"
             accessibilityLabel="Book a full cab"
           >
-            <LinearGradient colors={['#FFF3E0', '#FFFFFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.promoInner}>
+            <View style={st.promoInner}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[type('xs', 'bold', colors.accent), { letterSpacing: 0.6 }]}>PRIVATE CAB</Text>
                 <Text style={[type('lg', 'extrabold'), { marginTop: 2 }]}>Book a full cab</Text>
@@ -256,19 +354,20 @@ export default function Home() {
                 </View>
               </View>
               <VehicleArt type="ERTIGA" width={124} style={{ marginRight: -spacing.sm, marginTop: spacing.xl }} />
-            </LinearGradient>
+            </View>
           </Pressable>
 
           <WhatsAppBookCard phone={config?.whatsapp} />
           <PilgrimageSection phone={config?.whatsapp} />
           <OurDrivers />
 
-          <View style={st.trustRow}>
-            <TrustItem icon="shield-checkmark-outline" label="Verified drivers" />
-            <View style={st.trustDot} />
-            <TrustItem icon="locate-outline" label="Live tracking" />
-            <View style={st.trustDot} />
-            <TrustItem icon="headset-outline" label="24×7 support" />
+          <SectionHeader title="Why travel with us" />
+          <View style={st.whyCard}>
+            <WhyRow icon="shield-checkmark-outline" title="Verified drivers" text="Licence-checked and approved by our office" />
+            <WhyRow icon="navigate-outline" title="Live tracking" text="Share your trip with family in one tap" />
+            <WhyRow icon="grid-outline" title="Pick your seat" text="Choose the exact seat you want" />
+            <WhyRow icon="wallet-outline" title="Pay your way" text={config?.allowCash ? 'UPI, card or cash to the driver' : 'UPI, cards and net banking'} />
+            <WhyRow icon="receipt-outline" title="Clear fares" text="No hidden charges · GST invoice with every trip" last />
           </View>
 
           <View style={st.support}>
@@ -341,50 +440,89 @@ function SearchTab({ label, sub, icon, on, onPress }: { label: string; sub: stri
   );
 }
 
-/** Big city name with a small region caption, MakeMyTrip style. */
-function CityBlock({ caption, city, placeholder, onPress }: { caption: string; city: string; placeholder: string; onPress: () => void }) {
+/** One line of the route box: caption, big city name and its region. */
+function RouteLine({ caption, city, onPress }: { caption: string; city: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${caption}: ${city || placeholder}`}
-      style={({ pressed }) => [st.cityBlock, pressed && { opacity: 0.6 }]}
+      accessibilityLabel={`${caption}: ${city || 'Select city'}`}
+      style={({ pressed }) => [st.routeLine, pressed && { backgroundColor: colors.surface }]}
     >
       <Text style={[type('xs', 'semibold', colors.textMuted), { letterSpacing: 0.6 }]}>{caption}</Text>
-      <Text
-        style={[city ? type('xl', 'extrabold') : type('xl', 'semibold', colors.textSubtle), { letterSpacing: -0.3, marginTop: 2, paddingRight: 56 }]}
-        numberOfLines={1}
-      >
-        {city || placeholder}
-      </Text>
-      <Text style={type('xs', 'regular', colors.textMuted)} numberOfLines={1}>
-        {city ? cityRegion(city) || 'India' : 'Tap to choose'}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, paddingRight: 52 }}>
+        <Text style={[city ? type('lg', 'extrabold') : type('lg', 'semibold', colors.textSubtle), { letterSpacing: -0.2, flexShrink: 1 }]} numberOfLines={1}>
+          {city || 'Select city'}
+        </Text>
+        <Text style={[type('xs', 'regular', colors.textMuted), { flexShrink: 0 }]} numberOfLines={1}>
+          {city ? cityRegion(city) : 'Tap to choose'}
+        </Text>
+      </View>
     </Pressable>
   );
 }
 
-function SwapButton({ onPress }: { onPress: () => void }) {
+/**
+ * redBus-style route box: a green origin dot and a red destination pin joined by a dotted line, with a
+ * swap button floating on the right. `to` is omitted for single-city searches (local / airport cabs).
+ */
+function RoutePicker({
+  from,
+  to,
+  fromCaption = 'FROM',
+  toCaption = 'TO',
+  onFrom,
+  onTo,
+  onSwap,
+}: {
+  from: string;
+  to?: string;
+  fromCaption?: string;
+  toCaption?: string;
+  onFrom: () => void;
+  onTo?: () => void;
+  onSwap?: () => void;
+}) {
+  const two = to !== undefined && !!onTo;
   return (
-    <View style={st.swapLine}>
-      <View style={st.divider} />
-      <Pressable
-        style={({ pressed }) => [st.swap, pressed && { transform: [{ rotate: '180deg' }], backgroundColor: colors.brandLight }]}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel="Swap cities"
-        onPress={() => {
-          hapticSelect();
-          onPress();
-        }}
-      >
-        <Ionicons name="swap-vertical" size={20} color={colors.brand} />
-      </Pressable>
+    <View style={st.routeBox}>
+      <View style={st.routeRail}>
+        <View style={st.originDot} />
+        {two ? (
+          <>
+            <View style={st.railDots} />
+            <Ionicons name="location" size={18} color={colors.danger} />
+          </>
+        ) : null}
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <RouteLine caption={fromCaption} city={from} onPress={onFrom} />
+        {two ? (
+          <>
+            <View style={st.routeSep} />
+            <RouteLine caption={toCaption} city={to} onPress={onTo} />
+          </>
+        ) : null}
+      </View>
+      {two && onSwap ? (
+        <Pressable
+          style={({ pressed }) => [st.swap, pressed && { transform: [{ rotate: '180deg' }], backgroundColor: colors.brandLight }]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Swap cities"
+          onPress={() => {
+            hapticSelect();
+            onSwap();
+          }}
+        >
+          <Ionicons name="swap-vertical" size={20} color={colors.brand} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
-function SeatSearch({ cities, hasDefaultRoute }: { cities: string[]; hasDefaultRoute: boolean }) {
+function SeatSearch({ cities, hasDefaultRoute, onSearched }: { cities: string[]; hasDefaultRoute: boolean; onSearched: (s: RecentSearch) => void }) {
   const days = useMemo(() => nextDays(30), []);
   const { picker, open, close } = usePicker();
   // null = not chosen yet. Until the user picks, default to our main route Khatima → Delhi (if both are served).
@@ -399,40 +537,47 @@ function SeatSearch({ cities, hasDefaultRoute }: { cities: string[]; hasDefaultR
   const search = () => {
     if (!from || !to) return Alert.alert('Choose cities', 'Please select both From and To cities.');
     if (from === to) return Alert.alert('Choose cities', 'From and To cities must be different.');
+    onSearched({ from, to, date });
     router.push({ pathname: '/results', params: { from, to, date } });
   };
 
   return (
     <View>
-      <CityBlock caption="FROM" city={from} placeholder="Select city" onPress={() => open('from')} />
-      <SwapButton
-        onPress={() => {
+      <RoutePicker
+        from={from}
+        to={to}
+        onFrom={() => open('from')}
+        onTo={() => open('to')}
+        onSwap={() => {
           setFrom(to);
           setTo(from);
         }}
       />
-      <CityBlock caption="TO" city={to} placeholder="Select city" onPress={() => open('to')} />
-      <View style={st.divider} />
 
       <Pressable
         onPress={() => open('date')}
         accessibilityRole="button"
         accessibilityLabel={`Departure date: ${fmtYmdShort(date)}`}
-        style={({ pressed }) => [st.dateRow, pressed && { opacity: 0.6 }]}
+        style={({ pressed }) => [st.dateBox, pressed && { backgroundColor: colors.surface }]}
       >
-        <View style={{ flex: 1 }}>
-          <Text style={[type('xs', 'semibold', colors.textMuted), { letterSpacing: 0.6 }]}>DEPARTURE DATE</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, marginTop: 2 }}>
-            <Text style={[type('xl', 'extrabold'), { letterSpacing: -0.3 }]}>{fmtYmdShort(date)}</Text>
-            <Text style={type('xs', 'semibold', colors.textMuted)}>{relativeDay(date)}</Text>
+        <View style={st.dateIcon}>
+          <Ionicons name="calendar" size={18} color={colors.brand} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[type('xs', 'semibold', colors.textMuted), { letterSpacing: 0.6 }]}>DATE OF JOURNEY</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm }}>
+            <Text style={[type('lg', 'extrabold'), { letterSpacing: -0.2 }]} numberOfLines={1}>
+              {fmtYmdShort(date)}
+            </Text>
+            <Text style={type('xs', 'semibold', colors.accent)}>{relativeDay(date)}</Text>
           </View>
         </View>
-        <Ionicons name="calendar-outline" size={22} color={colors.brand} />
+        <Ionicons name="chevron-down" size={18} color={colors.textSubtle} />
       </Pressable>
-      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs }}>
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
         <Chip label="Today" selected={quick === 'today'} onPress={() => setDate(days[0].ymd)} />
         <Chip label="Tomorrow" selected={quick === 'tomorrow'} onPress={() => setDate(days[1].ymd)} />
-        <Chip label={quick === 'other' ? fmtYmdShort(date) : 'Pick date'} icon="calendar-outline" selected={quick === 'other'} onPress={() => open('date')} />
+        <Chip label={quick === 'other' ? fmtYmdShort(date) : 'Other date'} icon="calendar-outline" selected={quick === 'other'} onPress={() => open('date')} />
       </View>
 
       <Button title="Search trips" icon="search" onPress={search} style={{ marginTop: spacing.lg, height: 54 }} />
@@ -503,9 +648,9 @@ function DateSheet({
   );
 }
 
-function HireSearch({ cities }: { cities: string[] }) {
+function HireSearch({ cities, initialType = 'ONE_WAY' }: { cities: string[]; initialType?: RentalType }) {
   const { picker, open, close } = usePicker();
-  const [rentalType, setRentalType] = useState<RentalType>('ONE_WAY');
+  const [rentalType, setRentalType] = useState<RentalType>(initialType);
   const [pickupCity, setPickupCity] = useState('');
   const [dropCity, setDropCity] = useState('');
   const [startAt, setStartAt] = useState(() => tomorrowAt(9));
@@ -565,26 +710,31 @@ function HireSearch({ cities }: { cities: string[] }) {
           );
         })}
       </View>
-      <CityBlock caption="PICKUP CITY" city={pickupCity} placeholder="Select city" onPress={() => open('pickup')} />
-      {needsDrop ? (
-        <>
-          <SwapButton
-            onPress={() => {
-              setPickupCity(dropCity);
-              setDropCity(pickupCity);
-            }}
-          />
-          <CityBlock caption="DROP CITY" city={dropCity} placeholder="Select city" onPress={() => open('drop')} />
-        </>
-      ) : null}
-      <View style={st.divider} />
-      <DateTimeField label="Pickup date & time" mode="datetime" value={startAt} onChange={setStartAt} minimumDate={new Date()} icon="time-outline" />
-      {rentalType === 'ROUND_TRIP' ? (
-        <>
-          <View style={st.divider} />
-          <DateTimeField label="Return date" mode="date" value={returnAt} onChange={setReturnAt} minimumDate={startAt} icon="return-down-back-outline" />
-        </>
-      ) : null}
+      <RoutePicker
+        from={pickupCity}
+        fromCaption="PICKUP CITY"
+        onFrom={() => open('pickup')}
+        {...(needsDrop
+          ? {
+              to: dropCity,
+              toCaption: 'DROP CITY',
+              onTo: () => open('drop'),
+              onSwap: () => {
+                setPickupCity(dropCity);
+                setDropCity(pickupCity);
+              },
+            }
+          : {})}
+      />
+      <View style={st.fieldBox}>
+        <DateTimeField label="Pickup date & time" mode="datetime" value={startAt} onChange={setStartAt} minimumDate={new Date()} icon="time-outline" />
+        {rentalType === 'ROUND_TRIP' ? (
+          <>
+            <View style={st.divider} />
+            <DateTimeField label="Return date" mode="date" value={returnAt} onChange={setReturnAt} minimumDate={startAt} icon="return-down-back-outline" />
+          </>
+        ) : null}
+      </View>
       {rentalType === 'LOCAL' ? (
         <Notice tone="info" style={{ marginTop: spacing.sm }}>
           Local package: 8 hours / 80 km within the city.
@@ -604,18 +754,55 @@ function HireSearch({ cities }: { cities: string[] }) {
   );
 }
 
-function WhyTile({ icon, tint, bg, title, text }: { icon: IonName; tint: string; bg: string; title: string; text: string }) {
+/** Square service shortcut in the 3-column grid (MakeMyTrip-style icon tiles). */
+function ServiceTile({
+  mci,
+  label,
+  sub,
+  tint = colors.brand,
+  bg = colors.brandLight,
+  onPress,
+}: {
+  mci: MciName;
+  label: string;
+  sub: string;
+  tint?: string;
+  bg?: string;
+  onPress: () => void;
+}) {
   return (
-    <View style={st.why}>
-      <View style={[st.whyIcon, { backgroundColor: bg }]}>
-        <Ionicons name={icon} size={20} color={tint} />
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}, ${sub}`}
+      style={({ pressed }) => [st.service, pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 }]}
+    >
+      <View style={[st.serviceIcon, { backgroundColor: bg }]}>
+        <MaterialCommunityIcons name={mci} size={24} color={tint} />
       </View>
-      <Text style={[type('sm', 'bold'), { marginTop: spacing.md }]} numberOfLines={1}>
-        {title}
+      <Text style={[type('sm', 'bold'), { marginTop: spacing.sm, textAlign: 'center' }]} numberOfLines={1}>
+        {label}
       </Text>
-      <Text style={[type('xs', 'regular', colors.textMuted), { marginTop: 2 }]} numberOfLines={2}>
-        {text}
+      <Text style={[type('xs', 'regular', colors.textMuted), { textAlign: 'center' }]} numberOfLines={1}>
+        {sub}
       </Text>
+    </Pressable>
+  );
+}
+
+/** One line of the "Why travel with us" card: a single-colour icon, a title and a short reason. */
+function WhyRow({ icon, title, text, last }: { icon: IonName; title: string; text: string; last?: boolean }) {
+  return (
+    <View style={[st.whyRow, !last && st.whyRowBorder]}>
+      <Ionicons name={icon} size={20} color={colors.brand} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={type('sm', 'bold')} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={type('xs', 'regular', colors.textMuted)} numberOfLines={2}>
+          {text}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -627,15 +814,9 @@ function RouteCard({ info, onPress }: { info: RouteInfo; onPress: () => void }) 
         <MaterialCommunityIcons name="map-marker-path" size={22} color={colors.brand} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={type('md', 'bold')} numberOfLines={1}>
-            {info.from}
-          </Text>
-          <Ionicons name="arrow-forward" size={14} color={colors.textMuted} />
-          <Text style={[type('md', 'bold'), { flexShrink: 1 }]} numberOfLines={1}>
-            {info.to}
-          </Text>
-        </View>
+        <Text style={type('md', 'bold')} numberOfLines={1}>
+          {info.from} → {info.to}
+        </Text>
         <Text style={type('xs', 'regular', colors.textMuted)} numberOfLines={1}>
           Shared seat{info.durationMins ? ` · about ${fmtDuration(info.durationMins)}` : ''}
         </Text>
@@ -656,8 +837,8 @@ function RouteCard({ info, onPress }: { info: RouteInfo; onPress: () => void }) 
 function HillStationsCard({ onPress }: { onPress: () => void }) {
   return (
     <Card onPress={onPress} padded={false} style={st.routeCard}>
-      <View style={[st.routeIcon, { backgroundColor: colors.goldLight }]}>
-        <MaterialCommunityIcons name="image-filter-hdr" size={22} color={colors.accent} />
+      <View style={st.routeIcon}>
+        <MaterialCommunityIcons name="image-filter-hdr" size={22} color={colors.brand} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={type('md', 'bold')} numberOfLines={1}>
@@ -666,7 +847,7 @@ function HillStationsCard({ onPress }: { onPress: () => void }) {
         <Text style={type('xs', 'regular', colors.textMuted)} numberOfLines={2}>
           {HILL_STATIONS.join(' · ')}
         </Text>
-        <Text style={type('xs', 'semibold', colors.accent)} numberOfLines={1}>
+        <Text style={type('xs', 'semibold', colors.brand)} numberOfLines={1}>
           Full cab · one way or round trip
         </Text>
       </View>
@@ -675,16 +856,6 @@ function HillStationsCard({ onPress }: { onPress: () => void }) {
   );
 }
 
-function TrustItem({ icon, label }: { icon: IonName; label: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
-      <Ionicons name={icon} size={16} color={colors.success} />
-      <Text style={type('xs', 'semibold', colors.textMuted)} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
-  );
-}
 
 const st = StyleSheet.create({
   headerIcon: {
@@ -695,21 +866,84 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  decor1: { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(255,255,255,0.06)', top: -90, right: -70 },
-  decor2: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.05)', bottom: 20, left: -60 },
-  searchCard: { backgroundColor: colors.card, borderRadius: 18, ...shadow },
+  searchCard: { backgroundColor: colors.card, borderRadius: 20, borderWidth: 1, borderColor: colors.border, ...shadow },
   tabs: { flexDirection: 'row', alignItems: 'stretch', borderBottomWidth: 1, borderBottomColor: colors.border },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, minHeight: 64 },
   tabSep: { width: 1, backgroundColor: colors.border, marginVertical: spacing.md },
   tabIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   tabBar: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: -1, height: 3, borderTopLeftRadius: 3, borderTopRightRadius: 3, backgroundColor: colors.brand },
-  cityBlock: { paddingVertical: 10 },
-  swapLine: { height: 1, justifyContent: 'center' },
-  divider: { height: 1, backgroundColor: colors.border },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
+  routeBox: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  routeRail: { width: 34, alignItems: 'center', paddingVertical: 22, justifyContent: 'space-between' },
+  originDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 3, borderColor: colors.success, backgroundColor: colors.card },
+  railDots: { flex: 1, width: 0, borderLeftWidth: 2, borderColor: colors.textSubtle, borderStyle: 'dotted', marginVertical: 4 },
+  routeLine: { minHeight: 62, justifyContent: 'center', paddingVertical: spacing.sm, paddingRight: spacing.md },
+  routeSep: { height: 1, backgroundColor: colors.border, marginRight: spacing.md },
+  dateBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+    minHeight: 62,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+  },
+  fieldBox: { marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 2, borderWidth: 1, borderColor: colors.border, borderRadius: 14 },
+  dateIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' },
+  adminCard: { marginTop: spacing.lg, borderRadius: radius.card, ...shadowSoft },
+  adminInner: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderRadius: radius.card },
+  adminIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,193,7,0.14)', alignItems: 'center', justifyContent: 'center' },
+  recent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  recentIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' },
+  services: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  service: {
+    width: '31.5%',
+    flexGrow: 1,
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    ...shadowSoft,
+  },
+  serviceIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  offer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.card,
+    backgroundColor: colors.goldLight,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+  },
+  offerBadge: { width: 60, height: 60, borderRadius: 14, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   swap: {
     position: 'absolute',
     right: spacing.sm,
-    top: -21,
+    top: 41,
     width: 42,
     height: 42,
     borderRadius: 21,
@@ -747,8 +981,9 @@ const st = StyleSheet.create({
     borderColor: colors.border,
   },
   dayTileOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  why: { width: 148, backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.md, ...shadowSoft },
-  whyIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  whyCard: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.lg },
+  whyRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  whyRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
   routeCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, backgroundColor: colors.card, borderRadius: radius.card },
   routeIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' },
   promo: { marginTop: spacing.xxl, borderRadius: radius.card, ...shadowSoft },
@@ -758,7 +993,8 @@ const st = StyleSheet.create({
     borderRadius: radius.card,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: '#FFE0B2',
+    borderColor: colors.border,
+    backgroundColor: colors.card,
     overflow: 'hidden',
   },
   promoCta: {
@@ -772,15 +1008,6 @@ const st = StyleSheet.create({
     minHeight: 34,
     marginTop: spacing.md,
   },
-  trustRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xl,
-    paddingVertical: spacing.md,
-  },
-  trustDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: colors.textSubtle },
   support: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -797,7 +1024,7 @@ const st = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.success,
+    backgroundColor: colors.brand,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     minHeight: 40,

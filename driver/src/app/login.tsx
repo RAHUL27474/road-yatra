@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, errorMessage, getConfig } from '../api';
 import { useAuth } from '../auth';
-import { BRAND, Devotional, Emblem } from '../brand';
+import { BRAND, Devotional, LogoMark } from '../brand';
 import { colors, fonts, radius, shadow, space } from '../theme';
 import { Button, callPhone, Field, haptic, Ionicons, Loading, Notice, OtpInput, T, TextLink } from '../ui';
 
@@ -195,7 +195,7 @@ export default function Login() {
       <View style={[st.header, { paddingTop: insets.top + space.lg }]}>
         <Devotional size={12} style={{ marginBottom: space.md, textAlign: 'left' }} />
         <View style={st.brandRow}>
-          <Emblem size={52} />
+          <LogoMark size={52} />
           <View style={{ flex: 1 }}>
             <T v="title" color={colors.onBrand} numberOfLines={1}>
               {BRAND.wordmark}
@@ -413,7 +413,7 @@ export default function Login() {
 }
 
 const st = StyleSheet.create({
-  header: { backgroundColor: colors.brand, paddingHorizontal: space.xl, paddingBottom: space.xxxl + space.xl },
+  header: { backgroundColor: colors.brandDark, paddingHorizontal: space.xl, paddingBottom: space.xxxl + space.xl },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   card: { backgroundColor: colors.card, borderRadius: radius.card + 2, padding: space.xl },
   tabs: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: radius.input + 4, padding: 4, marginBottom: space.xl },

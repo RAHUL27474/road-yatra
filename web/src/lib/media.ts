@@ -7,6 +7,8 @@ export const EMPTY_ROAD_IMAGE = "/images/empty-road.jpg";
 
 /** Owner-supplied brand artwork (public/images/brand). */
 export const BRAND = {
+  /** The logo mark (also src/app/icon.svg, the favicon). */
+  logoMark: "/images/brand/logo-mark.svg",
   emblem: "/images/brand/emblem-khatushyam.jpg",
   bannerWide: "/images/brand/banner-wide.jpg",
   poster: "/images/brand/poster-portrait.jpg",

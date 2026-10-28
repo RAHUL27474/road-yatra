@@ -74,7 +74,7 @@ export default function TrackView({ bookingId, token, supportPhone }: { bookingI
       <div className="card overflow-hidden">
         <div className="flex items-start justify-between gap-3 bg-gradient-to-r from-brand-darker via-brand-dark to-brand p-5 text-white">
           <div className="min-w-0">
-            <p className="text-xs font-semibold tracking-wider text-blue-100 uppercase">Booking {data.code}</p>
+            <p className="text-xs font-semibold tracking-wider text-slate-300 uppercase">Booking {data.code}</p>
             <h1 className="mt-0.5 text-xl font-extrabold">{data.title}</h1>
           </div>
           {live && (

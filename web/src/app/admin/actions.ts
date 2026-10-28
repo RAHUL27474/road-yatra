@@ -13,15 +13,24 @@ import { saveSetting, type CancellationSlab } from "@/lib/settings";
 import { BLOCK_REASONS } from "@/lib/format";
 import { parseSeatLayout } from "@/lib/seats";
 import { publicFileUrl, saveImage } from "@/lib/uploads";
+import { adminApiUser, ApiDone } from "@/lib/admin-api";
 
 async function requireAdmin() {
-  const user = await getCurrentUser();
+  // Called through /api/admin/actions (mobile app): the route already checked the Bearer token.
+  const user = adminApiUser() ?? (await getCurrentUser());
   if (!user || user.role !== "ADMIN") throw new Error("Not authorised");
   return user;
 }
 
 function fail(path: string, message: string): never {
+  if (adminApiUser()) throw new HttpError(400, message);
   redirect(`${path}${path.includes("?") ? "&" : "?"}error=${encodeURIComponent(message)}`);
+}
+
+/** Done: back to `path` in the browser; the API returns it instead. */
+function go(path: string): never {
+  if (adminApiUser()) throw new ApiDone(path);
+  redirect(path);
 }
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -79,7 +88,7 @@ export async function saveVehicle(formData: FormData) {
   if (id) await db.vehicle.update({ where: { id }, data });
   else await db.vehicle.create({ data });
   revalidatePath("/admin/vehicles");
-  redirect("/admin/vehicles");
+  go("/admin/vehicles");
 }
 
 // ---------- Drivers ----------
@@ -123,7 +132,7 @@ export async function saveDriver(formData: FormData) {
     await db.driver.create({ data: { ...data, userId: u.id } });
   }
   revalidatePath("/admin/drivers");
-  redirect("/admin/drivers");
+  go("/admin/drivers");
 }
 
 /** Photo for a driver: a new upload wins, "remove photo" clears it, otherwise the typed URL (or the current one). */
@@ -157,7 +166,7 @@ export async function removeDriver(formData: FormData) {
   }
   revalidatePath("/admin/drivers");
   revalidatePath("/");
-  redirect(`/admin/drivers?removed=${history ? "deactivated" : "deleted"}`);
+  go(`/admin/drivers?removed=${history ? "deactivated" : "deleted"}`);
 }
 
 // ---------- Routes & stops ----------
@@ -257,7 +266,7 @@ export async function scheduleTrips(formData: FormData) {
     created++;
   }
   revalidatePath("/admin/trips");
-  redirect(`/admin/trips?created=${created}&skipped=${skipped}`);
+  go(`/admin/trips?created=${created}&skipped=${skipped}`);
 }
 
 export async function assignTripDriver(formData: FormData) {
@@ -346,7 +355,7 @@ export async function offlineSeatBooking(formData: FormData) {
     }),
   );
   revalidatePath(back);
-  redirect(`${back}?created=${b.code}`);
+  go(`${back}?created=${b.code}`);
 }
 
 /** Phone / walk-in full-cab booking entered by the office. Confirmed immediately. */
@@ -379,7 +388,7 @@ export async function offlineRentalBooking(formData: FormData) {
       markPaid: bool(formData, "paid"),
     }),
   );
-  redirect(`/admin/bookings?q=${b.code}`);
+  go(`/admin/bookings?q=${b.code}`);
 }
 
 // ---------- Bookings ----------
@@ -468,7 +477,7 @@ export async function saveSettings(formData: FormData) {
   await saveSetting("upiId", upiId);
   await saveSetting("upiName", str(formData, "upiName"));
   revalidatePath("/admin/settings");
-  redirect("/admin/settings?saved=1");
+  go("/admin/settings?saved=1");
 }
 
 // ---------- Fleet on routes ----------
@@ -537,5 +546,5 @@ export async function reviewDriverApplication(formData: FormData) {
   }
   revalidatePath("/admin/drivers");
   revalidatePath(back);
-  redirect(`/admin/drivers/${id}?reviewed=${decision}`);
+  go(`/admin/drivers/${id}?reviewed=${decision}`);
 }

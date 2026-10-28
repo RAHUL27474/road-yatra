@@ -1,16 +1,10 @@
-import Image from "next/image";
 import Link from "next/link";
 import { BRAND } from "@/lib/media";
 
-/** Round Khatu Shyam ji emblem (cropped from the owner's poster) with a golden ring. */
+/** The logo mark: an "S" drawn as a road with the sun at its end (public/images/brand/logo-mark.svg, same as the app). */
 export function LogoMark({ className = "h-10 w-10" }: { className?: string }) {
-  return (
-    <span className={`relative block shrink-0 overflow-hidden rounded-full bg-gold p-[2px] shadow-sm ring-1 ring-amber-500/40 ${className}`}>
-      <span className="relative block h-full w-full overflow-hidden rounded-full">
-        <Image src={BRAND.emblem} alt="" fill sizes="48px" className="object-cover" />
-      </span>
-    </span>
-  );
+  // eslint-disable-next-line @next/next/no-img-element -- a tiny static SVG; next/image adds nothing here
+  return <img src={BRAND.logoMark} alt="" className={`block shrink-0 rounded-[24%] ${className}`} />;
 }
 
 /** Splits "Jai Shree Shyam Tour & Travels" into a main line and a caption ("Tour & Travels"). */

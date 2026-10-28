@@ -235,7 +235,7 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, a
               {trip.fromCity} <ArrowRight className="h-4 w-4" aria-hidden /> {trip.toCity}
             </p>
             {summary && (
-              <p className="text-sm text-blue-100">
+              <p className="text-sm text-slate-300">
                 {summary.departLabel} · {summary.vehicleName}
               </p>
             )}

@@ -167,7 +167,8 @@ export async function cancelAllReminders() {
 export function useNotificationRouting(enabled: boolean) {
   // Wait for the navigator: a tap that cold-starts the app arrives before the screens are mounted.
   const navReady = !!useRootNavigationState()?.key;
-  const active = enabled && navReady;
+  // The web preview has no notification responses (the call throws there).
+  const active = enabled && navReady && Platform.OS !== 'web';
   useEffect(() => {
     if (!active) return;
     const open = (data: Record<string, unknown> | undefined) => {

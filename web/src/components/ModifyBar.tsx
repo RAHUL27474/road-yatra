@@ -25,7 +25,7 @@ export default function ModifyBar({
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0 text-white">
             <h1 className="truncate text-xl font-extrabold sm:text-2xl">{title}</h1>
-            <p className="truncate text-sm text-blue-100">{subtitle}</p>
+            <p className="truncate text-sm text-slate-300">{subtitle}</p>
           </div>
           <button onClick={() => setOpen((o) => !o)} className="btn shrink-0 bg-white/15 text-white ring-1 ring-white/30 hover:bg-white/25" aria-expanded={open}>
             {open ? <X className="h-4 w-4" aria-hidden /> : <Pencil className="h-4 w-4" aria-hidden />}

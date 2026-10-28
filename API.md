@@ -124,6 +124,100 @@ type Duty =
       pickupAddress; dropAddress; estimatedKm; startOdometer; endOdometer; paymentStatus; paymentMode; amountDue }
 ```
 
+## Admin (role ADMIN)
+Everything the website's office panel (`/admin`) can do, for the app. Send the admin's Bearer token. Not logged in → 401, not an admin → 403,
+unknown id → 404, a refused change → 400; errors are `{ error }` with a message to show as is. Dates are ISO strings; money is in rupees.
+Photo uploads are website-only (send `photoUrl` / `imageUrl` as text instead).
+
+### Reading
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/api/admin/dashboard` | `{ stats: Stat[], sos: Sos[], pendingDrivers: number, alerts: {what, date, expired}[], todaysTrips: AdminTrip[], todaysRentals: (Booking & {vehicleReg, driverId, driverResponse, driverNote})[], recent: Booking[] }` |
+| GET | `/api/admin/bookings?status=&kind=&q=` | `{ bookings: AdminBooking[], drivers: DriverBrief[], statuses: string[] }`. `status`: ALL/CONFIRMED/PENDING/COMPLETED/CANCELLED/EXPIRED, `kind`: ALL/SEAT/RENTAL, `q`: code, name or phone. Newest first, max 200 |
+| GET | `/api/admin/bookings/:idOrCode` | `{ booking: AdminBooking, drivers: DriverBrief[] }` |
+| GET | `/api/admin/trips` | `{ trips: AdminTrip[] /* SCHEDULED+STARTED from 12 h ago */, routes: RouteBrief[], vehicles: {id, name, regNumber, seats}[] /* seat-selling vehicles */, drivers: DriverBrief[], today: "YYYY-MM-DD" }` |
+| GET | `/api/admin/trips/:id` | `TripControl` (below) |
+| GET | `/api/admin/vehicles` | `{ vehicles: AdminVehicle[], vehicleTypes: Record<type, label> }` |
+| GET | `/api/admin/vehicles/:id` | `{ vehicle: AdminVehicle, vehicleTypes }` |
+| GET | `/api/admin/drivers` | `{ loadedAt, pending: DriverListRow[], drivers: DriverListRow[] }` (pending = applications waiting for approval, oldest first) |
+| GET | `/api/admin/drivers/:id` | `{ driver: AdminDriver }` |
+| GET | `/api/admin/routes` | `{ routes: {id, fromCity, toCity, distanceKm, durationMins, tollAmount, parkingAmount, trips, canDelete}[] }` |
+| GET | `/api/admin/stops` | `{ stops: (Stop & {landmark, photoUrl, sortOrder, active})[], cities: string[] }` |
+| GET | `/api/admin/fleet` | `{ onRoad: OnRoad[], vehicles: {id, name, regNumber, seats, allowSeatBooking, allowRental}[], routes: FleetRoute[] }` |
+| GET | `/api/admin/settings` | `{ settings: Settings, status: { onlinePayments: boolean, mobileOtp: boolean } }` |
+| GET | `/api/admin/feedback` | `{ average: number\|null, total, open, feedback: {id, name, phone, rating, comment, bookingCode, source, handled, createdAt}[], ratings: {bookingId, code, rating, comment, ratedAt, passengerName, title, driverName}[] }` |
+| GET | `/api/admin/messages` | `{ connected: boolean, templates: {event, to, category, vars: string[], name: string\|null}[], messages: {id, channel, to, event, body, status: "SENT"\|"FAILED"\|"LOGGED", error, createdAt}[] }` |
+| GET | `/api/admin/reports?type=&from=&to=` | `{ types: Record<type, label>, type, from, to, title, note, columns: string[], rows: (string\|number)[][], moneyColumns: boolean[], totals: (string\|number)[]\|null, csvUrl }`. Types: daily, route, vehicle, driver, occupancy, cancellations, payments, gst. Dates `YYYY-MM-DD` (default: this month) |
+| GET | `/admin/reports/export?type=&from=&to=` | CSV file (accepts the Bearer token too) — this is `csvUrl` |
+| GET | `/api/admin/options` | `{ routes: RouteBrief[], vehicles: {id, name, regNumber, seats, allowSeatBooking, allowRental}[], drivers: DriverBrief[], cities: string[], stops: Stop[], blockReasons: string[], rentalTypes: Record<type, label>, vehicleTypes: Record<type, label>, bookingStatuses: string[] }` — lists for forms |
+
+```ts
+type Stat = { key: "collectedToday"|"collectedMonth"|"bookingsToday"|"occupancyToday"|"cashToCollect"|"cashWithDrivers"|"refundsPending";
+              label: string; value: string /* formatted, e.g. "₹1,700" or "40%" */; amount: number; sub: string }
+type Sos = { id; createdAt; driverName; driverPhone; vehicleReg; lat; lng; mapUrl: string|null }
+type DriverBrief = { id; name; phone }
+type RouteBrief = { id; fromCity; toCity; distanceKm; durationMins }
+type AdminTrip = { id; routeId; fromCity; toCity; departAt; arriveAt; fare; boardingPoint; status: "SCHEDULED"|"STARTED"|"COMPLETED"|"CANCELLED";
+                   vehicle: { id; name; regNumber; seats }; driver: DriverBrief|null;
+                   driverResponse: "ACCEPTED"|"REJECTED"|null; driverNote: string|null /* why the last driver turned it down */; seatsTaken: number }
+// Booking = the customer Booking object above (serializeBooking) — code, kind, status, paymentStatus, totals, seatNos, trip, driver, …
+type AdminBooking = Booking & {
+  trackUrl: string|null; invoiceUrl: string|null; vehicleReg: string|null; driverId: string|null; driverResponse; driverNote;
+  bookedBy: { name; phone }; createdAt; paymentId: string|null; noShow: boolean; startOdometer: number|null; endOdometer: number|null;
+  adminNote: string|null; seatRefundDue: number; suggestedRefund: number /* default for "refundAmount" when cancelling */;
+  can: { cashOrUpi; complete; markRefunded; seatRefunded; assignDriver; cancel; refundAmount /* show the refund field */: boolean } }
+type TripControl = {
+  trip: AdminTrip & { seatsPerRow; aisleAfter; seatLayout };
+  summary: { sold; seats; blocked; cashToCollect };
+  editable: boolean;                       // SCHEDULED: seats can be blocked and phone bookings taken
+  seats: { seatNo; state: "FREE"|"BOOKED"|"BLOCKED"; blockReason: string|null; bookingId: string|null; female: boolean }[];
+  manifest: { id; code; status; source: "ONLINE"|"OFFLINE"; seatNos: number[]; passengers; passengerName; passengerPhone;
+              pickup: string; drop: string; paymentStatus; totalAmount; cashDue: number; boardedAt: string|null; noShow: boolean }[];
+  pickupStops: Stop[]; dropStops: Stop[]; drivers: DriverBrief[]; blockReasons: string[] }
+type AdminVehicle = { id; name; type; typeLabel; regNumber; seats; seatsPerRow; aisleAfter; seatLayout; amenities: string /* "AC,Music" */; imageUrl;
+                      allowSeatBooking; allowRental; ratePerKm; minKmPerDay; driverAllowance; localPackage; airportFare; tollFactor;
+                      insuranceExpiry; permitExpiry; fitnessExpiry; pucExpiry; active }
+type AdminDriver = { id; userId; name; phone; status: "PENDING"|"APPROVED"|"REJECTED"; active; licenceNo; licenceExpiry; photoUrl;
+                     licencePhotoUrl; aadhaarPhotoUrl /* need the Bearer token */; aadhaarLast4; address; experienceYears; emergencyContact;
+                     showOnWebsite; notes; appliedAt; reviewedAt; rejectReason }
+type DriverListRow = AdminDriver & { tripsDone: number; cashHeld: { amount; count }; rating: { average; count }|null }
+type OnRoad = { vehicle: { id; name; regNumber }; what: string; since: string|null; driverName: string|null;
+                location: { lat; lng; speed; updatedAt; mapUrl }|null }
+type FleetRoute = { id; fromCity; toCity; distanceKm; durationMins;
+                    vehicles: { vehicleId; on: boolean; upcomingTrips: number /* next 14 days */;
+                                today: { id; departAt; status; seatsTaken; driverName }[]; next: { id; departAt }|null }[] }
+type Settings = { business: { legalName; gstin; address; stateName; stateCode; sacCode; email }; cancellationSlabs: { minHoursBefore; refundPercent }[];
+                  allowCash; travelPolicy; returnDiscountPercent; freeChangeHours; advancePerSeat; upiId; upiName }
+```
+
+### Changing things
+`POST /api/admin/actions/:name` with a JSON body. These run the same code as the website's admin forms. Success → `{ ok: true, redirect?, …extra }`.
+Booleans are checkboxes: send `true` for ticked; **a missing or `false` flag means unticked**, so send every flag when saving a vehicle, driver or settings.
+Dates `YYYY-MM-DD`, times `HH:mm`, date-times `YYYY-MM-DDTHH:mm` (all India time).
+
+| Action | Body | Extra in the reply |
+|---|---|---|
+| `scheduleTrips` | `{ routeId, vehicleId, driverId?, startDate, time, days (1–90), fare, boardingPoint? }` | `created`, `skipped` (days the vehicle/driver was busy or already past) |
+| `assignTripDriver` | `{ id (trip), driverId? }` (empty = unassign) | |
+| `cancelTrip` | `{ id }` — SCHEDULED trips only; every booking cancelled with a full refund | |
+| `blockSeats` | `{ tripId, seatNos: number[], reason (one of blockReasons) }` | |
+| `unblockSeat` | `{ tripId, seatNo }` | |
+| `offlineSeatBooking` | `{ tripId, seatNos: number[], passengerName, passengerPhone, pickupStopId?, dropStopId?, female?, paid? }` — confirmed straight away, cash | `code` |
+| `offlineRentalBooking` | `{ rentalType, vehicleId, pickupCity, dropCity?, startAt, returnAt?, pickupAddress?, dropAddress?, passengers, passengerName, passengerPhone, paid? }` | `code` |
+| `updateBooking` | `{ id, action, note?, refundAmount?, driverId? }`. `action`: `cancel` (optional `refundAmount`, `note`), `complete`, `cash`, `upi` (payment received), `refunded`, `seatRefunded`, `assign` (`driverId`, full cabs), `note` (saves `note` as the office note) | |
+| `saveVehicle` | AdminVehicle fields (no `id` = new). Expiry dates as `YYYY-MM-DD` or empty; `amenities` comma separated; flags `allowSeatBooking`, `allowRental`, `active` | |
+| `saveDriver` | `{ id?, name, phone, licenceNo, licenceExpiry?, password? (≥6, sets/changes it), photoUrl?, removePhoto?, notes?, showOnWebsite?, active? }` | |
+| `removeDriver` | `{ id }` | `removed`: `"deleted"` (no history) or `"deactivated"` |
+| `reviewDriverApplication` | `{ id, decision: "approve"\|"reject", reason? (required to reject) }` | `reviewed` |
+| `markCashReceived` | `{ driverId, upTo: loadedAt from GET /api/admin/drivers }` | |
+| `addRoute` | `{ fromCity, toCity, distanceKm, durationHours, tollAmount, parkingAmount, bothWays? }` (an existing route is updated) | |
+| `deleteRoute` | `{ id }` (only routes with no trips: `canDelete`) | |
+| `saveStop` | `{ id?, city, name, address?, landmark?, lat?, lng?, sortOrder?, active? (when editing), removePhoto? }` | |
+| `toggleRouteVehicle` | `{ routeId, vehicleId }` — switches the vehicle on/off on that route | |
+| `saveSettings` | `{ legalName, gstin, address, stateName, stateCode, sacCode, email, slabHours0..4, slabRefund0..4, allowCash?, travelPolicy, returnDiscountPercent, freeChangeHours, advancePerSeat, upiId, upiName }` — send all fields (a 0-hour slab is added if missing) | `saved` |
+| `markFeedbackHandled` | `{ id }` — toggles seen / new | |
+| `resolveSos` | `{ id }` | |
+
 ## Sample logins (from the seed)
 - Customer: `9999999999` / `demo123` (or OTP)
 - Drivers: `9000000001`, `9000000002` / `driver123` (or OTP)

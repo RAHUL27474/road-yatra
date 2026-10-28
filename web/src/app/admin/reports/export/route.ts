@@ -1,9 +1,9 @@
-import { getCurrentUser } from "@/lib/auth";
+import { getRequestUser } from "@/lib/auth";
 import { buildReport, REPORTS, toCsv } from "@/lib/reports";
 
 // GET /admin/reports/export?type=daily&from=YYYY-MM-DD&to=YYYY-MM-DD -> CSV download (admin only)
 export async function GET(req: Request) {
-  const user = await getCurrentUser();
+  const user = await getRequestUser(req); // website cookie, or the app's Bearer token
   if (!user || user.role !== "ADMIN") return new Response("Not authorised", { status: 403 });
   const sp = new URL(req.url).searchParams;
   const type = sp.get("type") ?? "daily";

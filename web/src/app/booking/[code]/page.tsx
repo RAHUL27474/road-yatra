@@ -67,11 +67,11 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
             <LogoMark className="h-8 w-8" />
             <div className="leading-tight">
               <p className="font-extrabold">{brand}</p>
-              <p className="text-xs text-blue-100">{b.kind === "SEAT" ? "Shared seat e-ticket" : `Full cab · ${RENTAL_TYPES[b.rentalType ?? ""] ?? ""}`}</p>
+              <p className="text-xs text-slate-300">{b.kind === "SEAT" ? "Shared seat e-ticket" : `Full cab · ${RENTAL_TYPES[b.rentalType ?? ""] ?? ""}`}</p>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-[11px] tracking-wider text-blue-100 uppercase">Booking ID</p>
+            <p className="text-[11px] tracking-wider text-slate-300 uppercase">Booking ID</p>
             <p className="font-mono text-lg font-bold">{b.code}</p>
           </div>
         </header>

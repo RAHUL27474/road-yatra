@@ -36,7 +36,7 @@ export default async function Footer() {
   ];
 
   return (
-    <footer className="relative mt-auto bg-brand-darker text-sm text-blue-100/70">
+    <footer className="relative mt-auto bg-brand-darker text-sm text-slate-400">
       <div className="saffron-gradient absolute inset-x-0 top-0 h-1" aria-hidden />
       <div className="container-x grid grid-cols-2 gap-x-6 gap-y-10 py-14 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
         <div className="col-span-2 lg:col-span-1">
@@ -46,7 +46,7 @@ export default async function Footer() {
             Your Journey Our Priority. Daily shared taxi from Khatima to Delhi and Haridwar, one-way and round-trip cabs, and hill station trips. Safe · Comfortable · Reliable.
           </p>
           <div className="mt-6">
-            <p className="mb-2 text-xs font-semibold tracking-wider text-blue-200/50 uppercase">Mobile app</p>
+            <p className="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">Mobile app</p>
             <div className="inline-flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-slate-200">
               <Smartphone className="h-6 w-6 text-gold" aria-hidden />
               <div className="leading-tight">
@@ -95,7 +95,7 @@ export default async function Footer() {
                   <Phone className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
                   <span>
                     {phone}
-                    <span className="block text-xs text-blue-200/50">Bookings · day &amp; night</span>
+                    <span className="block text-xs text-slate-500">Bookings · day &amp; night</span>
                   </span>
                 </a>
               </li>
@@ -136,7 +136,7 @@ export default async function Footer() {
         </div>
       </div>
       <div className="border-t border-white/10">
-        <div className="container-x flex flex-col gap-2 py-5 text-xs text-blue-200/50 sm:flex-row sm:items-center sm:justify-between">
+        <div className="container-x flex flex-col gap-2 py-5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {new Date().getFullYear()} {business.legalName || brand}. All rights reserved. ·{" "}
             <a href="/credits" className="underline-offset-2 hover:text-white hover:underline">Photo credits</a>

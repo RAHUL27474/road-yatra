@@ -3,7 +3,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api, API_URL } from './api';
-import { colors, radius, shadowSoft, spacing, type } from './theme';
+import { colors, radius, spacing, type } from './theme';
 
 type PublicDriver = { id: string; name: string; photoUrl: string | null; experienceYears: number | null; tripsDone: number };
 
@@ -17,7 +17,7 @@ export function OurDrivers() {
   if (!drivers.length) return null;
   return (
     <View>
-      <Text style={[type('lg', 'extrabold'), { marginBottom: 2 }]}>Meet our drivers</Text>
+      <Text style={[type('lg', 'bold'), { marginTop: spacing.xxl, marginBottom: 2 }]}>Meet our drivers</Text>
       <Text style={[type('xs', 'regular', colors.textMuted), { marginBottom: spacing.sm }]}>Licence-checked and experienced on these routes</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingRight: spacing.lg }}>
         {drivers.map((d) => (
@@ -49,6 +49,6 @@ export function OurDrivers() {
 }
 
 const st = StyleSheet.create({
-  card: { width: 128, alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.md, ...shadowSoft },
+  card: { width: 128, alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
   photo: { width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: colors.brandLight },
 });

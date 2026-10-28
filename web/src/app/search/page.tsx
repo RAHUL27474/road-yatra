@@ -55,7 +55,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   active ? "bg-brand text-white shadow-md shadow-brand/25" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-brand/50"
                 }`}
               >
-                <span className={`text-[11px] font-semibold uppercase ${active ? "text-blue-100" : "text-slate-400"}`}>
+                <span className={`text-[11px] font-semibold uppercase ${active ? "text-slate-300" : "text-slate-400"}`}>
                   {d === today ? "Today" : dt.toLocaleDateString("en-IN", { weekday: "short" })}
                 </span>
                 <span className="text-sm font-bold">{dt.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>

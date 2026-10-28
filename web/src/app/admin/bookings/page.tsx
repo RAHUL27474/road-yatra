@@ -34,7 +34,7 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">Bookings</h1>
         <Link href="/admin/bookings/new" className="btn-primary">+ Phone booking (full cab)</Link>
       </div>
@@ -58,10 +58,10 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
             </Link>
           ))}
         </div>
-        <form className="ml-auto flex gap-2">
+        <form className="flex w-full gap-2 sm:ml-auto sm:w-auto">
           <input type="hidden" name="status" value={status} />
           <input type="hidden" name="kind" value={kind} />
-          <input name="q" defaultValue={q} placeholder="Booking ID, name or phone" className="input w-56" />
+          <input name="q" defaultValue={q} placeholder="Booking ID, name or phone" className="input min-w-0 flex-1 sm:w-56 sm:flex-none" />
           <button className="btn-ghost">Search</button>
         </form>
       </div>

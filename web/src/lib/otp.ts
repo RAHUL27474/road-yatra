@@ -60,10 +60,15 @@ export async function requestOtp(target: string, channel: OtpChannel = "PHONE") 
   return { devOtp: !configured(channel) && devMode() ? code : undefined };
 }
 
-/** Checks the code. Resolves `delivered`: true when the code really reached the person (not test mode). */
-export async function verifyOtp(target: string, code: string): Promise<{ delivered: boolean }> {
+/**
+ * Checks the code. Resolves `delivered`: true when the code really reached the person (not test mode).
+ * `keep`: check without using the code up (e.g. before asking a new user's name). Message Central codes can only be
+ * checked once, so those are not checked when kept; the later full check catches a wrong one.
+ */
+export async function verifyOtp(target: string, code: string, { keep = false } = {}): Promise<{ delivered: boolean }> {
   const otp = await db.otpCode.findFirst({ where: { phone: target, used: false }, orderBy: { createdAt: "desc" } });
   if (!otp || otp.expiresAt < new Date()) throw new HttpError(400, "OTP expired. Please request a new one.");
+  if (keep && otp.codeHash.startsWith(MC)) return { delivered: otp.delivered };
   const claim = await db.otpCode.updateMany({ where: { id: otp.id, attempts: { lt: MAX_ATTEMPTS } }, data: { attempts: { increment: 1 } } });
   if (!claim.count) throw new HttpError(429, "Too many wrong attempts. Please request a new OTP.");
 
@@ -81,6 +86,6 @@ export async function verifyOtp(target: string, code: string): Promise<{ deliver
     correct = a.length === b.length && crypto.timingSafeEqual(a, b);
   }
   if (!correct) throw new HttpError(400, "Incorrect OTP."); // the attempt was already counted above
-  await db.otpCode.update({ where: { id: otp.id }, data: { used: true } });
+  if (!keep) await db.otpCode.update({ where: { id: otp.id }, data: { used: true } });
   return { delivered: otp.delivered };
 }

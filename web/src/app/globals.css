@@ -1,23 +1,27 @@
 @import "tailwindcss";
 
+/* Brand palette (same as the mobile app): royal blue + one orange action colour, neutral greys. */
 @theme {
-  --color-brand: #0b3d91;
-  --color-brand-dark: #082e6e;
-  --color-brand-darker: #061f4d;
-  --color-brand-light: #e8eefb;
-  --color-accent: #e65100;
-  --color-accent-dark: #c62828;
-  --color-accent-light: #fff3e0;
-  --color-saffron-from: #d32f2f;
-  --color-saffron-to: #f57c00;
-  --color-gold: #ffc107;
-  --color-gold-light: #fff8e1;
-  --color-ink: #0f172a;
-  --color-canvas: #f5f6fa;
+  --color-brand: #1e4fd8;
+  --color-brand-dark: #173fae;
+  --color-brand-darker: #0f2a75;
+  --color-brand-light: #eaf1ff;
+  --color-accent: #f26a1b;
+  --color-accent-dark: #d4560d;
+  --color-accent-light: #fff1e8;
+  /* The old red→saffron gradient is now one flat orange, so every "saffron-gradient" surface turns solid. */
+  --color-saffron-from: #f26a1b;
+  --color-saffron-to: #f26a1b;
+  --color-gold: #f5a524;
+  --color-gold-light: #fff6e5;
+  /* Soft orange for highlighted words on the dark hero. */
+  --color-highlight: #ffd29a;
+  --color-ink: #111827;
+  --color-canvas: #f4f7fc;
   --font-sans: var(--font-jakarta), var(--font-deva), "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
   --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px rgb(15 23 42 / 0.06);
   --shadow-lift: 0 4px 10px rgb(15 23 42 / 0.06), 0 18px 40px rgb(15 23 42 / 0.12);
-  --shadow-widget: 0 10px 30px rgb(11 61 145 / 0.18), 0 30px 60px rgb(15 23 42 / 0.12);
+  --shadow-widget: 0 10px 30px rgb(15 42 117 / 0.16), 0 30px 60px rgb(15 23 42 / 0.1);
 }
 
 html {
@@ -29,7 +33,7 @@ body {
 }
 
 ::selection {
-  background: rgb(255 193 7 / 0.35);
+  background: rgb(30 79 216 / 0.2);
 }
 
 /* ---------- Layout ---------- */
@@ -66,7 +70,7 @@ body {
   @apply btn bg-brand text-white shadow-sm shadow-brand/20 hover:bg-brand-dark;
 }
 @utility btn-accent {
-  @apply btn bg-gradient-to-r from-saffron-from to-saffron-to text-white shadow-md shadow-accent/25 [text-shadow:0_1px_1px_rgb(0_0_0/0.15)] hover:brightness-110 focus-visible:outline-accent;
+  @apply btn bg-accent text-white shadow-sm shadow-accent/20 hover:bg-accent-dark focus-visible:outline-accent;
 }
 @utility btn-ghost {
   @apply btn bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 hover:ring-slate-400;

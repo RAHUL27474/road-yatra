@@ -3,13 +3,13 @@
 import { Platform, TextStyle, ViewStyle } from 'react-native';
 
 export const colors = {
-  brand: '#1E3A8A',
-  brandDark: '#0B3D91',
-  brandLight: '#E8EEFB',
-  accent: '#F57C00',
-  accentLight: '#FFF3E0',
-  /** Golden yellow: devotional line and emblem ring. */
-  gold: '#FFC107',
+  brand: '#1E4FD8',
+  brandDark: '#0F2A75',
+  brandLight: '#EAF1FF',
+  accent: '#F26A1B',
+  accentLight: '#FFF1E8',
+  /** Gold (the sun in the logo): devotional line. */
+  gold: '#F5A524',
   success: '#16A34A',
   successLight: '#DCFCE7',
   warning: '#D97706',
@@ -19,7 +19,7 @@ export const colors = {
   text: '#0F172A',
   textMuted: '#64748B',
   border: '#E2E8F0',
-  background: '#F1F5F9',
+  background: '#F4F7FC',
   card: '#FFFFFF',
   white: '#FFFFFF',
   black: '#000000',

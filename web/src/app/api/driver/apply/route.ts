@@ -22,6 +22,14 @@ const fields = z.object({
  * Creates or resubmits a PENDING application. The office approves it in Admin → Drivers.
  */
 export const POST = handle(async (req: Request) => {
+  // Read the upload before any check can refuse it: answering while the multipart body is unread makes Next.js fail with a 500.
+  let upload: FormData | null = null;
+  try {
+    upload = await req.formData();
+  } catch {
+    // reported below, after the login checks
+  }
+
   const user = await getRequestUser(req);
   if (!user) throw new HttpError(401, "Please verify your mobile number first.");
   if (user.role === "ADMIN") throw new HttpError(400, "Admin accounts cannot apply as drivers.");
@@ -30,12 +38,8 @@ export const POST = handle(async (req: Request) => {
   if (existing?.status === "APPROVED") throw new HttpError(400, "You are already an approved driver. Please log in.");
   if (existing?.status === "PENDING") throw new HttpError(400, "Your application is already under review.");
 
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
-    throw new HttpError(400, "Please send the application as a form with photos.");
-  }
+  if (!upload) throw new HttpError(400, "Please send the application as a form with photos.");
+  const form = upload;
   const text = (k: string) => (typeof form.get(k) === "string" ? (form.get(k) as string) : undefined);
   const data = fields.parse({
     name: text("name"),

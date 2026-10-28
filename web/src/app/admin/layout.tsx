@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import AdminNav from "./AdminNav";
+import AdminShell from "./AdminShell";
 
-export const metadata = { title: "Admin" };
+export const metadata = { title: "Office portal" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -10,12 +10,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect("/login?next=/admin");
   if (user.role !== "ADMIN") redirect("/");
 
+  const brand = process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels";
+  const today = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 md:flex-row">
-      <aside className="md:w-60 md:shrink-0">
-        <AdminNav />
-      </aside>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    <AdminShell brand={brand} userName={user.name} today={today}>
+      {children}
+    </AdminShell>
   );
 }
