@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -87,6 +87,7 @@ export async function saveVehicle(formData: FormData) {
   if (dup) fail(back, `Another vehicle already has registration ${data.regNumber}.`);
   if (id) await db.vehicle.update({ where: { id }, data });
   else await db.vehicle.create({ data });
+  revalidateTag("home");
   revalidatePath("/admin/vehicles");
   go("/admin/vehicles");
 }
@@ -185,6 +186,7 @@ export async function addRoute(formData: FormData) {
     const data = { distanceKm, durationMins, tollAmount, parkingAmount };
     await db.route.upsert({ where: { fromCity_toCity: { fromCity: a, toCity: b } }, update: data, create: { fromCity: a, toCity: b, ...data } });
   }
+  revalidateTag("home");
   revalidatePath("/admin/routes");
 }
 
@@ -193,6 +195,7 @@ export async function deleteRoute(formData: FormData) {
   const id = str(formData, "id");
   if ((await db.trip.count({ where: { routeId: id } })) > 0) fail("/admin/routes", "This route has trips on it, so it cannot be deleted.");
   await db.route.delete({ where: { id } });
+  revalidateTag("home");
   revalidatePath("/admin/routes");
 }
 
@@ -227,6 +230,7 @@ export async function saveStop(formData: FormData) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") fail("/admin/stops", `${data.city} already has a point called "${data.name}".`);
     throw e;
   }
+  revalidateTag("home");
   revalidatePath("/admin/stops");
 }
 
@@ -265,6 +269,7 @@ export async function scheduleTrips(formData: FormData) {
     await db.trip.create({ data: { routeId: route.id, vehicleId, driverId, departAt, arriveAt, fare, boardingPoint } });
     created++;
   }
+  revalidateTag("home");
   revalidatePath("/admin/trips");
   go(`/admin/trips?created=${created}&skipped=${skipped}`);
 }
@@ -289,6 +294,7 @@ export async function assignTripDriver(formData: FormData) {
     await notifyDriverDuty("TRIP", id);
   }
   revalidatePath(`/admin/trips/${id}`);
+  revalidateTag("home");
   revalidatePath("/admin/trips");
 }
 
@@ -303,6 +309,7 @@ export async function cancelTrip(formData: FormData) {
   for (const b of bookings) await cancelBooking(b.id, { by: "ADMIN", refundAmount: b.totalAmount, note: "Trip cancelled by operator" });
   await db.bookedSeat.deleteMany({ where: { tripId: id } });
   await db.trip.update({ where: { id }, data: { status: "CANCELLED" } });
+  revalidateTag("home");
   revalidatePath("/admin/trips");
 }
 
@@ -480,6 +487,7 @@ export async function saveSettings(formData: FormData) {
   if (upiId && !/^[a-z0-9._-]{2,}@[a-z0-9.-]{2,}$/.test(upiId)) fail("/admin/settings", "UPI ID looks wrong. It should be like name@bank.");
   await saveSetting("upiId", upiId);
   await saveSetting("upiName", str(formData, "upiName"));
+  revalidateTag("home");
   revalidatePath("/admin/settings");
   go("/admin/settings?saved=1");
 }

@@ -8,7 +8,7 @@ import PublicChrome from "@/components/PublicChrome";
 const brand = process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels";
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta", display: "swap" });
-const deva = Noto_Sans_Devanagari({ subsets: ["devanagari"], weight: ["500", "700"], variable: "--font-deva", display: "swap" });
+const deva = Noto_Sans_Devanagari({ subsets: ["devanagari"], weight: ["500", "700"], variable: "--font-deva", display: "swap", preload: false });
 
 export const metadata: Metadata = {
   title: { default: `${brand} – Khatima to Delhi & Haridwar taxi, cab hire`, template: `%s | ${brand}` },

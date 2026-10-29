@@ -24,6 +24,7 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { fmtDuration, inr, VEHICLE_TYPES } from "@/lib/format";
 import { getSettings } from "@/lib/settings";
@@ -49,16 +50,24 @@ function slabText(slabs: { minHoursBefore: number; refundPercent: number }[]) {
   });
 }
 
+/** Everything the home page reads, kept for a minute (office edits clear it via revalidateTag("home")). Date fields come back as strings. */
+const homeData = unstable_cache(
+  () =>
+    Promise.all([
+      db.route.findMany({ orderBy: { distanceKm: "asc" } }),
+      db.vehicle.findMany({ where: { active: true }, orderBy: [{ seats: "desc" }, { name: "asc" }] }),
+      db.trip.groupBy({ by: ["routeId"], where: { status: "SCHEDULED", departAt: { gt: new Date() } }, _min: { fare: true } }),
+      getSettings(),
+      db.stop.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    ]),
+  ["home-data"],
+  { revalidate: 60, tags: ["home"] },
+);
+
 export default async function Home({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab } = await searchParams;
   const now = new Date();
-  const [routes, vehicles, fares, settings, stops] = await Promise.all([
-    db.route.findMany({ orderBy: { distanceKm: "asc" } }),
-    db.vehicle.findMany({ where: { active: true }, orderBy: [{ seats: "desc" }, { name: "asc" }] }),
-    db.trip.groupBy({ by: ["routeId"], where: { status: "SCHEDULED", departAt: { gt: now } }, _min: { fare: true } }),
-    getSettings(),
-    db.stop.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-  ]);
+  const [routes, vehicles, fares, settings, stops] = await homeData();
   const brand = process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels";
   const [brandMain] = splitBrand(brand);
   const phone = process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? "";

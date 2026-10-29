@@ -1,19 +1,19 @@
 /** Stock photos in /public/images (see public/images/CREDITS.md) and small display helpers. */
 
-export const HERO_IMAGE = "/images/hero-highway.jpg";
-export const HILLS_IMAGE = "/images/hero-hills.jpg";
-export const ROADTRIP_IMAGE = "/images/why-roadtrip.jpg";
-export const EMPTY_ROAD_IMAGE = "/images/empty-road.jpg";
+export const HERO_IMAGE = "/images/hero-highway.webp";
+export const HILLS_IMAGE = "/images/hero-hills.webp";
+export const ROADTRIP_IMAGE = "/images/why-roadtrip.webp";
+export const EMPTY_ROAD_IMAGE = "/images/empty-road.webp";
 
 /** Owner-supplied brand artwork (public/images/brand). */
 export const BRAND = {
   /** The logo mark (also src/app/icon.svg, the favicon). */
   logoMark: "/images/brand/logo-mark.svg",
-  emblem: "/images/brand/emblem-khatushyam.jpg",
-  bannerWide: "/images/brand/banner-wide.jpg",
-  poster: "/images/brand/poster-portrait.jpg",
-  bannerTemple: "/images/brand/banner-temple-hi.jpg",
-  bannerKhatushyam: "/images/brand/banner-khatushyam-hi.jpg",
+  emblem: "/images/brand/emblem-khatushyam.webp",
+  bannerWide: "/images/brand/banner-wide.webp",
+  poster: "/images/brand/poster-portrait.webp",
+  bannerTemple: "/images/brand/banner-temple-hi.webp",
+  bannerKhatushyam: "/images/brand/banner-khatushyam-hi.webp",
 };
 
 /** WhatsApp chat link for an Indian phone number such as "+91 99976 81790". */
@@ -23,22 +23,22 @@ export function whatsappLink(phone: string) {
 }
 
 const VEHICLE_PHOTOS: Record<string, string> = {
-  SEDAN: "/images/car-sedan.jpg",
-  HATCHBACK: "/images/fleet-altroz-photo.jpg",
-  ERTIGA: "/images/car-mpv.jpg",
-  SUV: "/images/car-suv.jpg",
-  INNOVA_CRYSTA: "/images/car-suv.jpg",
-  TEMPO_TRAVELLER: "/images/car-mpv.jpg",
-  BUS: "/images/car-mpv.jpg",
-  OTHER: "/images/car-mpv.jpg",
+  SEDAN: "/images/car-sedan.webp",
+  HATCHBACK: "/images/fleet-altroz-photo.webp",
+  ERTIGA: "/images/car-mpv.webp",
+  SUV: "/images/car-suv.webp",
+  INNOVA_CRYSTA: "/images/car-suv.webp",
+  TEMPO_TRAVELLER: "/images/car-mpv.webp",
+  BUS: "/images/car-mpv.webp",
+  OTHER: "/images/car-mpv.webp",
 };
 
 /** Photos of the vehicle models we run (see CREDITS.md), matched by vehicle name. */
 const FLEET_PHOTOS: [RegExp, string][] = [
-  [/ertiga/i, "/images/fleet-ertiga-photo.jpg"],
-  [/dzire.*old/i, "/images/fleet-dzire-old-photo.jpg"],
-  [/dzire/i, "/images/fleet-dzire-new-photo.jpg"],
-  [/altroz/i, "/images/fleet-altroz-photo.jpg"],
+  [/ertiga/i, "/images/fleet-ertiga-photo.webp"],
+  [/dzire.*old/i, "/images/fleet-dzire-old-photo.webp"],
+  [/dzire/i, "/images/fleet-dzire-new-photo.webp"],
+  [/altroz/i, "/images/fleet-altroz-photo.webp"],
 ];
 
 /** Photo for a vehicle (used when the office has not uploaded one): our fleet photo by name, else a stock photo by type. */
@@ -47,19 +47,19 @@ export function vehiclePhoto(type: string, name = "") {
 }
 
 const CITY_PHOTOS: Record<string, string> = {
-  Delhi: "/images/dest-delhi.jpg",
-  Haldwani: "/images/dest-nainital.jpg",
-  Nainital: "/images/dest-nainital.jpg",
-  Dehradun: "/images/dest-dehradun.jpg",
-  Mussoorie: "/images/dest-mussoorie.jpg",
-  Haridwar: "/images/dest-haridwar.jpg",
-  Rishikesh: "/images/dest-rishikesh.jpg",
-  Auli: "/images/dest-auli.jpg",
-  Bareilly: "/images/dest-bareilly.jpg",
-  Moradabad: "/images/dest-bareilly.jpg",
-  Rudrapur: "/images/dest-rudrapur.jpg",
-  Pantnagar: "/images/dest-rudrapur.jpg",
-  Khatima: "/images/dest-khatima.jpg",
+  Delhi: "/images/dest-delhi.webp",
+  Haldwani: "/images/dest-nainital.webp",
+  Nainital: "/images/dest-nainital.webp",
+  Dehradun: "/images/dest-dehradun.webp",
+  Mussoorie: "/images/dest-mussoorie.webp",
+  Haridwar: "/images/dest-haridwar.webp",
+  Rishikesh: "/images/dest-rishikesh.webp",
+  Auli: "/images/dest-auli.webp",
+  Bareilly: "/images/dest-bareilly.webp",
+  Moradabad: "/images/dest-bareilly.webp",
+  Rudrapur: "/images/dest-rudrapur.webp",
+  Pantnagar: "/images/dest-rudrapur.webp",
+  Khatima: "/images/dest-khatima.webp",
 };
 
 export function cityPhoto(city: string) {
