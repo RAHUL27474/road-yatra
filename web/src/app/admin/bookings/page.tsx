@@ -7,6 +7,7 @@ import { fmtDateTime, inr } from "@/lib/format";
 import { bookingTitle, PAYMENT_LABEL, STATUS_STYLE } from "@/components/BookingSummary";
 import Flash from "@/components/Flash";
 import { updateBooking } from "../actions";
+import OpButton from "../OpButton";
 
 const STATUSES = ["ALL", "CONFIRMED", "PENDING", "COMPLETED", "CANCELLED", "EXPIRED"];
 
@@ -128,28 +129,37 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
                   <form action={updateBooking} className="flex flex-wrap items-center gap-2">
                     <input type="hidden" name="id" value={b.id} />
                     <input type="hidden" name="back" value={back} />
+                    <input type="hidden" name="op" value="note" />
                     <input name="note" placeholder="Note" defaultValue={row.adminNote ?? ""} className="input w-48 py-1" />
-                    <button name="action" value="note" className="btn-ghost py-1">Save note</button>
-                    {(b.paymentStatus === "UNPAID" || b.paymentStatus === "PARTIAL") && b.status === "CONFIRMED" && (
-                      <>
-                        <button name="action" value="cash" className="btn-ghost py-1">Cash received</button>
-                        <button name="action" value="upi" className="btn-ghost py-1">UPI received</button>
-                      </>
-                    )}
-                    {b.status === "CONFIRMED" && <button name="action" value="complete" className="btn-ghost py-1">Mark completed</button>}
-                    {b.paymentStatus === "REFUND_PENDING" && <button name="action" value="refunded" className="btn-primary py-1">Mark refunded</button>}
-                    {row.seatRefundDue > 0 && (
-                      <button name="action" value="seatRefunded" className="btn-primary py-1" title="Refund owed for seats the customer cancelled">
-                        Seat refund {inr(row.seatRefundDue)} done
-                      </button>
-                    )}
+                    <button className="btn-ghost py-1">Save note</button>
                   </form>
+                  {(b.paymentStatus === "UNPAID" || b.paymentStatus === "PARTIAL") && b.status === "CONFIRMED" && (
+                    <>
+                      <OpButton id={b.id} back={back} op="cash" className="btn-ghost py-1">Cash received</OpButton>
+                      <OpButton id={b.id} back={back} op="upi" className="btn-ghost py-1">UPI received</OpButton>
+                    </>
+                  )}
+                  {b.status === "CONFIRMED" && (
+                    <OpButton id={b.id} back={back} op="complete" className="btn-ghost py-1">
+                      Mark completed
+                    </OpButton>
+                  )}
+                  {b.paymentStatus === "REFUND_PENDING" && (
+                    <OpButton id={b.id} back={back} op="refunded" className="btn-primary py-1">
+                      Mark refunded
+                    </OpButton>
+                  )}
+                  {row.seatRefundDue > 0 && (
+                    <OpButton id={b.id} back={back} op="seatRefunded" className="btn-primary py-1" title="Refund owed for seats the customer cancelled">
+                      Seat refund {inr(row.seatRefundDue)} done
+                    </OpButton>
+                  )}
 
                   {b.kind === "RENTAL" && b.status === "CONFIRMED" && b.tripStatus !== "COMPLETED" && (
                     <form action={updateBooking} className="flex items-center gap-2">
                       <input type="hidden" name="id" value={b.id} />
                       <input type="hidden" name="back" value={back} />
-                      <input type="hidden" name="action" value="assign" />
+                      <input type="hidden" name="op" value="assign" />
                       <select name="driverId" defaultValue={row.driverId ?? ""} className="input py-1">
                         <option value="">No driver</option>
                         {drivers.map((d) => (
@@ -167,7 +177,7 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
                     <form action={updateBooking} className="flex items-center gap-2">
                       <input type="hidden" name="id" value={b.id} />
                       <input type="hidden" name="back" value={back} />
-                      <input type="hidden" name="action" value="cancel" />
+                      <input type="hidden" name="op" value="cancel" />
                       {row.paymentStatus === "PAID" && (
                         <label className="flex items-center gap-1 text-xs">
                           Refund ₹

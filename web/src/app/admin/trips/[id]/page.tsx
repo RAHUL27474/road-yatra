@@ -4,7 +4,8 @@ import { cashDue } from "@/lib/booking";
 import { BLOCK_REASONS, fmtDateTime, fmtTime, inr } from "@/lib/format";
 import { STATUS_STYLE } from "@/components/BookingSummary";
 import Flash from "@/components/Flash";
-import { assignTripDriver, blockSeats, offlineSeatBooking, unblockSeat, updateBooking } from "../../actions";
+import { assignTripDriver, blockSeats, offlineSeatBooking, unblockSeat } from "../../actions";
+import OpButton from "../../OpButton";
 
 /** Trip control: driver, seat blocking, phone bookings and the passenger manifest (print it for the driver). */
 export default async function TripManifest({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; created?: string }> }) {
@@ -209,12 +210,14 @@ export default async function TripManifest({ params, searchParams }: { params: P
                 <td className="text-xs">{b.boardedAt ? `Boarded ${fmtTime(b.boardedAt)}` : b.noShow ? "No-show" : "—"}</td>
                 <td className="print:hidden">
                   {cashDue(b) > 0 && b.status !== "PENDING" && (
-                    <form action={updateBooking}>
-                      <input type="hidden" name="id" value={b.id} />
-                      <input type="hidden" name="back" value={back} />
-                      <button name="action" value="cash" className="mr-2 text-xs font-semibold text-brand">Cash</button>
-                      <button name="action" value="upi" className="text-xs font-semibold text-brand">UPI</button>
-                    </form>
+                    <span className="whitespace-nowrap">
+                      <OpButton id={b.id} back={back} op="cash" className="mr-2 text-xs font-semibold text-brand">
+                        Cash
+                      </OpButton>
+                      <OpButton id={b.id} back={back} op="upi" className="text-xs font-semibold text-brand">
+                        UPI
+                      </OpButton>
+                    </span>
                   )}
                 </td>
               </tr>

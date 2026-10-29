@@ -396,7 +396,9 @@ export async function offlineRentalBooking(formData: FormData) {
 export async function updateBooking(formData: FormData) {
   await requireAdmin();
   const id = str(formData, "id");
-  const action = str(formData, "action");
+  // Website forms send "op": a field named "action" clobbers form.action and React then drops the clicked button's value.
+  // The app's JSON API (/api/admin/actions/updateBooking) still sends "action".
+  const action = str(formData, "op") || str(formData, "action");
   const note = str(formData, "note") || undefined;
   const back = str(formData, "back") || "/admin/bookings";
   const b = await db.booking.findUniqueOrThrow({ where: { id } });
@@ -404,7 +406,9 @@ export async function updateBooking(formData: FormData) {
   if (action === "cancel") {
     if (b.status !== "PENDING" && b.status !== "CONFIRMED") fail(back, `This booking is already ${b.status.toLowerCase()}.`);
     const refund = str(formData, "refundAmount");
-    await cancelBooking(id, { by: "ADMIN", refundAmount: refund === "" ? undefined : Number(refund), note: note ?? "Cancelled by operator" });
+    // Keep the office's earlier note: add the cancellation reason after it instead of replacing it.
+    const reason = note ?? "Cancelled by operator";
+    await cancelBooking(id, { by: "ADMIN", refundAmount: refund === "" ? undefined : Number(refund), note: b.adminNote ? `${b.adminNote} · ${reason}` : reason });
   } else if (action === "complete") {
     await db.booking.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date() } });
   } else if (action === "cash" || action === "upi") {
