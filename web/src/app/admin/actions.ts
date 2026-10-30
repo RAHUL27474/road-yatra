@@ -132,6 +132,7 @@ export async function saveDriver(formData: FormData) {
       : await db.user.create({ data: { name, phone, role: "DRIVER", passwordHash } });
     await db.driver.create({ data: { ...data, userId: u.id } });
   }
+  revalidateTag("home");
   revalidatePath("/admin/drivers");
   go("/admin/drivers");
 }
@@ -165,6 +166,7 @@ export async function removeDriver(formData: FormData) {
   } else {
     await db.$transaction([db.driver.delete({ where: { id } }), db.user.update({ where: { id: d.userId }, data: { role: "CUSTOMER", tokenVersion: { increment: 1 } } })]);
   }
+  revalidateTag("home");
   revalidatePath("/admin/drivers");
   revalidatePath("/");
   go(`/admin/drivers?removed=${history ? "deactivated" : "deleted"}`);
@@ -523,6 +525,7 @@ export async function markCashReceived(formData: FormData) {
   // Only the cash the office saw on the page: anything the driver collected after it loaded is still with them.
   const upTo = new Date(str(formData, "upTo") || Date.now());
   await db.booking.updateMany({ where: { cashCollectedBy: driverId, cashHandedOverAt: null, cashCollectedAt: { lte: upTo } }, data: { cashHandedOverAt: new Date() } });
+  revalidateTag("home");
   revalidatePath("/admin/drivers");
   revalidatePath("/admin");
 }
@@ -556,6 +559,7 @@ export async function reviewDriverApplication(formData: FormData) {
     await db.driver.update({ where: { id }, data: { status: "REJECTED", active: false, reviewedAt: new Date(), rejectReason: reason } });
     await notify(d.user.phone, "DRIVER_REJECTED", [d.user.name, reason], `Your JSS Travels driver application was not approved: ${reason}. You can correct it and apply again in the driver app.`);
   }
+  revalidateTag("home");
   revalidatePath("/admin/drivers");
   revalidatePath(back);
   go(`/admin/drivers/${id}?reviewed=${decision}`);

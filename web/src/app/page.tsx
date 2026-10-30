@@ -1,6 +1,7 @@
 import OurDrivers from "@/components/OurDrivers";
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   ArrowRight,
   CalendarCheck,
@@ -31,11 +32,13 @@ import { getSettings } from "@/lib/settings";
 import { HOLD_MINUTES } from "@/lib/booking";
 import { cityPhoto, HERO_IMAGE, HILLS_IMAGE, ROADTRIP_IMAGE, routeHref, whatsappLink } from "@/lib/media";
 import SearchBox from "@/components/SearchBox";
+import SearchBoxFromUrl from "@/components/SearchBoxFromUrl";
 import VehicleImage from "@/components/VehicleImage";
 import Amenities from "@/components/Amenities";
 import { splitBrand } from "@/components/Logo";
 
-export const dynamic = "force-dynamic";
+// Pre-built and served from the CDN; rebuilt at most every minute, and straight away when the office edits (tag "home").
+export const revalidate = 60;
 
 const FEATURED = ["Delhi", "Haridwar"];
 const HILL_STATIONS = ["Nainital", "Mussoorie", "Rishikesh", "Auli"];
@@ -64,8 +67,7 @@ const homeData = unstable_cache(
   { revalidate: 60, tags: ["home"] },
 );
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { tab } = await searchParams;
+export default async function Home() {
   const now = new Date();
   const [routes, vehicles, fares, settings, stops] = await homeData();
   const brand = process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels";
@@ -230,7 +232,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       </section>
 
       <section id="search" className="relative z-20 container-x -mt-20 scroll-mt-28 sm:-mt-20">
-        <SearchBox key={tab ?? "seats"} cities={cities} initialTab={tab === "hire" ? "hire" : "seats"} />
+        <Suspense fallback={<SearchBox cities={cities} />}>
+          <SearchBoxFromUrl cities={cities} />
+        </Suspense>
       </section>
 
       {/* ---------- Benefits strip ---------- */}

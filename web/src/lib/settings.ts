@@ -1,3 +1,4 @@
+import { revalidateTag, unstable_cache } from "next/cache";
 import { db } from "./db";
 
 export type CancellationSlab = { minHoursBefore: number; refundPercent: number };
@@ -43,7 +44,10 @@ export const DEFAULT_SETTINGS: Settings = {
   upiName: process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels",
 };
 
-export async function getSettings(): Promise<Settings> {
+/** Read on nearly every page (the footer too), so cached; saveSetting clears it. */
+export const getSettings = unstable_cache(loadSettings, ["settings"], { revalidate: 300, tags: ["settings"] });
+
+async function loadSettings(): Promise<Settings> {
   const rows = await db.setting.findMany();
   const stored = Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.value)]));
   return {
@@ -62,4 +66,5 @@ export async function getSettings(): Promise<Settings> {
 export async function saveSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
   const json = JSON.stringify(value);
   await db.setting.upsert({ where: { key }, update: { value: json }, create: { key, value: json } });
+  revalidateTag("settings");
 }

@@ -33,8 +33,15 @@ export function withTax(base: number, extraCharges = 0) {
   return { baseAmount, taxAmount, extraCharges: extra, totalAmount: baseAmount + taxAmount + extra };
 }
 
-/** Releases seats and vehicles held by online bookings that were never paid. */
+let lastHoldSweep = 0;
+
+/**
+ * Releases seats and vehicles held by online bookings that were never paid. Called on most requests, so it runs at
+ * most every 15 s per server instance; a hold lasts HOLD_MINUTES, so a few seconds' delay doesn't matter.
+ */
 export async function expireStaleHolds() {
+  if (Date.now() - lastHoldSweep < 15_000) return;
+  lastHoldSweep = Date.now();
   const cutoff = new Date(Date.now() - HOLD_MINUTES * 60_000);
   const stale = await db.booking.findMany({ where: { status: "PENDING", createdAt: { lt: cutoff } }, select: { id: true } });
   if (!stale.length) return;
@@ -158,41 +165,53 @@ export async function createSeatBooking(
 
   const discountPercent = await returnDiscount(input.userId, trip);
   const amounts = withTax(trip.fare * seatNos.length * (1 - discountPercent / 100));
-  let booking: Booking;
-  try {
-    booking = await db.$transaction(async (tx) => {
-      const b = await tx.booking.create({
-        data: {
-          code: newBookingCode(),
-          userId: input.userId,
-          kind: "SEAT",
-          source: input.source ?? "ONLINE",
-          tripId: trip.id,
-          seatNos: seatNos.join(","),
-          pickupStopId: pickup?.id,
-          dropStopId: drop?.id,
-          passengers: seatNos.length,
-          passengerName: input.passengerName,
-          passengerPhone: input.passengerPhone,
-          boardingOtp: newOtp(),
-          discountPercent,
-          ...initialStatus(input),
-          ...amounts,
+
+  // Two people picking the same seat: the unique (tripId, seatNo) index lets only one booking in. Checking first
+  // turns most clashes into a clear answer without waiting on the database lock.
+  const seatTaken = () => new HttpError(409, "Sorry, one or more of those seats was just booked by someone else. Please pick again.");
+  if (await db.bookedSeat.count({ where: { tripId: trip.id, seatNo: { in: seatNos } } })) throw seatTaken();
+
+  // Booking and its seats in one write, so the seats are locked as briefly as possible.
+  const create = () =>
+    db.booking.create({
+      data: {
+        code: newBookingCode(),
+        userId: input.userId,
+        kind: "SEAT",
+        source: input.source ?? "ONLINE",
+        tripId: trip.id,
+        seatNos: seatNos.join(","),
+        pickupStopId: pickup?.id,
+        dropStopId: drop?.id,
+        passengers: seatNos.length,
+        passengerName: input.passengerName,
+        passengerPhone: input.passengerPhone,
+        boardingOtp: newOtp(),
+        discountPercent,
+        ...initialStatus(input),
+        ...amounts,
+        seats: {
+          createMany: {
+            data: seatNos.map((seatNo) => {
+              const p = seatInfo.get(seatNo);
+              return { tripId: trip.id, seatNo, passengerName: p?.name?.trim() || null, passengerPhone: p?.phone || null, female: !!p?.female };
+            }),
+          },
         },
-      });
-      await tx.bookedSeat.createMany({
-        data: seatNos.map((seatNo) => {
-          const p = seatInfo.get(seatNo);
-          return { tripId: trip.id, seatNo, bookingId: b.id, passengerName: p?.name?.trim() || null, passengerPhone: p?.phone || null, female: !!p?.female };
-        }),
-      });
-      return b;
+      },
     });
-  } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      throw new HttpError(409, "Sorry, one or more of those seats was just booked by someone else. Please pick again.");
+  let booking: Booking | undefined;
+  for (let attempt = 1; !booking; attempt++) {
+    try {
+      booking = await create();
+    } catch (e) {
+      const code = e instanceof Prisma.PrismaClientKnownRequestError ? e.code : "";
+      if (code === "P2002") throw seatTaken(); // another booking holds one of these seats
+      // Write conflict / lock wait / timeout while many people book at once: try once more, then say so plainly.
+      if (!["P2034", "P2028", "P1008"].includes(code)) throw e;
+      if (await db.bookedSeat.count({ where: { tripId: trip.id, seatNo: { in: seatNos } } })) throw seatTaken();
+      if (attempt >= 2) throw new HttpError(503, "Lots of people are booking right now. Please try again in a moment.");
     }
-    throw e;
   }
   if (booking.status === "CONFIRMED") await onBookingConfirmed(booking.id);
   return booking;
@@ -621,6 +640,8 @@ export async function changeBooking(
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new HttpError(409, "One of those seats was just booked. Please pick again.");
+      if (e instanceof Prisma.PrismaClientKnownRequestError && ["P2034", "P2028", "P1008"].includes(e.code))
+        throw new HttpError(503, "Lots of people are booking right now. Please try again in a moment.");
       throw e;
     }
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Armchair, ArrowRight, CircleDot, Flag, Info, MapPin, Phone, UserRound } from "lucide-react";
 import SeatMap, { SeatLegend } from "@/components/SeatMap";
@@ -49,6 +49,13 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, a
   const base = selected.length * trip.fare;
   const tax = Math.round(base * 0.05);
   const available = trip.vehicle.seats - trip.takenSeats.length;
+
+  // Someone else booked a seat we had picked (the map refreshes after a clash): drop it from the selection.
+  const takenKey = trip.takenSeats.join(",");
+  useEffect(() => {
+    const taken = new Set(takenKey ? takenKey.split(",").map(Number) : []);
+    setSelected((s) => (s.some((n) => taken.has(n)) ? s.filter((n) => !taken.has(n)) : s));
+  }, [takenKey]);
 
   function toggle(seat: number) {
     setSelected((s) => (s.includes(seat) ? s.filter((x) => x !== seat) : s.length >= 10 ? s : [...s, seat].sort((a, b) => a - b)));

@@ -3,8 +3,10 @@ import { db } from "@/lib/db";
 import { getRequestUser, revokeTokens } from "@/lib/auth";
 import { handle, HttpError, ok } from "@/lib/http";
 
+// GET /api/auth/me -> the logged-in user (401 if none). ?optional=1 answers { user: null } instead (website header).
 export const GET = handle(async (req: Request) => {
   const user = await getRequestUser(req);
+  if (!user && new URL(req.url).searchParams.get("optional") === "1") return ok({ user: null });
   if (!user) throw new HttpError(401, "Not logged in.");
   return ok({ user });
 });

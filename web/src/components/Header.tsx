@@ -1,10 +1,8 @@
 import { MessageCircle, Phone } from "lucide-react";
-import { getCurrentUser } from "@/lib/auth";
 import { whatsappLink } from "@/lib/media";
 import HeaderBar from "./HeaderBar";
 
-export default async function Header() {
-  const user = await getCurrentUser();
+export default function Header() {
   const brand = process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels";
   const phone = process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? "";
   return (
@@ -30,11 +28,8 @@ export default async function Header() {
           )}
         </div>
       </div>
-      <HeaderBar
-        brand={brand}
-        supportPhone={phone}
-        user={user ? { firstName: user.name.split(" ")[0], isAdmin: user.role === "ADMIN" } : null}
-      />
+      {/* Who is logged in is looked up in the browser, so pages can be served pre-built. */}
+      <HeaderBar brand={brand} supportPhone={phone} />
     </>
   );
 }

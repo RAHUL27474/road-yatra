@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { Armchair, CarFront, LayoutDashboard, LogOut, Menu, Phone, Ticket, UserRound, X } from "lucide-react";
 import Logo from "./Logo";
 
-type Props = { brand: string; supportPhone: string; user: { firstName: string; isAdmin: boolean } | null };
+type Props = { brand: string; supportPhone: string };
+type HeaderUser = { firstName: string; isAdmin: boolean };
 
 const NAV = [
   { href: "/?tab=seats#search", label: "Shared seats", icon: Armchair },
@@ -22,11 +23,26 @@ async function logout() {
   window.location.href = "/";
 }
 
-export default function HeaderBar({ brand, supportPhone, user }: Props) {
+export default function HeaderBar({ brand, supportPhone }: Props) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<HeaderUser | null>(null);
   const tel = supportPhone.replace(/\s/g, "");
+
+  // Who is logged in (the session cookie), checked again after each page change so login/logout show at once.
+  useEffect(() => {
+    let live = true;
+    fetch("/api/auth/me?optional=1", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { user?: { name: string; role: string } } | null) => {
+        if (live) setUser(j?.user ? { firstName: j.user.name.split(" ")[0], isAdmin: j.user.role === "ADMIN" } : null);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [pathname]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);

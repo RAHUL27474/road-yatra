@@ -177,6 +177,9 @@ model Trip {
   bookings Booking[]
 
   @@index([departAt])
+  @@index([routeId, departAt]) // search by route and day
+  @@index([driverId, departAt]) // a driver's duties
+  @@index([vehicleId, departAt]) // vehicle clashes
 }
 
 model Booking {
@@ -208,6 +211,12 @@ model Booking {
   dropCity      String?
   pickupAddress String?
   dropAddress   String?
+  pickupLat     Float? // exact pickup pin (full cab), from the customer's phone or map
+  pickupLng     Float?
+  // Live location the passenger chose to share around pickup time (latest point only)
+  passengerLat   Float?
+  passengerLng   Float?
+  passengerLocAt DateTime?
   startAt       DateTime?
   endAt         DateTime?
   estimatedKm   Int?
@@ -276,6 +285,10 @@ model Booking {
   seats      BookedSeat[]
 
   @@index([status, createdAt])
+  @@index([userId, createdAt]) // "My trips"
+  @@index([tripId, status]) // passengers on a trip
+  @@index([driverId, startAt]) // a driver's full-cab jobs
+  @@index([vehicleId, startAt]) // full-cab vehicle clashes
 }
 
 // One row per seat held, sold or blocked. The unique constraint stops double booking.
@@ -294,6 +307,7 @@ model BookedSeat {
   booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@unique([tripId, seatNo])
+  @@index([bookingId])
 }
 
 // Latest GPS position of each vehicle, sent by the driver app during a trip.
@@ -324,6 +338,7 @@ model SosAlert {
   driver Driver @relation(fields: [driverId], references: [id])
 
   @@index([resolvedAt, createdAt])
+  @@index([driverId])
 }
 
 // General feedback from the website / customer app (trip ratings live on Booking.rating).
