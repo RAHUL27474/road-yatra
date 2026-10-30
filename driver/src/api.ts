@@ -4,7 +4,7 @@ const REQUEST_TIMEOUT_MS = 20_000;
 
 export type User = { id: string; name: string; email: string | null; phone: string; role: 'CUSTOMER' | 'DRIVER' | 'ADMIN' };
 /** emailOtp: new drivers can verify by email instead of SMS. */
-export type Config = { brandName: string; supportPhone: string; otpLogin: boolean; emailOtp?: boolean };
+export type Config = { brandName: string; supportPhone: string; otpLogin: boolean; emailOtp?: boolean; upiId?: string; upiName?: string };
 export type Stop = { id: string; city: string; name: string; address: string; lat: number | null; lng: number | null };
 export type DutyStatus = 'SCHEDULED' | 'STARTED' | 'COMPLETED';
 /** null until the driver accepts; a rejected duty leaves the driver's list. */

@@ -9,6 +9,7 @@ import { flushQueue, pendingActions, postOrQueue } from '../../offline';
 import { RespondBar } from '../../respond';
 import { Scanner } from '../../Scanner';
 import { SosButton } from '../../sos';
+import { UpiQrSheet, UpiRequest, useOfficeUpi } from '../../upi';
 import { colors, fonts, radius, space } from '../../theme';
 import {
   Badge,
@@ -72,6 +73,8 @@ export default function TripScreen() {
   const [scanning, setScanning] = useState(false);
   const [otpFor, setOtpFor] = useState<Passenger | null>(null);
   const [otp, setOtp] = useState('');
+  const upi = useOfficeUpi();
+  const [upiFor, setUpiFor] = useState<(UpiRequest & { bookingId: string }) | null>(null);
 
   const found = duties?.find((d): d is TripDuty => d.kind === 'TRIP' && d.id === id);
   // Show actions saved offline as if they had already gone through.
@@ -110,20 +113,34 @@ export default function TripScreen() {
     }
   };
 
-  /** The passenger paid: cash to the driver, or UPI straight to the office account. */
+  /** Records a payment: cash to the driver, or UPI straight to the office account. */
+  const recordPayment = (bookingId: string, name: string, amount: number, mode: 'CASH' | 'UPI') =>
+    act('cash' + bookingId, async () => {
+      const how = mode === 'UPI' ? 'UPI' : 'cash';
+      const r = await postOrQueue<{ collected: number }>(`/api/driver/bookings/${bookingId}/collect-cash`, { mode }, { kind: 'cash', bookingId }, `${mode === 'UPI' ? 'UPI' : 'Cash'} ${inr(amount)} from ${name}`);
+      haptic.success();
+      Alert.alert(r.queued ? 'Payment noted' : 'Payment recorded', r.queued ? `${inr(amount)} ${how} from ${name}.\n\n${SAVED_OFFLINE}` : `${inr(r.result.collected)} ${how} from ${name}.`);
+    });
+
+  /** Asks how the passenger paid. With an office UPI ID the driver can also show a QR to scan (Android alerts fit 3 buttons, so tapping outside cancels). */
   const collectCash = (bookingId: string, name: string, amount: number) => {
-    const record = (mode: 'CASH' | 'UPI') =>
-      act('cash' + bookingId, async () => {
-        const how = mode === 'UPI' ? 'UPI' : 'cash';
-        const r = await postOrQueue<{ collected: number }>(`/api/driver/bookings/${bookingId}/collect-cash`, { mode }, { kind: 'cash', bookingId }, `${mode === 'UPI' ? 'UPI' : 'Cash'} ${inr(amount)} from ${name}`);
-        haptic.success();
-        Alert.alert(r.queued ? 'Payment noted' : 'Payment recorded', r.queued ? `${inr(amount)} ${how} from ${name}.\n\n${SAVED_OFFLINE}` : `${inr(r.result.collected)} ${how} from ${name}.`);
-      });
-    Alert.alert('Payment received?', `${name} has to pay ${inr(amount)}. How did they pay?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'UPI (office account)', onPress: () => record('UPI') },
-      { text: 'Cash', onPress: () => record('CASH') },
-    ]);
+    const code = trip.passengers.find((x) => x.bookingId === bookingId)?.code ?? '';
+    Alert.alert(
+      'Payment received?',
+      `${name} has to pay ${inr(amount)}. How did they pay?`,
+      upi
+        ? [
+            { text: 'Show UPI QR', onPress: () => setUpiFor({ bookingId, name, amount, code }) },
+            { text: 'UPI (office account)', onPress: () => recordPayment(bookingId, name, amount, 'UPI') },
+            { text: 'Cash', onPress: () => recordPayment(bookingId, name, amount, 'CASH') },
+          ]
+        : [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'UPI (office account)', onPress: () => recordPayment(bookingId, name, amount, 'UPI') },
+            { text: 'Cash', onPress: () => recordPayment(bookingId, name, amount, 'CASH') },
+          ],
+      { cancelable: true },
+    );
   };
 
   const board = async (body: { qr: string } | { bookingId: string; otp: string }) => {
@@ -450,6 +467,18 @@ export default function TripScreen() {
           style={{ marginTop: space.xl }}
         />
       </Sheet>
+      {upi ? (
+        <UpiQrSheet
+          upi={upi}
+          request={upiFor}
+          onClose={() => setUpiFor(null)}
+          onReceived={() => {
+            const r = upiFor;
+            setUpiFor(null);
+            if (r) recordPayment(r.bookingId, r.name, r.amount, 'UPI');
+          }}
+        />
+      ) : null}
     </Screen>
   );
 }

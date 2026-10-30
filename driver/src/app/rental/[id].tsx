@@ -8,6 +8,7 @@ import { fmtDayLabel, fmtTime, fmtWhen, inr, RENTAL_TYPE, routeTitle } from '../
 import { postOrQueue } from '../../offline';
 import { RespondBar } from '../../respond';
 import { SosButton } from '../../sos';
+import { UpiQrSheet, useOfficeUpi } from '../../upi';
 import { colors, fonts, radius, space } from '../../theme';
 import {
   Avatar,
@@ -84,6 +85,8 @@ export default function RentalScreen() {
   const [otp, setOtp] = useState('');
   const [odo, setOdo] = useState('');
   const [result, setResult] = useState<RentalEndResult | null>(null);
+  const upi = useOfficeUpi();
+  const [showUpi, setShowUpi] = useState(false);
 
   const found = duties?.find((d): d is RentalDuty => d.kind === 'RENTAL' && d.id === id);
   // Cash noted while offline counts as collected on screen.
@@ -126,12 +129,18 @@ export default function RentalScreen() {
     }
   };
 
+  // With an office UPI ID the driver can also show a QR to scan (Android alerts fit 3 buttons, so tapping outside cancels).
   const collect = () =>
-    Alert.alert('Payment received?', `${r.customer.name} has to pay ${inr(r.amountDue)}. How did they pay?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'UPI (office account)', onPress: () => record('UPI') },
-      { text: 'Cash', onPress: () => record('CASH') },
-    ]);
+    Alert.alert(
+      'Payment received?',
+      `${r.customer.name} has to pay ${inr(r.amountDue)}. How did they pay?`,
+      [
+        upi ? { text: 'Show UPI QR', onPress: () => setShowUpi(true) } : { text: 'Cancel', style: 'cancel' },
+        { text: 'UPI (office account)', onPress: () => record('UPI') },
+        { text: 'Cash', onPress: () => record('CASH') },
+      ],
+      { cancelable: true },
+    );
 
   /** The customer paid: cash to the driver, or UPI straight to the office account. */
   const record = async (mode: 'CASH' | 'UPI') => {
@@ -389,6 +398,17 @@ export default function RentalScreen() {
         />
         <TextLink title="Cancel" color={colors.textMuted} onPress={() => setSheet(null)} />
       </Sheet>
+      {upi ? (
+        <UpiQrSheet
+          upi={upi}
+          request={showUpi ? { name: r.customer.name, amount: r.amountDue, code: r.code } : null}
+          onClose={() => setShowUpi(false)}
+          onReceived={() => {
+            setShowUpi(false);
+            record('UPI');
+          }}
+        />
+      ) : null}
     </Screen>
   );
 }
