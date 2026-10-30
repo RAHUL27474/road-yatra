@@ -21,6 +21,12 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   const b = serializeBooking(access.booking, settings.cancellationSlabs);
   const links = await bookingLinks(access.booking, b);
   const qrSvg = b.qrData ? await QRCode.toString(b.qrData, { type: "svg", margin: 1, width: 180 }) : null;
+  // UPI payment link (amount and booking code filled in), also drawn as a QR to scan from any UPI app.
+  const upiLink =
+    b.cashDue > 0 && b.status === "CONFIRMED" && settings.upiId
+      ? `upi://pay?${new URLSearchParams({ pa: settings.upiId, pn: settings.upiName, am: b.cashDue.toFixed(2), cu: "INR", tn: `Booking ${b.code}` })}`
+      : null;
+  const upiQrSvg = upiLink ? await QRCode.toString(upiLink, { type: "svg", margin: 1, width: 180 }) : null;
   const brand = process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels";
   const phone = process.env.NEXT_PUBLIC_SUPPORT_PHONE;
   const from = b.trip?.fromCity ?? b.pickupCity ?? "";
@@ -154,18 +160,28 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
           <span className="text-sm text-slate-500">{bookingTitle(b)}</span>
         </div>
         <BookingSummary b={b} />
-        {b.cashDue > 0 && b.status === "CONFIRMED" && settings.upiId && (
-          <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm">
-            <p className="font-semibold text-green-800">
-              Pay {inr(b.cashDue)} by UPI to <span className="font-mono">{settings.upiId}</span>
-            </p>
-            <p className="text-xs text-green-700">Use any UPI app with the note “{b.code}”, then show the success screen to the driver.</p>
-            <a
-              href={`upi://pay?${new URLSearchParams({ pa: settings.upiId, pn: settings.upiName, am: b.cashDue.toFixed(2), cu: "INR", tn: `Booking ${b.code}` })}`}
-              className="btn-primary mt-2 inline-block px-4 py-2 text-sm sm:hidden"
-            >
-              Open UPI app
-            </a>
+        {upiLink && (
+          <div className="mt-3 flex flex-col gap-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm sm:flex-row sm:items-center">
+            {upiQrSvg && (
+              <div
+                className="h-36 w-36 shrink-0 self-center rounded-xl bg-white p-1.5 ring-1 ring-green-200 [&_svg]:h-full [&_svg]:w-full"
+                role="img"
+                aria-label={`UPI QR code to pay ${inr(b.cashDue)}`}
+                dangerouslySetInnerHTML={{ __html: upiQrSvg }}
+              />
+            )}
+            <div className="min-w-0">
+              <p className="font-semibold text-green-800">
+                Pay {inr(b.cashDue)} by UPI to <span className="font-mono break-all">{settings.upiId}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-green-700">
+                Scan the QR with any UPI app (PhonePe, Google Pay, Paytm, BHIM). The amount and note “{b.code}” are filled in. Pay now or when you board, then
+                show the success screen to the driver.
+              </p>
+              <a href={upiLink} className="btn-primary mt-2 inline-block px-4 py-2 text-sm sm:hidden">
+                Open UPI app
+              </a>
+            </div>
           </div>
         )}
         {b.paymentStatus === "REFUND_PENDING" && (

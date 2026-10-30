@@ -602,15 +602,24 @@ function DriverHero({ booking: b }: { booking: Booking }) {
  * filled in. The money goes straight to the office; the driver marks it "UPI received".
  */
 function PayByUpi({ booking: b, amount, upiId, upiName }: { booking: Booking; amount: number; upiId: string; upiName: string }) {
-  const pay = () => {
-    const q = new URLSearchParams({ pa: upiId, pn: upiName, am: amount.toFixed(2), cu: 'INR', tn: `Booking ${b.code}` });
-    Linking.openURL(`upi://pay?${q.toString()}`).catch(() =>
+  const [showQr, setShowQr] = useState(false);
+  const link = `upi://pay?${new URLSearchParams({ pa: upiId, pn: upiName, am: amount.toFixed(2), cu: 'INR', tn: `Booking ${b.code}` }).toString()}`;
+  const pay = () =>
+    Linking.openURL(link).catch(() =>
       Alert.alert('No UPI app found', `Pay ${inr(amount)} to UPI ID ${upiId} from any UPI app, with note "${b.code}".`),
     );
-  };
   return (
     <View style={{ marginTop: spacing.sm, gap: 6 }}>
       <Button title={`Pay ${inr(amount)} by UPI`} icon="phone-portrait-outline" variant="outline" size="md" onPress={pay} />
+      {/* Someone else can pay from their phone by scanning this. */}
+      <Pressable onPress={() => setShowQr((v) => !v)} hitSlop={8} accessibilityRole="button">
+        <Text style={[type('sm', 'semibold', colors.brand), { textAlign: 'center' }]}>{showQr ? 'Hide UPI QR code' : 'Show UPI QR code'}</Text>
+      </Pressable>
+      {showQr ? (
+        <View style={[st.qr, { alignSelf: 'center' }]}>
+          <QRCode value={link} size={168} color={colors.text} />
+        </View>
+      ) : null}
       <Text style={[type('xs', 'regular', colors.textMuted), { textAlign: 'center' }]}>
         To {upiId} · show the payment success screen to the driver
       </Text>

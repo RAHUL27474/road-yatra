@@ -39,7 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   returnDiscountPercent: 5,
   freeChangeHours: 2,
   advancePerSeat: 0,
-  upiId: "",
+  upiId: "8192001511@ybl", // office UPI (PhonePe); used while no other ID is saved in Admin → Settings
   upiName: process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels",
 };
 
@@ -54,7 +54,7 @@ export async function getSettings(): Promise<Settings> {
     returnDiscountPercent: stored.returnDiscountPercent ?? DEFAULT_SETTINGS.returnDiscountPercent,
     freeChangeHours: stored.freeChangeHours ?? DEFAULT_SETTINGS.freeChangeHours,
     advancePerSeat: stored.advancePerSeat ?? DEFAULT_SETTINGS.advancePerSeat,
-    upiId: stored.upiId ?? DEFAULT_SETTINGS.upiId,
+    upiId: stored.upiId || DEFAULT_SETTINGS.upiId,
     upiName: stored.upiName || DEFAULT_SETTINGS.upiName,
   };
 }

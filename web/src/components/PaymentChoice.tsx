@@ -15,7 +15,7 @@ export default function PaymentChoice({ value, onChange, allowCash, allowOnline 
         </span>
         <span>
           <span className="block font-semibold text-ink">Pay at boarding — cash or UPI</span>
-          <span className="text-xs text-slate-500">Your booking is confirmed now. Pay the driver in cash, or by UPI to our account, when you board.</span>
+          <span className="text-xs text-slate-500">Your booking is confirmed now. Pay by UPI right away (your ticket shows a QR code), or in cash or UPI when you board.</span>
         </span>
       </div>
     );
