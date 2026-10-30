@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, UserRound } from "lucide-react";
 import PaymentChoice, { type Payment } from "@/components/PaymentChoice";
+import PickupPin from "@/components/PickupPin";
+import type { LatLng } from "@/lib/geo-client";
 import { apiFetch, payPath } from "@/lib/client";
 
 type Props = {
@@ -12,12 +14,15 @@ type Props = {
   user: { name: string; phone: string };
   allowCash: boolean;
   allowOnline: boolean;
+  /** Where to open the pickup map: a known point in the pickup city. */
+  pickupCenter: LatLng | null;
 };
 
-export default function RentalForm({ request, vehicle, user, allowCash, allowOnline }: Props) {
+export default function RentalForm({ request, vehicle, user, allowCash, allowOnline, pickupCenter }: Props) {
   const router = useRouter();
   const hasDrop = request.rentalType === "ONE_WAY" || request.rentalType === "ROUND_TRIP";
   const [form, setForm] = useState({ passengerName: user.name, passengerPhone: user.phone, passengers: 1, pickupAddress: "", dropAddress: "" });
+  const [pin, setPin] = useState<LatLng | null>(null);
   const [payment, setPayment] = useState<Payment>(allowOnline ? "ONLINE" : "CASH");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,7 +35,7 @@ export default function RentalForm({ request, vehicle, user, allowCash, allowOnl
     setError("");
     try {
       const res = await apiFetch<{ payUrl: string | null; booking: { code: string } }>("/api/bookings", {
-        body: { kind: "RENTAL", vehicleId: vehicle.id, ...request, ...form, payment },
+        body: { kind: "RENTAL", vehicleId: vehicle.id, ...request, ...form, payment, ...(pin ? { pickupLat: pin.lat, pickupLng: pin.lng } : {}) },
       });
       router.push(res.payUrl ? payPath(res.payUrl) : `/booking/${res.booking.code}`);
     } catch (err) {
@@ -68,6 +73,9 @@ export default function RentalForm({ request, vehicle, user, allowCash, allowOnl
       <div>
         <label className="label">Pickup address in {request.pickupCity}</label>
         <textarea className="input" rows={2} required minLength={5} placeholder="House no., street, landmark, area" value={form.pickupAddress} onChange={set("pickupAddress")} />
+        <div className="mt-2">
+          <PickupPin value={pin} onChange={setPin} center={pickupCenter} />
+        </div>
       </div>
       {hasDrop && (
         <div>

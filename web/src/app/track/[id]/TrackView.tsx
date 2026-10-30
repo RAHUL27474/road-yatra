@@ -20,7 +20,7 @@ export type Track = {
   drop: Point;
   onBoard: boolean;
   location: { lat: number; lng: number; speed: number | null; updatedAt: string; stale: boolean } | null;
-  eta: { minutes: number; to: "pickup" | "drop"; place: string } | null;
+  eta: { minutes: number; km?: number; to: "pickup" | "drop"; place: string } | null;
 };
 
 const REFRESH_MS = 15_000;
@@ -92,10 +92,14 @@ export default function TrackView({ bookingId, token, supportPhone }: { bookingI
             <Navigation className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {statusText}
           </p>
           {data.eta && (
-            <p className="mt-3 text-3xl font-extrabold text-ink">
-              ~{data.eta.minutes >= 60 ? `${Math.floor(data.eta.minutes / 60)}h ${data.eta.minutes % 60}m` : `${data.eta.minutes} min`}
-              <span className="ml-2 text-sm font-medium text-slate-500">to {data.eta.place} (approx.)</span>
-            </p>
+            <div className="mt-3">
+              <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{data.eta.to === "pickup" ? "Driver arriving in" : "Reaching drop in"}</p>
+              <p className="text-3xl font-extrabold text-ink">
+                ~{data.eta.minutes >= 60 ? `${Math.floor(data.eta.minutes / 60)}h ${data.eta.minutes % 60}m` : `${data.eta.minutes} min`}
+                {data.eta.km != null && <span className="ml-2 text-lg font-bold text-brand">· {data.eta.km < 1 ? `${Math.round(data.eta.km * 1000)} m` : `${data.eta.km} km`} away</span>}
+              </p>
+              <p className="text-sm text-slate-500">to {data.eta.place} (approx., by road)</p>
+            </div>
           )}
           {data.location && (
             <p className={`mt-1 text-xs ${data.location.stale ? "text-amber-700" : "text-slate-400"}`}>

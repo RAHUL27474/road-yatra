@@ -344,6 +344,8 @@ export async function createRentalBooking(
       vehicleId: string;
       pickupAddress: string;
       dropAddress?: string;
+      pickupLat?: number;
+      pickupLng?: number;
       passengerName: string;
       passengerPhone: string;
       passengers: number;
@@ -384,6 +386,8 @@ export async function createRentalBooking(
           dropCity: hasDrop ? input.dropCity : null,
           pickupAddress: input.pickupAddress,
           dropAddress: input.dropAddress || null,
+          // Only a complete pin is kept.
+          ...(input.pickupLat != null && input.pickupLng != null ? { pickupLat: input.pickupLat, pickupLng: input.pickupLng } : {}),
           startAt: plan.startAt,
           endAt: plan.endAt,
           estimatedKm: price.billableKm,
@@ -717,6 +721,19 @@ export function changeWindow(b: FullBooking, freeChangeHours: number) {
   };
 }
 
+/** From this long before pickup, a passenger can share their live location with the driver (until they board). */
+export const SHARE_LOCATION_HOURS = 3;
+
+/** Whether the passenger may share their live location now: a confirmed booking around pickup time, not yet on board. */
+export function canShareLocation(b: FullBooking) {
+  if (b.status !== "CONFIRMED" || b.boardedAt || b.startedAt || b.noShow) return false;
+  if (b.trip && b.trip.status !== "SCHEDULED" && b.trip.status !== "STARTED") return false;
+  const start = b.kind === "SEAT" ? b.trip?.departAt : b.startAt;
+  if (!start) return false;
+  const t = Date.now() - start.getTime();
+  return t > -SHARE_LOCATION_HOURS * 3600_000 && t < SHARE_LOCATION_HOURS * 3600_000;
+}
+
 /** How far the vehicle is from the passenger's pickup point, while the trip is under way and they haven't boarded. */
 function vehicleEta(b: FullBooking) {
   const loc = b.trip?.vehicle.location;
@@ -751,7 +768,7 @@ type DriverWithUser = Driver & { user: User };
 type FullBooking = Booking & {
   trip?: (Trip & { route: Route; vehicle: Vehicle & { location?: VehicleLocation | null }; driver: DriverWithUser | null }) | null;
   seats?: BookedSeat[];
-  vehicle?: Vehicle | null;
+  vehicle?: (Vehicle & { location?: VehicleLocation | null }) | null;
   driver?: DriverWithUser | null;
   pickupStop?: Stop | null;
   dropStop?: Stop | null;
@@ -760,7 +777,7 @@ type FullBooking = Booking & {
 export const bookingInclude = {
   trip: { include: { route: true, vehicle: { include: { location: true } }, driver: { include: { user: true } } } },
   seats: { orderBy: { seatNo: "asc" } },
-  vehicle: true,
+  vehicle: { include: { location: true } },
   driver: { include: { user: true } },
   pickupStop: true,
   dropStop: true,
@@ -809,6 +826,10 @@ export function serializeBooking(b: FullBooking, slabs?: CancellationSlab[]) {
     dropCity: b.dropCity,
     pickupAddress: b.pickupAddress,
     dropAddress: b.dropAddress,
+    // Exact pickup pin (full cab), and the live location the passenger is sharing with the driver, if any.
+    pickupPin: b.pickupLat != null && b.pickupLng != null ? { lat: b.pickupLat, lng: b.pickupLng } : null,
+    sharedLocation: b.passengerLat != null && b.passengerLng != null && b.passengerLocAt ? { lat: b.passengerLat, lng: b.passengerLng, at: b.passengerLocAt } : null,
+    canShareLocation: canShareLocation(b),
     startAt: start,
     endAt: b.kind === "SEAT" ? b.trip?.arriveAt ?? null : b.endAt,
     estimatedKm: b.estimatedKm,

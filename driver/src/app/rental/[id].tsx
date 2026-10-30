@@ -9,6 +9,7 @@ import { postOrQueue } from '../../offline';
 import { RespondBar } from '../../respond';
 import { SosButton } from '../../sos';
 import { UpiQrSheet, useOfficeUpi } from '../../upi';
+import { LiveLocationRow } from '../../live';
 import { colors, fonts, radius, space } from '../../theme';
 import {
   Avatar,
@@ -27,6 +28,7 @@ import {
   Loading,
   Money,
   navigateTo,
+  navigateToPoint,
   Notice,
   OtpInput,
   Plate,
@@ -248,7 +250,10 @@ export default function RentalScreen() {
         <Card>
           <AddressRow label="Pickup" address={r.pickupAddress} color={colors.success} />
           <AddressRow label="Drop" address={r.dropAddress} color={colors.danger} last />
-          {navTarget ? (
+          {r.status === 'SCHEDULED' && r.pickupPin ? (
+            // The customer dropped an exact pin: go there rather than to the typed address.
+            <Button small variant="outline" icon="navigate" title="Navigate to exact pickup pin" onPress={() => navigateToPoint(r.pickupPin!)} style={{ marginTop: space.lg }} />
+          ) : navTarget ? (
             <Button
               small
               variant="outline"
@@ -258,6 +263,7 @@ export default function RentalScreen() {
               style={{ marginTop: space.lg }}
             />
           ) : null}
+          {r.status === 'SCHEDULED' && r.liveLocation ? <LiveLocationRow loc={r.liveLocation} name={r.customer.name} /> : null}
         </Card>
 
         {/* Info grid */}

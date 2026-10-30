@@ -11,6 +11,7 @@ import { openPayment } from '../store';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../theme';
 import { BottomBar, Button, ErrorBanner, hapticSelect, Header, Input, IonName, Notice, Row, Screen, Skeleton, StepIndicator } from '../ui';
 import { SeatTraveller, SeatTravellers, saveTravellers } from '../travellers';
+import { currentPosition, fmtDistance, LatLng, nearest, openMap } from '../geo';
 
 type Amounts = { baseAmount: number; taxAmount: number; totalAmount: number; toll?: number; parking?: number };
 type FormValues = {
@@ -19,6 +20,8 @@ type FormValues = {
   passengers: number;
   pickupAddress: string;
   dropAddress: string;
+  /** Exact pickup pin (full cab), from "Use my current location". */
+  pickupPin: LatLng | null;
   payment: PaymentChoice;
 };
 
@@ -154,7 +157,10 @@ function SeatPassenger() {
         trip.pickupStops.length || trip.dropStops.length ? (
           <>
             {trip.pickupStops.length ? (
-              <StopPicker label={`Pickup point · ${trip.fromCity}`} icon="radio-button-on" stops={trip.pickupStops} value={pickupStopId} onChange={setPickupStopId} />
+              <>
+                <NearestStopButton stops={trip.pickupStops} onPick={setPickupStopId} />
+                <StopPicker label={`Pickup point · ${trip.fromCity}`} icon="radio-button-on" stops={trip.pickupStops} value={pickupStopId} onChange={setPickupStopId} />
+              </>
             ) : null}
             {trip.dropStops.length ? (
               <StopPicker label={`Drop point · ${trip.toCity}`} icon="location" stops={trip.dropStops} value={dropStopId} onChange={setDropStopId} />
@@ -218,6 +224,76 @@ function Journey({ from, to, fromTime, toTime, middle, date }: { from: string; t
 
 function Radio({ on }: { on: boolean }) {
   return <View style={[st.radio, on && { borderColor: colors.brand }]}>{on ? <View style={st.radioDot} /> : null}</View>;
+}
+
+/** "Use my location" — selects the pickup point closest to the customer. Hidden when no point has coordinates. */
+function NearestStopButton({ stops, onPick }: { stops: Stop[]; onPick: (id: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  if (!stops.some((s) => s.lat != null && s.lng != null)) return null;
+  const find = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const best = nearest(await currentPosition(), stops);
+      if (!best) throw new Error('No pickup point has a map location yet.');
+      onPick(best.item.id);
+      setNote({ ok: true, text: `Nearest to you: ${best.item.name} (${fmtDistance(best.km)} away). Selected.` });
+    } catch (e) {
+      setNote({ ok: false, text: errorMessage(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <View style={{ gap: 6, marginBottom: spacing.sm }}>
+      <Button title="Use my location — nearest pickup point" icon="locate-outline" variant="outline" size="md" loading={busy} onPress={find} />
+      {note ? <Text style={type('xs', 'medium', note.ok ? colors.success : colors.danger)}>{note.text}</Text> : null}
+    </View>
+  );
+}
+
+/** "Use my current location" for the exact pickup pin of a full cab; the driver gets directions to it. */
+function PickupPinButton({ value, onChange }: { value: LatLng | null; onChange: (p: LatLng | null) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const locate = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onChange(await currentPosition());
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <View style={{ gap: 6, marginBottom: spacing.md }}>
+      <Button
+        title={value ? 'Update pin to where I am now' : 'Use my current location as the pickup pin'}
+        icon="locate-outline"
+        variant="outline"
+        size="md"
+        loading={busy}
+        onPress={locate}
+      />
+      {value ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, alignItems: 'center' }}>
+          <Text style={type('xs', 'bold', colors.success)}>Pin set ✓ The driver gets directions to it.</Text>
+          <Pressable onPress={() => openMap(value)} hitSlop={8}>
+            <Text style={[type('xs', 'semibold', colors.brand), { textDecorationLine: 'underline' }]}>View on map</Text>
+          </Pressable>
+          <Pressable onPress={() => onChange(null)} hitSlop={8}>
+            <Text style={[type('xs', 'semibold', colors.textMuted), { textDecorationLine: 'underline' }]}>Remove</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Text style={type('xs', 'regular', colors.textMuted)}>Optional: stand at the pickup spot and tap, so the driver comes to the exact gate.</Text>
+      )}
+      {error ? <Text style={type('xs', 'medium', colors.danger)}>{error}</Text> : null}
+    </View>
+  );
 }
 
 /** Radio list of stops: name + address, the selected one highlighted. */
@@ -318,6 +394,7 @@ function RentalPassenger() {
         vehicleId,
         ...req,
         pickupAddress: v.pickupAddress.trim(),
+        ...(v.pickupPin ? { pickupLat: v.pickupPin.lat, pickupLng: v.pickupPin.lng } : {}),
         ...(hasDrop && v.dropAddress.trim() ? { dropAddress: v.dropAddress.trim() } : {}),
         passengers: v.passengers,
         passengerName: v.passengerName,
@@ -396,6 +473,7 @@ function PassengerForm({
   const [passengers, setPassengers] = useState('1');
   const [address, setAddress] = useState('');
   const [dropAddress, setDropAddress] = useState('');
+  const [pickupPin, setPickupPin] = useState<LatLng | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
   const [payment, setPayment] = useState<PaymentChoice>('ONLINE');
   const [error, setError] = useState<string | null>(null);
@@ -429,6 +507,7 @@ function PassengerForm({
       passengers: Number(passengers) || 0,
       pickupAddress: address,
       dropAddress,
+      pickupPin,
       payment: mode,
     };
     if (v.passengerName.length < 2) return setError('Please enter the passenger name.');
@@ -523,6 +602,7 @@ function PassengerForm({
                   multiline
                   style={{ minHeight: 72, textAlignVertical: 'top' }}
                 />
+                <PickupPinButton value={pickupPin} onChange={setPickupPin} />
                 {askDropAddress ? (
                   <Input
                     label="Drop address (optional)"

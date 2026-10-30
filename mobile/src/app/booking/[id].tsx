@@ -11,6 +11,7 @@ import { checkBookingUpdates, syncTripReminders } from '../../notifications';
 import { supportPhone } from '../../brand';
 import { fmtDate, fmtDateTime, fmtDuration, fmtTime, inr, RENTAL_TYPE, VEHICLE_TYPE } from '../../format';
 import { VehicleArt } from '../../illustrations';
+import { ShareLiveLocation } from '../../ShareLiveLocation';
 import { openPage, openPayment, openPlayStore, reachableUrl } from '../../store';
 import { API_URL } from '../../api';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
@@ -247,6 +248,8 @@ export default function BookingDetail() {
             </View>
           </View>
         ) : null}
+
+        <ShareLiveLocation bookingId={b.id} active={!!b.canShareLocation} />
 
         {b.status === 'CONFIRMED' && fresh ? (
           <View style={st.fresh}>

@@ -30,15 +30,21 @@ export async function getTrackingInfo(bookingId: string) {
   const moving = s.tripStatus === "STARTED";
   const location = moving && loc ? { lat: loc.lat, lng: loc.lng, speed: loc.speed, updatedAt: loc.updatedAt, stale: Date.now() - loc.updatedAt.getTime() > STALE_MINUTES * 60_000 } : null;
 
+  // Exact pin (full cab) first, then the pickup point, then any point in the pickup city.
   const pickup =
-    b.pickupStop?.lat != null ? { lat: b.pickupStop.lat, lng: b.pickupStop.lng!, name: b.pickupStop.name } : await cityPoint(s.trip?.fromCity ?? b.pickupCity);
+    b.pickupLat != null && b.pickupLng != null
+      ? { lat: b.pickupLat, lng: b.pickupLng, name: b.pickupAddress || "your pickup spot" }
+      : b.pickupStop?.lat != null
+        ? { lat: b.pickupStop.lat, lng: b.pickupStop.lng!, name: b.pickupStop.name }
+        : await cityPoint(s.trip?.fromCity ?? b.pickupCity);
   const drop =
     b.dropStop?.lat != null ? { lat: b.dropStop.lat, lng: b.dropStop.lng!, name: b.dropStop.name } : await cityPoint(s.trip?.toCity ?? b.dropCity);
 
   // Before the passenger is on board, the ETA is to their pickup; afterwards, to the drop.
   const onBoard = !!b.boardedAt || !!b.startedAt;
   const target = onBoard ? drop : pickup;
-  const etaMins = location && target ? Math.round(((haversineKm(location, target) * ROAD_FACTOR) / AVG_SPEED_KMH) * 60) : null;
+  const roadKm = location && target ? haversineKm(location, target) * ROAD_FACTOR : null;
+  const etaMins = roadKm != null ? Math.max(1, Math.round((roadKm / AVG_SPEED_KMH) * 60)) : null;
 
   return {
     code: b.code,
@@ -52,6 +58,6 @@ export async function getTrackingInfo(bookingId: string) {
     drop,
     onBoard,
     location,
-    eta: etaMins != null && target ? { minutes: etaMins, to: onBoard ? "drop" : "pickup", place: target.name } : null,
+    eta: etaMins != null && roadKm != null && target ? { minutes: etaMins, km: Math.round(roadKm * 10) / 10, to: onBoard ? "drop" : "pickup", place: target.name } : null,
   };
 }

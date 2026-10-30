@@ -62,6 +62,10 @@ export const callPhone = (phone: string) => Linking.openURL(`tel:${phone.replace
 export const navigateTo = (address: string) =>
   Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`).catch(showError);
 
+/** Google Maps directions to exact coordinates (a pickup pin, or where a passenger is). */
+export const navigateToPoint = (p: { lat: number; lng: number }) =>
+  Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`).catch(showError);
+
 /** Google Maps directions to a pickup point: exact coordinates when the office saved them, else its name and city. */
 export const navigateToStop = (s: { name: string; city: string; address?: string; lat: number | null; lng: number | null }) =>
   s.lat != null && s.lng != null

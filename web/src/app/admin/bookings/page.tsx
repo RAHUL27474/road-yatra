@@ -94,6 +94,14 @@ export default async function AdminBookings({ searchParams }: { searchParams: Pr
                       {b.passengerName} · <a className="text-brand" href={`tel:${b.passengerPhone}`}>{b.passengerPhone}</a> · {b.passengers} pax
                       {b.pickupStop ? ` · ${b.pickupStop.name} → ${b.dropStop?.name ?? ""}` : ""}
                       {b.pickupAddress ? ` · Pickup: ${b.pickupAddress}` : ""}
+                      {b.pickupPin && (
+                        <>
+                          {" "}
+                          <a className="text-brand underline" target="_blank" rel="noopener" href={`https://www.google.com/maps?q=${b.pickupPin.lat},${b.pickupPin.lng}`}>
+                            (map pin)
+                          </a>
+                        </>
+                      )}
                       {b.dropAddress ? ` · Drop: ${b.dropAddress}` : ""}
                     </p>
                     <p className="text-xs text-slate-400">

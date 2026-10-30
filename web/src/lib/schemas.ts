@@ -42,6 +42,9 @@ export const rentalBookingSchema = rentalSchema.extend({
   vehicleId: z.string().min(1),
   pickupAddress: z.string().trim().min(5, "Enter the full pickup address"),
   dropAddress: z.string().trim().optional(),
+  // Exact pickup pin from the customer's phone or a map (optional)
+  pickupLat: z.number().min(-90).max(90).optional(),
+  pickupLng: z.number().min(-180).max(180).optional(),
   passengers: z.number().int().min(1).max(60),
   ...common,
 });

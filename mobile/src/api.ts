@@ -131,6 +131,12 @@ export type Booking = {
   dropCity: string | null;
   pickupAddress: string | null;
   dropAddress: string | null;
+  /** Exact pickup pin (full cab). */
+  pickupPin?: { lat: number; lng: number } | null;
+  /** The live location this passenger is sharing with the driver, if any. */
+  sharedLocation?: { lat: number; lng: number; at: string } | null;
+  /** Sharing is offered from 3 hours before pickup until boarding. */
+  canShareLocation?: boolean;
   startAt: string | null;
   endAt: string | null;
   estimatedKm: number | null;

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Jai Shree Shyam Travels",
     "slug": "road-yatra",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,7 +19,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "in.roadyatra.app",
-      "versionCode": 2
+      "versionCode": 3,
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -45,6 +48,15 @@
         "expo-notifications",
         {
           "color": "#1E4FD8"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Jai Shree Shyam Travels uses your location to find the nearest pickup point, set your exact pickup spot, and — only if you choose — share where you are with your driver near pickup time.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false,
+          "isIosBackgroundLocationEnabled": false
         }
       ]
     ],

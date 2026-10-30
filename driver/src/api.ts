@@ -27,7 +27,11 @@ export type Passenger = {
   amountDue: number;
   boarded: boolean;
   noShow: boolean;
+  /** Where the passenger is right now, while they share it (before boarding). */
+  liveLocation?: LiveLocation | null;
 };
+/** A passenger's shared live location (latest point). */
+export type LiveLocation = { lat: number; lng: number; at: string };
 export type TripDuty = {
   kind: 'TRIP';
   id: string;
@@ -58,6 +62,10 @@ export type RentalDuty = {
   customer: { name: string; phone: string; passengers: number };
   pickupAddress: string | null;
   dropAddress: string | null;
+  /** Exact pickup pin the customer dropped on the map. */
+  pickupPin?: { lat: number; lng: number } | null;
+  /** Where the customer is right now, while they share it (before the start). */
+  liveLocation?: LiveLocation | null;
   estimatedKm: number | null;
   startOdometer: number | null;
   endOdometer: number | null;

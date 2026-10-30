@@ -96,6 +96,7 @@ export async function listDuties(driverId: string, days = 7) {
         amountDue: amountDue(b),
         boarded: !!b.boardedAt,
         noShow: b.noShow,
+        liveLocation: passengerLive(b),
       })),
     })),
     ...rentals.map((b) => ({
@@ -113,6 +114,9 @@ export async function listDuties(driverId: string, days = 7) {
       customer: { name: b.passengerName, phone: b.passengerPhone, passengers: b.passengers },
       pickupAddress: b.pickupAddress,
       dropAddress: b.dropAddress,
+      // Exact pickup pin the customer dropped, and their live location while they share it.
+      pickupPin: b.pickupLat != null && b.pickupLng != null ? { lat: b.pickupLat, lng: b.pickupLng } : null,
+      liveLocation: passengerLive(b),
       estimatedKm: b.estimatedKm,
       startOdometer: b.startOdometer,
       endOdometer: b.endOdometer,
@@ -121,6 +125,16 @@ export async function listDuties(driverId: string, days = 7) {
       amountDue: amountDue(b),
     })),
   ].sort((a, b) => (a.startAt?.getTime() ?? 0) - (b.startAt?.getTime() ?? 0));
+}
+
+/** How long a shared passenger location stays useful to the driver. */
+const LIVE_LOCATION_MINUTES = 15;
+
+/** The passenger's shared live location, while recent and before they are on board. */
+function passengerLive(b: { passengerLat: number | null; passengerLng: number | null; passengerLocAt: Date | null; boardedAt: Date | null; startedAt: Date | null }) {
+  if (b.passengerLat == null || b.passengerLng == null || !b.passengerLocAt || b.boardedAt || b.startedAt) return null;
+  if (Date.now() - b.passengerLocAt.getTime() > LIVE_LOCATION_MINUTES * 60_000) return null;
+  return { lat: b.passengerLat, lng: b.passengerLng, at: b.passengerLocAt };
 }
 
 async function driverTrip(driverId: string, tripId: string) {

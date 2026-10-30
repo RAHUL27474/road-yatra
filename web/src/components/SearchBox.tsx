@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeftRight, Armchair, CalendarDays, CarFront, Clock, MapPin, Plane, Repeat, Route, Search, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, Armchair, CalendarDays, CarFront, Clock, LocateFixed, MapPin, Plane, Repeat, Route, Search, type LucideIcon } from "lucide-react";
 import { cityState } from "@/lib/media";
+import { currentPosition, nearest } from "@/lib/geo-client";
 
 const todayIST = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 const tomorrowIST = () => new Date(Date.now() + 24 * 3600_000).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
@@ -52,6 +53,35 @@ const openPicker = (e: React.MouseEvent<HTMLInputElement>) => {
     /* older browsers: the native control still works */
   }
 };
+
+/** "Near me": sets the From city to the city of the pickup point closest to the customer. */
+function NearMe({ cities, onCity }: { cities: string[]; onCity: (city: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  async function find() {
+    setBusy(true);
+    setNote("");
+    try {
+      const [here, res] = await Promise.all([currentPosition(), fetch("/api/stops").then((r) => r.json())]);
+      const best = nearest(here, ((res.stops ?? []) as { city: string; lat: number | null; lng: number | null }[]).filter((s) => cities.includes(s.city)));
+      if (!best) throw new Error("Couldn't match your location to a city we serve.");
+      onCity(best.item.city);
+      setNote(best.km > 60 ? `Nearest city we serve: ${best.item.city} (${Math.round(best.km)} km)` : `From ${best.item.city}`);
+    } catch (e) {
+      setNote((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <button type="button" onClick={find} disabled={busy} className="inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold text-brand ring-1 ring-brand/30 transition hover:ring-brand">
+        <LocateFixed className="h-3.5 w-3.5" aria-hidden /> {busy ? "Finding you…" : "Near me"}
+      </button>
+      {note && <span className="text-slate-500">{note}</span>}
+    </>
+  );
+}
 
 export default function SearchBox({
   cities,
@@ -233,24 +263,33 @@ export default function SearchBox({
           )}
         </div>
 
-        {tab === "seats" && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-slate-400">Quick pick:</span>
-            {[
-              [todayIST(), "Today"],
-              [tomorrowIST(), "Tomorrow"],
-            ].map(([d, l]) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setDate(d)}
-                className={`rounded-full px-3 py-1 font-semibold ring-1 transition ${date === d ? "bg-brand text-white ring-brand" : "text-slate-600 ring-slate-200 hover:ring-slate-300"}`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          {tab === "seats" && (
+            <>
+              <span className="text-slate-400">Quick pick:</span>
+              {[
+                [todayIST(), "Today"],
+                [tomorrowIST(), "Tomorrow"],
+              ].map(([d, l]) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => setDate(d)}
+                  className={`rounded-full px-3 py-1 font-semibold ring-1 transition ${date === d ? "bg-brand text-white ring-brand" : "text-slate-600 ring-slate-200 hover:ring-slate-300"}`}
+                >
+                  {l}
+                </button>
+              ))}
+            </>
+          )}
+          <NearMe
+            cities={cities}
+            onCity={(c) => {
+              if (c === to) setTo(from);
+              setFrom(c);
+            }}
+          />
+        </div>
 
         {hero && (
           <button

@@ -6,9 +6,10 @@ import { Armchair, ArrowRight, CircleDot, Flag, Info, MapPin, Phone, UserRound }
 import SeatMap, { SeatLegend } from "@/components/SeatMap";
 import PaymentChoice, { type Payment } from "@/components/PaymentChoice";
 import { apiFetch, payPath } from "@/lib/client";
+import NearestStop from "@/components/NearestStop";
 import { inr } from "@/lib/format";
 
-type Stop = { id: string; name: string; address: string; landmark?: string };
+type Stop = { id: string; name: string; address: string; landmark?: string; lat?: number | null; lng?: number | null };
 type Props = {
   trip: {
     id: string;
@@ -194,6 +195,7 @@ export default function SeatBooking({ trip, pickupStops, dropStops, allowCash, a
             <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
               <MapPin className="h-5 w-5 text-brand" aria-hidden /> Pickup & drop
             </h2>
+            <NearestStop stops={pickupStops} onPick={setPickup} />
             {stopCards(`Pickup point in ${trip.fromCity}`, <CircleDot className="h-4 w-4 text-green-600" aria-hidden />, "pickup", pickupStops, pickup, setPickup)}
             {stopCards(`Drop point in ${trip.toCity}`, <Flag className="h-4 w-4 text-red-500" aria-hidden />, "drop", dropStops, drop, setDrop)}
           </section>

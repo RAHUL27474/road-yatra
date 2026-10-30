@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { CircleCheck, CircleX, Clock, CreditCard, FileText, Hourglass, MapPinned, Ticket } from "lucide-react";
 import { loadBookingForPage } from "@/lib/booking-access";
+import ShareLocation from "@/components/ShareLocation";
 import { bookingLinks, expireStaleHolds, serializeBooking } from "@/lib/booking";
 import { getSettings } from "@/lib/settings";
 import { fmtDate, fmtTime, inr, RENTAL_TYPES } from "@/lib/format";
@@ -160,6 +161,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
           <span className="text-sm text-slate-500">{bookingTitle(b)}</span>
         </div>
         <BookingSummary b={b} />
+        {access.isOwner && b.canShareLocation && <ShareLocation bookingId={b.id} initiallySharing={!!b.sharedLocation} />}
         {upiLink && (
           <div className="mt-3 flex flex-col gap-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm sm:flex-row sm:items-center">
             {upiQrSvg && (

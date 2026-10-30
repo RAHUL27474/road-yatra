@@ -6,7 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api, Config, errorMessage, getConfig, QuoteResponse, RentalRequest, RentalType, TripSummary } from '../../api';
+import { api, Config, errorMessage, getConfig, QuoteResponse, RentalRequest, RentalType, Stop, TripSummary } from '../../api';
+import { currentPosition, nearest } from '../../geo';
 import { useAuth } from '../../auth';
 import { BRAND, Logo, supportPhone, telUrl } from '../../brand';
 import { DateTimeField } from '../../DateTimeField';
@@ -522,6 +523,38 @@ function RoutePicker({
   );
 }
 
+/** "Near me": sets From to the city of the pickup point closest to the customer. */
+function NearMe({ cities, onCity }: { cities: string[]; onCity: (city: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const find = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const [here, res] = await Promise.all([currentPosition(), api<{ stops: Stop[] }>('/api/stops')]);
+      const best = nearest(here, res.stops.filter((s) => cities.includes(s.city)));
+      if (!best) throw new Error("Couldn't match your location to a city we serve.");
+      onCity(best.item.city);
+      setNote(best.km > 60 ? `Nearest city we serve: ${best.item.city} (${Math.round(best.km)} km)` : `From ${best.item.city}`);
+    } catch (e) {
+      setNote(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Pressable onPress={find} disabled={busy} hitSlop={6} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
+      <Ionicons name="locate" size={16} color={colors.brand} />
+      <Text style={type('sm', 'semibold', colors.brand)}>{busy ? 'Finding you…' : 'Near me'}</Text>
+      {note ? (
+        <Text style={[type('xs', 'regular', colors.textMuted), { flexShrink: 1 }]} numberOfLines={1}>
+          · {note}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+}
+
 function SeatSearch({ cities, hasDefaultRoute, onSearched }: { cities: string[]; hasDefaultRoute: boolean; onSearched: (s: RecentSearch) => void }) {
   const days = useMemo(() => nextDays(30), []);
   const { picker, open, close } = usePicker();
@@ -579,6 +612,13 @@ function SeatSearch({ cities, hasDefaultRoute, onSearched }: { cities: string[];
         <Chip label="Tomorrow" selected={quick === 'tomorrow'} onPress={() => setDate(days[1].ymd)} />
         <Chip label={quick === 'other' ? fmtYmdShort(date) : 'Other date'} icon="calendar-outline" selected={quick === 'other'} onPress={() => open('date')} />
       </View>
+      <NearMe
+        cities={cities}
+        onCity={(c) => {
+          if (c === to) setTo(from);
+          setFrom(c);
+        }}
+      />
 
       <Button title="Search trips" icon="search" onPress={search} style={{ marginTop: spacing.lg, height: 54 }} />
 

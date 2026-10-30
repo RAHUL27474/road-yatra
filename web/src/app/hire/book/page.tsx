@@ -14,6 +14,12 @@ import RentalForm from "./RentalForm";
 
 export const metadata = { title: "Review & book" };
 
+/** A point to open the pickup map at: the pickup city's first pickup point with coordinates. */
+async function cityCenter(city: string) {
+  const s = await db.stop.findFirst({ where: { city, lat: { not: null }, lng: { not: null } }, orderBy: { sortOrder: "asc" } });
+  return s ? { lat: s.lat!, lng: s.lng! } : null;
+}
+
 export default async function HireBookPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
   const req = parseHireParams(sp);
@@ -47,6 +53,7 @@ export default async function HireBookPage({ searchParams }: { searchParams: Pro
           user={{ name: user.name, phone: user.phone }}
           allowCash={(await getSettings()).allowCash}
           allowOnline={onlinePaymentsAvailable()}
+          pickupCenter={await cityCenter(req.pickupCity)}
         />
         <aside className="h-fit lg:sticky lg:top-24">
           <div className="card overflow-hidden text-sm">

@@ -10,6 +10,7 @@ import { RespondBar } from '../../respond';
 import { Scanner } from '../../Scanner';
 import { SosButton } from '../../sos';
 import { UpiQrSheet, UpiRequest, useOfficeUpi } from '../../upi';
+import { LiveLocationRow } from '../../live';
 import { colors, fonts, radius, space } from '../../theme';
 import {
   Badge,
@@ -373,6 +374,7 @@ export default function TripScreen() {
                       <Badge label="Paid" tone="success" icon="card-outline" large />
                     )}
                   </View>
+                  {p.liveLocation && !p.boarded && !done ? <LiveLocationRow loc={p.liveLocation} name={p.name} /> : null}
 
                   {!done && !p.boarded ? (
                     <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md }}>
