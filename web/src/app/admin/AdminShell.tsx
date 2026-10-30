@@ -101,7 +101,7 @@ export default function AdminShell({ brand, userName, today, children }: Props) 
   const sidebar = (
     <div className="flex h-full flex-col bg-brand-darker text-blue-100">
       <div className="flex h-16 shrink-0 items-center gap-2.5 border-b border-white/10 px-5">
-        <LogoMark className="h-9 w-9" />
+        <LogoMark className="h-12 w-12" />
         <div className="min-w-0 leading-none">
           <p className="truncate text-[15px] font-extrabold tracking-tight text-white">{main}</p>
           <p className="mt-1 text-[10px] font-bold tracking-[0.18em] text-accent uppercase">{caption ? "Office portal" : "Office"}</p>

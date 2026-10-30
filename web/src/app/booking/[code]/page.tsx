@@ -64,7 +64,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
       <article className="overflow-hidden rounded-3xl bg-white shadow-[var(--shadow-lift)] ring-1 ring-slate-200/70">
         <header className="flex items-center justify-between gap-3 bg-gradient-to-r from-brand-darker via-brand-dark to-brand px-5 py-4 text-white sm:px-6">
           <div className="flex items-center gap-2.5">
-            <LogoMark className="h-8 w-8" />
+            <LogoMark className="h-12 w-12" />
             <div className="leading-tight">
               <p className="font-extrabold">{brand}</p>
               <p className="text-xs text-slate-300">{b.kind === "SEAT" ? "Shared seat e-ticket" : `Full cab · ${RENTAL_TYPES[b.rentalType ?? ""] ?? ""}`}</p>

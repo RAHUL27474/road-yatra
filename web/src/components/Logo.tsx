@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/media";
 
-/** The logo mark: an "S" drawn as a road with the sun at its end (public/images/brand/logo-mark.svg, same as the app). */
+/** The owner's logo (public/images/brand/jss-logo.webp) on a white badge, so it also reads on the navy footer, sidebar and ticket. */
 export function LogoMark({ className = "h-10 w-10" }: { className?: string }) {
-  // eslint-disable-next-line @next/next/no-img-element -- a tiny static SVG; next/image adds nothing here
-  return <img src={BRAND.logoMark} alt="" className={`block shrink-0 rounded-[24%] ${className}`} />;
+  return (
+    <span className={`flex shrink-0 items-center justify-center rounded-[22%] bg-white p-[3%] ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- a small static image; next/image adds nothing here */}
+      <img src={BRAND.logoMark} alt="" className="block h-full w-full object-contain" />
+    </span>
+  );
 }
 
 /** Splits "Jai Shree Shyam Tour & Travels" into a main line and a caption ("Tour & Travels"). */
@@ -17,7 +21,7 @@ export default function Logo({ light = false, brand }: { light?: boolean; brand:
   const [main, caption] = splitBrand(brand);
   return (
     <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-2.5" aria-label={`${brand} home`}>
-      <LogoMark className="h-11 w-11 transition group-hover:scale-105" />
+      <LogoMark className="h-14 w-14 transition group-hover:scale-105 sm:h-[4.25rem] sm:w-[4.25rem]" />
       <span className="min-w-0 leading-none">
         <span className={`block truncate text-[1.15rem] font-extrabold tracking-tight sm:text-xl ${light ? "text-white" : "text-brand"}`}>{main}</span>
         {caption && (

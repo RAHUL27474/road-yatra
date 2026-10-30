@@ -7,8 +7,8 @@ export const EMPTY_ROAD_IMAGE = "/images/empty-road.webp";
 
 /** Owner-supplied brand artwork (public/images/brand). */
 export const BRAND = {
-  /** The logo mark (also src/app/icon.svg, the favicon). */
-  logoMark: "/images/brand/logo-mark.svg",
+  /** The logo (also src/app/icon.png and apple-icon.png, the browser icons). */
+  logoMark: "/images/brand/jss-logo.webp",
   emblem: "/images/brand/emblem-khatushyam.webp",
   bannerWide: "/images/brand/banner-wide.webp",
   poster: "/images/brand/poster-portrait.webp",
