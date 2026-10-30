@@ -10,7 +10,7 @@ The project has three parts, all in this repository:
 | Customer app | `mobile/` | Expo / React Native, package `in.roadyatra.app` |
 | Driver app | `driver/` | Expo / React Native, package `in.roadyatra.driver` |
 
-Live site: https://jaishreeshyamtravels.com (Vercel project `tokribajar/road-yatra`, domain on GoDaddy).
+Live site: https://jaishreeshyamtravels.com (Vercel project `tokribajar/road-yatra`, domain on GoDaddy). Code: https://github.com/SanjeevKushwaha1989/road-yatra (moved from RAHUL27474 on 30 Oct 2026; the old address redirects).
 API reference: [`API.md`](../API.md). Play Console guide: [`play-store.md`](play-store.md).
 
 ---
@@ -88,7 +88,6 @@ API reference: [`API.md`](../API.md). Play Console guide: [`play-store.md`](play
 ### Optional (not started)
 - Firebase push notifications (today's alerts come from a background check and can be late).
 - Automatic WhatsApp trip reminders (needs a template and a cron job).
-- GitHub → Vercel auto-deploy (deploys are run by hand with `vercel --prod`).
 - "Get it on Google Play" badge on the website once the customer app is live.
 - Switch on Razorpay when keys are available.
 - R8/minify for a smaller app, in a later update with full testing.
@@ -98,7 +97,7 @@ API reference: [`API.md`](../API.md). Play Console guide: [`play-store.md`](play
 
 ## 3. How things are built and deployed
 
-**Website:** `cd web && npx vercel --prod`. The build runs `prisma db push` and `prisma/prod-init.ts` (creates the admin account if missing).
+**Website:** deploys automatically when `main` is pushed to GitHub (Vercel builds from the `web` folder). For a manual deploy, run `npx vercel --prod` from the repo root, not from `web`. The build runs `prisma db push` and `prisma/prod-init.ts` (creates the admin account if missing).
 
 **Android apps:** built from copies in `D:\ry\mobile` and `D:\ry\driver` (C: had no disk space).
 1. Copy `src/` and `app.json` from the repo folder to the copy.
