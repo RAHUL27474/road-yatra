@@ -1,6 +1,6 @@
-// Jai Shree Shyam Tour & Travels brand: business facts, the logo mark (a road running to a rising sun) and the wordmark.
-import { StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+// Jai Shree Shyam Tour & Travels brand: business facts, the logo (feather, car and road) and the wordmark.
+import { Image, ImageStyle, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { colors, fonts } from './theme';
 
 /** Business facts shown in the app. Keep in sync with the website. */
@@ -27,35 +27,29 @@ export const BRAND = {
 export const supportPhone = (configured?: string | null) => configured || BRAND.phone;
 export const telUrl = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`;
 
-/** The "S" road from the logo: an S (for Shyam) drawn as a road with a dashed centre line. */
-const S_ROAD = 'M64 28 C56 20 34 21 34 35 C34 50 66 47 66 63 C66 80 42 82 32 73';
+const LOGO_MARK = require('../assets/images/logo-mark.png');
+const LOGO_FULL = require('../assets/images/logo-full.png');
 
 /**
- * The logo mark: a navy rounded square holding an "S" drawn as a road, with the saffron sun at its end.
- * Same drawing as assets/brand/mark.svg, the app icon and the website logo.
- * `ring` adds a hairline light edge so the mark stands out on the navy headers.
+ * The logo mark: the peacock feather, car and road from the client's logo on a white tile.
+ * Same picture as the app icon and the website's browser icon.
+ * `ring` adds a hairline light edge so the tile stands out on the navy headers.
  */
 export function Emblem({ size = 40, ring = false, style }: { size?: number; ring?: boolean; style?: StyleProp<ViewStyle> }) {
   return (
     <View
-      style={[{ width: size, height: size, borderRadius: size * 0.24 }, ring && { borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }, style]}
+      style={[{ width: size, height: size, borderRadius: size * 0.24, overflow: 'hidden', backgroundColor: colors.white }, ring && { borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }, style]}
       accessibilityRole="image"
       accessibilityLabel={BRAND.name}
     >
-      <Svg width="100%" height="100%" viewBox="0 0 100 100">
-        <Defs>
-          <LinearGradient id="markBg" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#2563EB" />
-            <Stop offset="1" stopColor="#0F2A75" />
-          </LinearGradient>
-        </Defs>
-        <Rect width="100" height="100" rx="24" fill="url(#markBg)" />
-        <Circle cx="74" cy="24" r="8.5" fill={colors.gold} />
-        <Path d={S_ROAD} fill="none" stroke="#FFFFFF" strokeWidth={14.5} strokeLinecap="round" />
-        <Path d={S_ROAD} fill="none" stroke="#0F2A75" strokeWidth={2.4} strokeDasharray="5 5" strokeLinecap="round" />
-      </Svg>
+      <Image source={LOGO_MARK} style={{ width: '100%', height: '100%' }} />
     </View>
   );
+}
+
+/** The full logo with "Jai Shree Shyam / Tour and Travels" (transparent background; best on white). */
+export function FullLogo({ width = 220, style }: { width?: number; style?: StyleProp<ImageStyle> }) {
+  return <Image source={LOGO_FULL} style={[{ width, height: width * 0.926 }, style]} resizeMode="contain" accessibilityLabel={BRAND.name} />;
 }
 
 /** Kept for existing call sites: the brand mark. */

@@ -9,7 +9,7 @@ import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL, Config, errorMessage, getConfig } from '../../api';
 import { useAuth } from '../../auth';
-import { BRAND, Emblem, supportPhone, telUrl } from '../../brand';
+import { BRAND, Emblem, FullLogo, supportPhone, telUrl } from '../../brand';
 import { openPage, openPlayStore, PLAY_STORE_URL } from '../../store';
 import { colors, radius, shadowSoft, spacing, tabular, type } from '../../theme';
 import { Button, Input, ListRow, Loading, Notice, Screen } from '../../ui';
@@ -230,16 +230,11 @@ export default function Account() {
 
           <Text style={st.group}>ABOUT US</Text>
           <View style={st.card}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <Emblem size={52} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={type('md', 'extrabold', colors.brandDark)} numberOfLines={2}>
-                  {BRAND.name}
-                </Text>
-                <Text style={type('xs', 'medium', colors.textMuted)} numberOfLines={1}>
-                  {BRAND.tagline}
-                </Text>
-              </View>
+            <View style={{ alignItems: 'center' }}>
+              <FullLogo width={200} />
+              <Text style={type('xs', 'medium', colors.textMuted)} numberOfLines={1}>
+                {BRAND.tagline}
+              </Text>
             </View>
             <Text style={[type('sm', 'regular', colors.textMuted), { marginTop: spacing.md }]}>
               Daily shared taxi from ₹800 per person, plus one-way and round-trip cabs, 24×7. Khatima ⇄ Delhi, Khatima ⇄ Haridwar and hill

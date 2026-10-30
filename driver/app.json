@@ -19,7 +19,7 @@
     "android": {
       "package": "in.roadyatra.driver",
       "adaptiveIcon": {
-        "backgroundColor": "#0F2A75",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -73,9 +73,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#0F2A75"
+          "backgroundColor": "#FFFFFF"
         }
       ],
       "expo-background-task",

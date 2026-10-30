@@ -15,7 +15,7 @@ export const BRAND = {
 
 const LOGO_MARK = require('../assets/images/logo-mark.png');
 
-/** The logo mark (an "S" drawn as a road with a gold sun), same as the customer app and website. */
+/** The logo mark (feather, car and road from the client's logo on a white tile), same as the app icon and customer app. */
 export function LogoMark({ size = 48, style }: { size?: number; style?: StyleProp<ViewStyle> }) {
   return (
     <View
