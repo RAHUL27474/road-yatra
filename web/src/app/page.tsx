@@ -11,9 +11,7 @@ import {
   Clock,
   Globe,
   MapPin,
-  MessageCircle,
   Moon,
-  Phone,
   QrCode,
   Repeat,
   Route as RouteIcon,
@@ -25,6 +23,7 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
+import { CallIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { fmtDuration, inr, VEHICLE_TYPES } from "@/lib/format";
@@ -35,7 +34,7 @@ import SearchBox from "@/components/SearchBox";
 import SearchBoxFromUrl from "@/components/SearchBoxFromUrl";
 import VehicleImage from "@/components/VehicleImage";
 import Amenities from "@/components/Amenities";
-import { FullLogo, splitBrand } from "@/components/Logo";
+import { splitBrand } from "@/components/Logo";
 
 // Pre-built and served from the CDN; rebuilt at most every minute, and straight away when the office edits (tag "home").
 export const revalidate = 60;
@@ -201,10 +200,10 @@ export default async function Home() {
             {phone && (
               <div className="mt-5 hidden flex-wrap gap-2 sm:flex">
                 <a href={`tel:${phone.replace(/\s/g, "")}`} className="btn-primary">
-                  <Phone className="h-4 w-4" aria-hidden /> Call {phone}
+                  <CallIcon className="h-4 w-4" /> Call {phone}
                 </a>
                 <a href={whatsappLink(phone)} target="_blank" rel="noopener" className="btn bg-[#1faa53] text-white hover:bg-[#178a43]">
-                  <MessageCircle className="h-4 w-4" aria-hidden /> WhatsApp us
+                  <WhatsAppIcon className="h-4 w-4" /> WhatsApp us
                 </a>
               </div>
             )}
@@ -507,7 +506,6 @@ export default async function Home() {
       <section id="about" className="scroll-mt-24 bg-white py-14 sm:py-20">
         <div className="container-x grid gap-10 lg:grid-cols-[1fr_1.25fr] lg:items-center">
           <div>
-            <FullLogo className="mb-5 w-40 p-0" />
             <p className="deva text-lg font-bold text-accent">खाटू श्याम जी की कृपा से</p>
             <h2 className="section-title mt-2">About {brand}</h2>
             <p className="mt-4 leading-relaxed text-slate-600">
@@ -518,12 +516,12 @@ export default async function Home() {
             <div className="mt-6 flex flex-wrap gap-3">
               {phone && (
                 <a href={`tel:${tel}`} className="btn-accent">
-                  <Phone className="h-4 w-4" aria-hidden /> Call {phone}
+                  <CallIcon className="h-4 w-4" /> Call {phone}
                 </a>
               )}
               {phone && (
                 <a href={whatsappLink(phone)} target="_blank" rel="noopener" className="btn bg-[#1faa53] text-white hover:bg-[#178a43]">
-                  <MessageCircle className="h-4 w-4" aria-hidden /> WhatsApp
+                  <WhatsAppIcon className="h-4 w-4" /> WhatsApp
                 </a>
               )}
             </div>
@@ -558,7 +556,7 @@ export default async function Home() {
             <p className="section-sub">Can&apos;t find your answer? We are available day and night.</p>
             {phone && (
               <a href={`tel:${tel}`} className="btn-primary mt-6">
-                <Phone className="h-4 w-4" aria-hidden /> Call {phone}
+                <CallIcon className="h-4 w-4" /> Call {phone}
               </a>
             )}
           </div>

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Armchair, CarFront, LayoutDashboard, LogOut, Menu, Phone, Ticket, UserRound, X } from "lucide-react";
+import { Armchair, CarFront, LayoutDashboard, LogOut, Menu, Ticket, UserRound, X } from "lucide-react";
+import { CallIcon } from "@/components/BrandIcons";
 import Logo from "./Logo";
 
 type Props = { brand: string; supportPhone: string };
@@ -142,7 +143,7 @@ export default function HeaderBar({ brand, supportPhone }: Props) {
             )}
             {supportPhone && (
               <a href={`tel:${tel}`} className={mobileLink}>
-                <Phone className="h-5 w-5 text-brand" aria-hidden /> {supportPhone}
+                <CallIcon className="h-5 w-5 text-brand" /> {supportPhone}
               </a>
             )}
             <div className="pt-3">

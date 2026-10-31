@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageCircle } from "lucide-react";
+import { WhatsAppIcon } from "@/components/BrandIcons";
 import { db } from "@/lib/db";
 import { whatsappLink } from "@/lib/media";
 import { routeSlug } from "@/lib/route-pages";
@@ -47,7 +47,7 @@ export default async function YatraPage() {
                 )}
                 {phone && (
                   <a href={`${whatsappLink(phone)}?text=${encodeURIComponent(msg)}`} className="btn-ghost flex items-center gap-1 px-3 py-1.5 text-sm">
-                    <MessageCircle className="h-4 w-4 text-green-600" aria-hidden /> Get a quote on WhatsApp
+                    <WhatsAppIcon className="h-4 w-4 text-[#25D366]" /> Get a quote on WhatsApp
                   </a>
                 )}
               </div>

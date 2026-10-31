@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Armchair, CarFront, Clock, IndianRupee, MapPin, MessageCircle } from "lucide-react";
+import { Armchair, CarFront, Clock, IndianRupee, MapPin } from "lucide-react";
+import { WhatsAppIcon } from "@/components/BrandIcons";
 import { db } from "@/lib/db";
 import { priceRental } from "@/lib/booking";
 import { fmtDate, fmtDuration, fmtTime, inr, ymd } from "@/lib/format";
@@ -163,7 +164,7 @@ export default async function RoutePage({ params }: Params) {
           href={`${whatsappLink(phone)}?text=${encodeURIComponent(`Namaste, I want to book ${r.fromCity} to ${r.toCity}.\nDate: \nSeats / people: `)}`}
           className="card flex items-center gap-3 p-4 hover:shadow-md"
         >
-          <MessageCircle className="h-6 w-6 text-green-600" aria-hidden />
+          <WhatsAppIcon className="h-6 w-6 text-[#25D366]" />
           <span className="flex-1">
             <span className="block font-bold">Book on WhatsApp</span>
             <span className="text-sm text-slate-500">Send your date and number of seats — we reply with availability.</span>

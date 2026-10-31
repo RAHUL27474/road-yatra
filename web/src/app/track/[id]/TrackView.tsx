@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { CarFront, Headset, Navigation, Phone, Share2, Siren, UserRound } from "lucide-react";
+import { CarFront, Headset, Navigation, Share2, Siren, UserRound } from "lucide-react";
+import { CallIcon } from "@/components/BrandIcons";
 import { fmtDateTime, fmtTime } from "@/lib/format";
 
 const TrackMap = dynamic(() => import("./TrackMap"), { ssr: false, loading: () => <div className="h-80 animate-pulse rounded-2xl bg-slate-200 sm:h-[26rem]" /> });
@@ -125,7 +126,7 @@ export default function TrackView({ bookingId, token, supportPhone }: { bookingI
                 <p className="text-xs text-slate-400">Your driver</p>
                 <p className="font-bold text-ink">{data.driver.name}</p>
                 <a href={`tel:${data.driver.phone}`} className="inline-flex items-center gap-1 font-semibold text-brand">
-                  <Phone className="h-3.5 w-3.5" aria-hidden /> {data.driver.phone}
+                  <CallIcon className="h-3.5 w-3.5" /> {data.driver.phone}
                 </a>
               </div>
             </div>

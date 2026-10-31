@@ -7,10 +7,8 @@ export const EMPTY_ROAD_IMAGE = "/images/empty-road.webp";
 
 /** Owner-supplied brand artwork (public/images/brand). */
 export const BRAND = {
-  /** The logo mark: feather, car and road (also src/app/icon.png and apple-icon.png, the browser icons). */
-  logoMark: "/images/brand/jss-mark.webp",
-  /** The full logo with "Jai Shree Shyam / Tour and Travels". */
-  logoFull: "/images/brand/jss-logo.webp",
+  /** The logo (also src/app/icon.png and apple-icon.png, the browser icons). */
+  logoMark: "/images/brand/jss-logo.webp",
   emblem: "/images/brand/emblem-khatushyam.webp",
   bannerWide: "/images/brand/banner-wide.webp",
   poster: "/images/brand/poster-portrait.webp",

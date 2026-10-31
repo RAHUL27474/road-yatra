@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { BadgeCheck, Mail, MapPin, MessageCircle, Phone, Smartphone, UserRound } from "lucide-react";
+import { BadgeCheck, Mail, MapPin, Smartphone, UserRound } from "lucide-react";
+import { CallIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { routeHref, whatsappLink } from "@/lib/media";
-import { FullLogo } from "./Logo";
+import Logo from "./Logo";
 
 export default async function Footer() {
   const brand = process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels";
@@ -40,9 +41,7 @@ export default async function Footer() {
       <div className="saffron-gradient absolute inset-x-0 top-0 h-1" aria-hidden />
       <div className="container-x grid grid-cols-2 gap-x-6 gap-y-10 py-14 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
         <div className="col-span-2 lg:col-span-1">
-          <Link href="/" aria-label={`${brand} home`} className="inline-block transition hover:opacity-90">
-            <FullLogo className="w-44" />
-          </Link>
+          <Logo brand={brand} light />
           <p className="deva mt-4 text-sm font-semibold text-gold">॥ जय श्री श्याम ॥ · खाटू श्याम जी की कृपा से</p>
           <p className="mt-2 max-w-xs leading-relaxed">
             Your Journey Our Priority. Daily shared taxi from Khatima to Delhi and Haridwar, one-way and round-trip cabs, and hill station trips. Safe · Comfortable · Reliable.
@@ -94,7 +93,7 @@ export default async function Footer() {
             {phone && (
               <li>
                 <a href={`tel:${phone.replace(/\s/g, "")}`} className="flex items-start gap-2.5 transition hover:text-white">
-                  <Phone className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
+                  <CallIcon className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
                   <span>
                     {phone}
                     <span className="block text-xs text-slate-500">Bookings · day &amp; night</span>
@@ -105,7 +104,7 @@ export default async function Footer() {
             {phone && (
               <li>
                 <a href={whatsappLink(phone)} target="_blank" rel="noopener" className="flex items-start gap-2.5 transition hover:text-white">
-                  <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
+                  <WhatsAppIcon className="mt-0.5 h-4 w-4 shrink-0 text-[#25D366]" />
                   Chat on WhatsApp
                 </a>
               </li>

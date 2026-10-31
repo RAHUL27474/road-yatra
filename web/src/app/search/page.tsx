@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CarFront, Phone } from "lucide-react";
+import { CarFront } from "lucide-react";
+import { CallIcon } from "@/components/BrandIcons";
 import { db } from "@/lib/db";
 import { searchTrips } from "@/lib/trips";
 import { EMPTY_ROAD_IMAGE, tomorrowMorning } from "@/lib/media";
@@ -80,7 +81,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 </Link>
                 {phone && (
                   <a href={`tel:${phone.replace(/\s/g, "")}`} className="btn-ghost">
-                    <Phone className="h-4 w-4" aria-hidden /> Call {phone}
+                    <CallIcon className="h-4 w-4" /> Call {phone}
                   </a>
                 )}
               </div>

@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, CircleAlert, Phone, Users } from "lucide-react";
+import { ArrowRight, CircleAlert, Users } from "lucide-react";
+import { CallIcon } from "@/components/BrandIcons";
 import { db } from "@/lib/db";
 import { quoteRental } from "@/lib/booking";
 import { HttpError } from "@/lib/http";
@@ -64,7 +65,7 @@ export default async function HirePage({ searchParams }: { searchParams: Promise
               <p className="mt-2 text-slate-500">Call us and we will sort it out, or change your search.</p>
               {phone && (
                 <a href={`tel:${phone.replace(/\s/g, "")}`} className="btn-primary mt-6">
-                  <Phone className="h-4 w-4" aria-hidden /> Call {phone}
+                  <CallIcon className="h-4 w-4" /> Call {phone}
                 </a>
               )}
             </div>
