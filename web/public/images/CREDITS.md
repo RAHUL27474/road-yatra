@@ -45,3 +45,7 @@ Representative photos of the vehicle models we run, cropped and resized. Replace
 | fleet-dzire-new-photo.jpg | [2026 Suzuki Dzire GL in Arctic White Pearl](https://commons.wikimedia.org/wiki/File:2026_Suzuki_Dzire_GL_in_Arctic_White_Pearl_01.jpg) | Haysnawri10 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
 | fleet-dzire-old-photo.jpg | [Suzuki Dzire 1.2 GL 2023](https://commons.wikimedia.org/wiki/File:Suzuki_Dzire_1.2_GL_2023_(1).jpg) (padded to 16:9 with a blurred edge) | Captainmorlypogi1959 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
 | fleet-altroz-photo.jpg | [Tata Altroz front](https://commons.wikimedia.org/wiki/File:Tata_Altroz_front_20230617.jpg) | Dairokkan9 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+
+## Icons
+
+The colourful icons in images/icons are from Microsoft Fluent Emoji (https://github.com/microsoft/fluentui-emoji), Copyright (c) Microsoft Corporation, MIT License – https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE

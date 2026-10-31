@@ -9,21 +9,14 @@ import {
   ChevronDown,
   CircleCheck,
   Clock,
-  Globe,
   MapPin,
-  Moon,
-  QrCode,
-  Repeat,
-  Route as RouteIcon,
   Search,
   ShieldCheck,
-  Smile,
-  UserCheck,
   Users,
   Wallet,
-  Wrench,
 } from "lucide-react";
 import { CallIcon, WhatsAppIcon } from "@/components/BrandIcons";
+import Icon3D from "@/components/Icon3D";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { fmtDuration, inr, VEHICLE_TYPES } from "@/lib/format";
@@ -241,17 +234,17 @@ export default async function Home() {
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {(
             [
-              [ShieldCheck, "Safe Travel"],
-              [Clock, "On Time Service"],
-              [UserCheck, "Professional Drivers"],
-              [Wrench, "Well Maintained Vehicles"],
-              [Globe, "All India Service"],
-              [Smile, "Comfortable Ride"],
+              ["shield", "Safe Travel"],
+              ["clock", "On Time Service"],
+              ["driver", "Professional Drivers"],
+              ["wrench", "Well Maintained Vehicles"],
+              ["globe", "All India Service"],
+              ["smile", "Comfortable Ride"],
             ] as const
-          ).map(([Icon, title]) => (
-            <li key={title} className="flex items-center gap-3 rounded-2xl bg-white p-3.5 ring-1 ring-slate-200/70 lg:flex-col lg:p-4 lg:text-center">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-light text-brand">
-                <Icon className="h-5 w-5" aria-hidden />
+          ).map(([icon, title]) => (
+            <li key={title} className="flex items-center gap-3 rounded-2xl bg-white p-3.5 ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-md lg:flex-col lg:p-4 lg:text-center">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-light/60">
+                <Icon3D name={icon} className="h-8 w-8" />
               </span>
               <p className="text-sm leading-tight font-bold text-ink">{title}</p>
             </li>
@@ -367,17 +360,17 @@ export default async function Home() {
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {(
               [
-                [Users, "Daily shared taxi", "Fixed daily departures between Khatima and Delhi, and Khatima and Haridwar. Book just the seats you need."],
-                [RouteIcon, "One-way taxi", "A full cab with driver to your destination, priced by distance with GST shown upfront."],
-                [Repeat, "Round-trip taxi", "Keep the cab for your return journey, for family visits, pilgrimages and hill station trips."],
-                [CalendarCheck, "Advance booking", "Book days ahead online, or call us to plan your trip."],
-                [Moon, "Day & night service", "Early-morning and late-night pickups. We are reachable 24×7."],
-                [Globe, "All-India service", "Need to go beyond our daily routes? We arrange one-way and round-trip cabs across India."],
+                ["taxi", "Daily shared taxi", "Fixed daily departures between Khatima and Delhi, and Khatima and Haridwar. Book just the seats you need."],
+                ["road", "One-way taxi", "A full cab with driver to your destination, priced by distance with GST shown upfront."],
+                ["repeat", "Round-trip taxi", "Keep the cab for your return journey, for family visits, pilgrimages and hill station trips."],
+                ["calendar", "Advance booking", "Book days ahead online, or call us to plan your trip."],
+                ["night", "Day & night service", "Early-morning and late-night pickups. We are reachable 24×7."],
+                ["globe", "All-India service", "Need to go beyond our daily routes? We arrange one-way and round-trip cabs across India."],
               ] as const
-            ).map(([Icon, title, text]) => (
+            ).map(([icon, title, text]) => (
               <div key={title} className="flex gap-4 rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/10 transition hover:bg-white/[0.1]">
-                <span className="saffron-gradient grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white shadow-lg shadow-black/20">
-                  <Icon className="h-5 w-5" aria-hidden />
+                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white shadow-lg shadow-black/20">
+                  <Icon3D name={icon} className="h-9 w-9" />
                 </span>
                 <div>
                   <h3 className="font-bold">{title}</h3>
@@ -441,14 +434,14 @@ export default async function Home() {
             <div className="absolute top-9 right-[16%] left-[16%] hidden border-t-2 border-dashed border-slate-300 md:block" aria-hidden />
             {(
               [
-                [Search, "Search your trip", "Pick your cities and date. Choose a shared seat on a daily departure, or a full cab at your own time."],
-                [Wallet, "Choose & pay", `Select your seats and pickup point, or your car. Pay online by UPI or card${settings.allowCash ? ", or cash to the driver" : ""}.`],
-                [QrCode, "Board & track", "Show the QR code or OTP to the driver. Track the vehicle live and share the trip with family."],
+                ["search", "Search your trip", "Pick your cities and date. Choose a shared seat on a daily departure, or a full cab at your own time."],
+                ["card", "Choose & pay", `Select your seats and pickup point, or your car. Pay online by UPI or card${settings.allowCash ? ", or cash to the driver" : ""}.`],
+                ["phone", "Board & track", "Show the QR code or OTP to the driver. Track the vehicle live and share the trip with family."],
               ] as const
-            ).map(([Icon, title, text], i) => (
+            ).map(([icon, title, text], i) => (
               <li key={title} className="relative rounded-2xl bg-canvas p-6 text-center ring-1 ring-slate-200/70">
-                <span className="relative mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/30">
-                  <Icon className="h-6 w-6" aria-hidden />
+                <span className="relative mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white shadow-lg shadow-brand/15 ring-1 ring-slate-200">
+                  <Icon3D name={icon} className="h-10 w-10" />
                   <span className="absolute -top-2 -right-2 grid h-6 w-6 place-items-center rounded-full bg-gold text-xs font-extrabold text-brand-darker ring-2 ring-white">{i + 1}</span>
                 </span>
                 <h3 className="mt-4 text-lg font-bold text-ink">{title}</h3>
