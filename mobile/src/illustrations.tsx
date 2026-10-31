@@ -1,9 +1,9 @@
-// Flat SVG illustrations: side-view vehicles and the empty-state pictures. Neutral colours on purpose,
+// Flat SVG illustrations: side-view vehicles (or the vehicle's photo) and the empty-state pictures. Neutral colours on purpose,
 // so they sit well on white cards next to the blue brand colour.
-import { StyleProp, View, ViewStyle } from 'react-native';
-import type { ReactElement } from 'react';
+import { Image, StyleProp, View, ViewStyle } from 'react-native';
+import { useState, type ReactElement } from 'react';
 import Svg, { Circle, Ellipse, G, Line, Path, Rect } from 'react-native-svg';
-import type { VehicleType } from './api';
+import { API_URL, type VehicleType } from './api';
 
 const C = {
   body: '#E3E9F1',
@@ -155,8 +155,30 @@ function Traveller() {
 
 const ARTS: Record<Art, () => ReactElement> = { sedan: Sedan, hatchback: Hatchback, muv: Muv, suv: Suv, traveller: Traveller };
 
-/** Side-view vehicle drawing (120 x 48 artboard) for a vehicle type. */
-export function VehicleArt({ type, width = 96, style }: { type?: VehicleType | string | null; width?: number; style?: StyleProp<ViewStyle> }) {
+/**
+ * The vehicle's photo when there is one (the office's upload or our own photo of the model, from the server),
+ * else a side-view drawing (120 x 48 artboard) for its type. The photo keeps the drawing's width, a little taller.
+ */
+export function VehicleArt({
+  type,
+  photo,
+  width = 96,
+  style,
+}: {
+  type?: VehicleType | string | null;
+  photo?: string | null;
+  width?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const [broken, setBroken] = useState(false);
+  if (photo && !broken) {
+    const uri = photo.startsWith('/') ? API_URL + photo : photo;
+    return (
+      <View style={[{ width, height: Math.round(width * 0.62), borderRadius: 10, overflow: 'hidden', backgroundColor: C.body }, style]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" onError={() => setBroken(true)} />
+      </View>
+    );
+  }
   const Comp = ARTS[ART_FOR[type as VehicleType] ?? 'sedan'];
   return (
     <View style={style} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">

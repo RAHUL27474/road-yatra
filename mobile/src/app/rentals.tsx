@@ -119,7 +119,7 @@ function QuoteCard({ quote, req }: { quote: Quote; req: RentalRequest }) {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
           <View style={st.art}>
-            <VehicleArt type={v.type} width={104} />
+            <VehicleArt type={v.type} photo={v.photoUrl} width={104} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={type('md', 'bold')} numberOfLines={1}>

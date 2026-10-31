@@ -186,7 +186,7 @@ function BookingCard({ b }: { b: Booking }) {
           </Text>
         </View>
         <View style={dim && { opacity: 0.5 }}>
-          <VehicleArt type={b.vehicle?.type} width={76} />
+          <VehicleArt type={b.vehicle?.type} photo={b.vehicle?.photoUrl} width={76} />
         </View>
       </View>
       <View style={st.perf}>

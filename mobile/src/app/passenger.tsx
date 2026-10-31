@@ -123,7 +123,7 @@ function SeatPassenger() {
             date={fmtDateShort(trip.departAt)}
           />
           <View style={st.summaryFoot}>
-            <VehicleArt type={trip.vehicle.type} width={64} />
+            <VehicleArt type={trip.vehicle.type} photo={trip.vehicle.photoUrl} width={64} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={type('sm', 'bold')} numberOfLines={1}>
                 {trip.vehicle.name}
@@ -372,7 +372,7 @@ function RentalPassenger() {
         <>
           <Journey from={req.pickupCity} to={req.dropCity ?? RENTAL_TYPE[req.rentalType]} middle={RENTAL_TYPE[req.rentalType]} />
           <View style={st.summaryFoot}>
-            <VehicleArt type={quote.vehicle.type} width={64} />
+            <VehicleArt type={quote.vehicle.type} photo={quote.vehicle.photoUrl} width={64} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={type('sm', 'bold')} numberOfLines={1}>
                 {quote.vehicle.name}

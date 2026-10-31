@@ -7,8 +7,10 @@ export const EMPTY_ROAD_IMAGE = "/images/empty-road.webp";
 
 /** Owner-supplied brand artwork (public/images/brand). */
 export const BRAND = {
-  /** The logo (also src/app/icon.png and apple-icon.png, the browser icons). */
-  logoMark: "/images/brand/jss-logo.webp",
+  /** The logo mark: feather, car and road (also src/app/icon.png and apple-icon.png, the browser icons). */
+  logoMark: "/images/brand/jss-mark.webp",
+  /** The full logo with "Jai Shree Shyam / Tour and Travels". */
+  logoFull: "/images/brand/jss-logo.webp",
   emblem: "/images/brand/emblem-khatushyam.webp",
   bannerWide: "/images/brand/banner-wide.webp",
   poster: "/images/brand/poster-portrait.webp",
@@ -41,9 +43,14 @@ const FLEET_PHOTOS: [RegExp, string][] = [
   [/altroz/i, "/images/fleet-altroz-photo.webp"],
 ];
 
+/** Our own photo of this vehicle model, matched by name (null if we have none). */
+export function fleetPhoto(name: string) {
+  return FLEET_PHOTOS.find(([re]) => re.test(name))?.[1] ?? null;
+}
+
 /** Photo for a vehicle (used when the office has not uploaded one): our fleet photo by name, else a stock photo by type. */
 export function vehiclePhoto(type: string, name = "") {
-  return FLEET_PHOTOS.find(([re]) => re.test(name))?.[1] ?? VEHICLE_PHOTOS[type] ?? VEHICLE_PHOTOS.OTHER;
+  return fleetPhoto(name) ?? VEHICLE_PHOTOS[type] ?? VEHICLE_PHOTOS.OTHER;
 }
 
 const CITY_PHOTOS: Record<string, string> = {

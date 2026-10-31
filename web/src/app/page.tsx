@@ -35,7 +35,7 @@ import SearchBox from "@/components/SearchBox";
 import SearchBoxFromUrl from "@/components/SearchBoxFromUrl";
 import VehicleImage from "@/components/VehicleImage";
 import Amenities from "@/components/Amenities";
-import { splitBrand } from "@/components/Logo";
+import { FullLogo, splitBrand } from "@/components/Logo";
 
 // Pre-built and served from the CDN; rebuilt at most every minute, and straight away when the office edits (tag "home").
 export const revalidate = 60;
@@ -507,6 +507,7 @@ export default async function Home() {
       <section id="about" className="scroll-mt-24 bg-white py-14 sm:py-20">
         <div className="container-x grid gap-10 lg:grid-cols-[1fr_1.25fr] lg:items-center">
           <div>
+            <FullLogo className="mb-5 w-40 p-0" />
             <p className="deva text-lg font-bold text-accent">खाटू श्याम जी की कृपा से</p>
             <h2 className="section-title mt-2">About {brand}</h2>
             <p className="mt-4 leading-relaxed text-slate-600">

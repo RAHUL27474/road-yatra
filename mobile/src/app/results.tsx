@@ -334,7 +334,7 @@ function TripCard({ trip, change }: { trip: TripSummary; change?: { changeFor: s
         <View style={st.divider} />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <VehicleArt type={trip.vehicle.type} width={72} />
+          <VehicleArt type={trip.vehicle.type} photo={trip.vehicle.photoUrl} width={72} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={type('sm', 'bold')} numberOfLines={1}>
               {trip.vehicle.name}

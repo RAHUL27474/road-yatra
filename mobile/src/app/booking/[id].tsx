@@ -323,7 +323,7 @@ export default function BookingDetail() {
                 {startIso ? <Text style={[type('xl', 'extrabold', colors.brand), tabular]}>{fmtTime(startIso)}</Text> : null}
               </View>
               <View style={{ alignItems: 'center', paddingTop: 2 }}>
-                <VehicleArt type={b.vehicle?.type} width={76} />
+                <VehicleArt type={b.vehicle?.type} photo={b.vehicle?.photoUrl} width={76} />
                 {durationMins > 0 ? <Text style={[type('xs', 'semibold', colors.textMuted), tabular]}>{fmtDuration(durationMins)}</Text> : null}
               </View>
               <View style={{ flex: 1, minWidth: 0, alignItems: 'flex-end' }}>

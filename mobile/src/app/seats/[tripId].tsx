@@ -167,7 +167,7 @@ export default function SeatSelection() {
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <VehicleArt type={trip.vehicle.type} width={84} />
+              <VehicleArt type={trip.vehicle.type} photo={trip.vehicle.photoUrl} width={84} />
               <Text style={[type('md', 'extrabold'), tabular, { marginTop: 4 }]}>
                 {inr(trip.fare)}
                 <Text style={type('xs', 'regular', colors.textMuted)}> /seat</Text>

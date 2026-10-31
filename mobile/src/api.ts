@@ -12,6 +12,8 @@ export type Vehicle = {
   seatLayout?: string;
   amenities: string[];
   imageUrl: string | null;
+  /** The office's photo, else our own photo of the model (a site path), else null: then the app draws the vehicle. */
+  photoUrl?: string | null;
 };
 /** landmark + photoUrl help the passenger find the pickup spot. */
 export type Stop = { id: string; city: string; name: string; address: string; landmark?: string; photoUrl?: string | null; lat: number | null; lng: number | null };

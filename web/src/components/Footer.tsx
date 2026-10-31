@@ -3,7 +3,7 @@ import { BadgeCheck, Mail, MapPin, MessageCircle, Phone, Smartphone, UserRound }
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { routeHref, whatsappLink } from "@/lib/media";
-import Logo from "./Logo";
+import { FullLogo } from "./Logo";
 
 export default async function Footer() {
   const brand = process.env.NEXT_PUBLIC_BRAND_NAME || "Jai Shree Shyam Tour & Travels";
@@ -40,7 +40,9 @@ export default async function Footer() {
       <div className="saffron-gradient absolute inset-x-0 top-0 h-1" aria-hidden />
       <div className="container-x grid grid-cols-2 gap-x-6 gap-y-10 py-14 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
         <div className="col-span-2 lg:col-span-1">
-          <Logo brand={brand} light />
+          <Link href="/" aria-label={`${brand} home`} className="inline-block transition hover:opacity-90">
+            <FullLogo className="w-44" />
+          </Link>
           <p className="deva mt-4 text-sm font-semibold text-gold">॥ जय श्री श्याम ॥ · खाटू श्याम जी की कृपा से</p>
           <p className="mt-2 max-w-xs leading-relaxed">
             Your Journey Our Priority. Daily shared taxi from Khatima to Delhi and Haridwar, one-way and round-trip cabs, and hill station trips. Safe · Comfortable · Reliable.

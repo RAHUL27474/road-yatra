@@ -9,6 +9,7 @@ import { fmtDateTime } from "./format";
 import { onlinePaymentsAvailable } from "./payment-mode";
 import { womenSeatInfo } from "./ladies";
 import { assertRunsOnRoute } from "./fleet";
+import { fleetPhoto } from "./media";
 
 export const GST_RATE = 0.05; // 5% GST on passenger transport — confirm the right treatment with your CA
 export const HOLD_MINUTES = 10; // unpaid online bookings are released after this
@@ -759,6 +760,8 @@ export function publicVehicle(v: Vehicle) {
     seatLayout: v.seatLayout,
     amenities: v.amenities ? v.amenities.split(",").map((a) => a.trim()).filter(Boolean) : [],
     imageUrl: v.imageUrl,
+    /** For the apps: the office's photo, else our own photo of the model (a site path like "/images/fleet-ertiga-photo.webp"), else null (the app draws the vehicle). */
+    photoUrl: v.imageUrl || fleetPhoto(v.name),
   };
 }
 

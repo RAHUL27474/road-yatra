@@ -72,7 +72,7 @@ export default function AdminVehicles() {
                     gap: spacing.md,
                   }}
                 >
-                  <VehicleArt type={v.type as never} width={76} />
+                  <VehicleArt type={v.type as never} photo={v.imageUrl} width={76} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={type('md', 'bold')} numberOfLines={1}>
                       {v.name}
